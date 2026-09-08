@@ -4,6 +4,7 @@ import sys
 import types
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,8 +18,9 @@ Translate = Callable[[str], str]
 class FakeRideApp:
     """Stand-in for the Panda3D window, which needs a GPU the test runner lacks."""
 
-    def __init__(self, translate: Translate) -> None:
+    def __init__(self, translate: Translate, **options: Any) -> None:
         self.translate = translate
+        self.options = options
         self.ran = False
 
     def run(self) -> None:
@@ -30,15 +32,23 @@ class FakeRenderer:
     """A fake `app.render.app`, recording what the CLI asked it to do."""
 
     apps: list[FakeRideApp] = field(default_factory=list)
-    selftests: list[Translate] = field(default_factory=list)
+    selftests: list[dict[str, Any]] = field(default_factory=list)
+    screenshots: list[dict[str, Any]] = field(default_factory=list)
+    plans: list[dict[str, Any]] = field(default_factory=list)
 
-    def build_app(self, translate: Translate) -> FakeRideApp:
-        app = FakeRideApp(translate)
+    def build_app(self, translate: Translate, **options: Any) -> FakeRideApp:
+        app = FakeRideApp(translate, **options)
         self.apps.append(app)
         return app
 
-    def selftest(self, translate: Translate) -> None:
-        self.selftests.append(translate)
+    def selftest(self, translate: Translate, **options: Any) -> None:
+        self.selftests.append(options)
+
+    def screenshot(self, translate: Translate, path: str, **options: Any) -> None:
+        self.screenshots.append({"path": path, **options})
+
+    def plan_view(self, translate: Translate, path: str, **options: Any) -> None:
+        self.plans.append({"path": path, **options})
 
     def as_module(self) -> types.ModuleType:
         # Typed as Any because a module's attributes are set, not declared; this
@@ -46,6 +56,8 @@ class FakeRenderer:
         module: Any = types.ModuleType("app.render.app")
         module.RideApp = self.build_app
         module.selftest = self.selftest
+        module.screenshot = self.screenshot
+        module.plan_view = self.plan_view
         return module
 
 
@@ -94,6 +106,7 @@ def test_selftest_runs_the_engine_and_reports(
     assert cli.main(["--selftest"]) == 0
 
     assert len(renderer.selftests) == 1
+    assert renderer.selftests[0]["world_id"] == "sokol"
     assert not renderer.apps
     assert capsys.readouterr().out.strip() == "selftest ok"
 
@@ -104,3 +117,54 @@ def test_default_run_opens_a_localised_window(renderer: FakeRenderer) -> None:
     (app,) = renderer.apps
     assert app.ran
     assert app.translate("Settings") != "Settings"
+    assert app.options["world_id"] == "sokol"
+
+
+def test_the_world_route_and_speed_reach_the_renderer(
+    renderer: FakeRenderer,
+) -> None:
+    assert cli.main(["--world", "sokol", "--route", "small-ring", "--speed", "40"]) == 0
+
+    (app,) = renderer.apps
+    assert app.options["route_id"] == "small-ring"
+    assert app.options["speed_kmh"] == 40.0
+
+
+def test_worlds_lists_every_configuration_with_its_lap(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Reads the shipped world, so it also proves the world file travels."""
+    assert cli.main(["--worlds"]) == 0
+
+    out = capsys.readouterr().out
+    assert "Sokol International Racetrack" in out
+    assert "big-ring" in out
+    assert "small-ring-chicane" in out
+    assert "4.4" in out, "the lap distance is shown"
+
+
+def test_a_screenshot_is_asked_for_where_it_was_requested(
+    renderer: FakeRenderer, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = str(tmp_path / "shot.png")
+
+    assert cli.main(["--screenshot", target, "--at", "90"]) == 0
+
+    (shot,) = renderer.screenshots
+    assert shot["path"] == target
+    assert shot["seconds"] == 90.0
+    assert not renderer.apps, "a screenshot does not open a window"
+    assert f"wrote {target}" in capsys.readouterr().out
+
+
+def test_a_plan_view_draws_the_world_from_above(
+    renderer: FakeRenderer, tmp_path: Path
+) -> None:
+    target = str(tmp_path / "plan.png")
+
+    assert cli.main(["--plan", target, "--world", "sokol"]) == 0
+
+    (plan,) = renderer.plans
+    assert plan["path"] == target
+    assert plan["world_id"] == "sokol"
+    assert not renderer.apps
