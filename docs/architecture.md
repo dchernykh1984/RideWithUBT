@@ -183,6 +183,13 @@ measures within a couple of percent of the published length. The shortfall is
 expected and one-sided: OpenStreetMap traces the centre of the track, while a
 circuit is measured along its racing line.
 
+The pit lane is not in the extract either, so it is built rather than traced: the
+generator offsets the circuit's own points between two of its nodes, which makes
+the lane exactly parallel to the track and puts its entry and rejoin on real
+nodes - a junction and a merge like any other. Its shape is therefore real and
+its position is a choice, placed along the longest junction-free straight because
+that is where a pit lane goes. Correcting it is a two-line change to the recipe.
+
 Elevation is not in the extract, so the built circuit is flat for now. The format
 carries it and the physics reads it, so filling it in from a terrain model
 changes the generator and nothing else.
@@ -262,8 +269,8 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
 3. Sensor layer: BLE and ANT+ behind one interface, plus a simulated source.
    *(done)*
 4. Ride physics and the ride session; recording to FIT in the activity store.
-5. World description and the track network: segments, junctions, and both Sokol
-   rings built from open data. *(done, except the pit lane and elevation)*
+5. World description and the track network: segments, junctions, both Sokol
+   rings and the pit lane, built from open data. *(done, except elevation)*
 6. The renderer draws the track and moves a rider along it, with the junction
    arrow and its keyboard control.
 7. Workout model, Garmin and `training_plan_generator` import, interval engine

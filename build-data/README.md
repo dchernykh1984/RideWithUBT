@@ -33,6 +33,23 @@ curl -s -X POST -d @build-data/sokol/overpass.ql \
 
 OpenStreetMap data is available under the Open Database Licence.
 
+## The pit lane
+
+OpenStreetMap has the racing surface of most circuits and the pit lane beside it
+far less often - for Sokol it has the circuit and nothing else. Where a recipe
+declares a `pit_lane`, the generator builds one by offsetting the circuit's own
+points between two of its nodes, so the lane is exactly parallel to the track and
+its entry and rejoin land on real nodes: a junction and a merge like any other.
+
+That makes the lane's shape real and **its position a choice**. Sokol's is placed
+along the circuit's longest junction-free straight, because that is where a pit
+lane goes, not because the data says so. If you know where it actually runs,
+change `entry_node` and `exit_node` in the recipe and rebuild - nothing else has
+to change.
+
+`offset_m` is metres to the left of the direction of travel. Sokol runs
+clockwise, so its pit lane offset is negative to put it on the inside.
+
 ## What the recipe does not have to say
 
 The junctions. A node that more than one of the named ways passes through is a
