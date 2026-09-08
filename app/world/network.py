@@ -14,6 +14,7 @@ import math
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
+from itertools import pairwise
 
 
 class NetworkError(ValueError):
@@ -58,7 +59,7 @@ class Segment:
     def cumulative_m(self) -> tuple[float, ...]:
         """Distance from the start of the segment at each point."""
         distances = [0.0]
-        for previous, current in zip(self.points, self.points[1:], strict=False):
+        for previous, current in pairwise(self.points):
             distances.append(distances[-1] + previous.distance_to(current))
         return tuple(distances)
 

@@ -1,0 +1,22 @@
+{
+  "id": "sokol",
+  "name": "Sokol International Racetrack",
+  "main_way": 1098378439,
+  "links": {
+    "small-ring-cut": 1098378440,
+    "chicane": 1098378472
+  },
+  "width_m": 12.0,
+  "surface": "asphalt",
+  "announce_m": 200.0,
+  "routes": [
+    {"id": "big-ring", "name": "Big Ring", "links": []},
+    {"id": "big-ring-chicane", "name": "Big Ring with Chicane", "links": ["chicane"]},
+    {"id": "small-ring", "name": "Small Ring", "links": ["small-ring-cut"]},
+    {
+      "id": "small-ring-chicane",
+      "name": "Small Ring with Chicane",
+      "links": ["small-ring-cut", "chicane"]
+    }
+  ]
+}
