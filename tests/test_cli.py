@@ -120,14 +120,16 @@ def test_default_run_opens_a_localised_window(renderer: FakeRenderer) -> None:
     assert app.options["world_id"] == "sokol"
 
 
-def test_the_world_route_and_speed_reach_the_renderer(
+def test_the_world_route_and_power_reach_the_renderer(
     renderer: FakeRenderer,
 ) -> None:
-    assert cli.main(["--world", "sokol", "--route", "small-ring", "--speed", "40"]) == 0
+    assert (
+        cli.main(["--world", "sokol", "--route", "small-ring", "--power", "240"]) == 0
+    )
 
     (app,) = renderer.apps
     assert app.options["route_id"] == "small-ring"
-    assert app.options["speed_kmh"] == 40.0
+    assert app.options["power_w"] == 240.0
 
 
 def test_worlds_lists_every_configuration_with_its_lap(
