@@ -112,6 +112,25 @@ Smart trainers are first-class: where a trainer exposes FTMS or Tacx FE-C the ap
 both reads its power and writes resistance back to it, which is what makes ERG
 intervals and on-course gradient real rather than cosmetic.
 
+Commanding one has two modes and an off. **ERG** holds the workout's target power
+whatever the rider spins at, which is what makes an interval an interval.
+**Simulation** makes the pedals as heavy as the slope under the rider, which is
+what makes a course a course.
+
+The other half of that job is *not* sending commands. A command shares the radio
+with the trainer's own readings, and asking it something sixty times a second
+floods that: the data stutters and the trainer lags behind the course. So a
+command goes out only when the value moved enough for a rider to feel - five
+watts, a tenth of a percent - or when it has stood long enough to be worth
+repeating in case the trainer missed it.
+
+The scales are where the mistakes hide, and a wrong one does not fail: the
+trainer simply holds the wrong number. FE-C sends power in quarter watts and
+grade as a percentage shifted by two hundred so a descent stays positive; FTMS
+sends whole watts and hundredths of a percent, signed. A target outside what a
+trainer could hold is refused rather than allowed to wrap, because wrapping is
+the failure that would silently ask for the opposite.
+
 ## Power, wheels and trainer profiles
 
 This works in **both directions**, and which direction is active is an explicit
