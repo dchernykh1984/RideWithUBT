@@ -27,6 +27,7 @@ from app.sensors.ble_protocol import (
     parse_indoor_bike_data,
     parse_speed_cadence,
 )
+from app.sensors.control import BleTrainerControl
 from app.sensors.revolutions import Cadence, WheelSpeed
 from app.sensors.types import Metric, Reading
 from app.trainer.wheels import Wheel
@@ -46,6 +47,7 @@ HEART_RATE_MEASUREMENT = uuid(0x2A37)
 CYCLING_POWER_MEASUREMENT = uuid(0x2A63)
 SPEED_CADENCE_MEASUREMENT = uuid(0x2A5B)
 INDOOR_BIKE_DATA = uuid(0x2AD2)
+FITNESS_MACHINE_CONTROL_POINT = uuid(0x2AD9)
 
 # What each service is worth subscribing to, and what it can tell us. A device
 # advertising none of these is not offered to the rider.
@@ -248,6 +250,20 @@ class BleSensor:
                 sink(reading)
 
         return on_notification
+
+    async def write_control_point(self, payload: bytes) -> None:
+        """Send a command to the trainer. Only a fitness machine has one."""
+        if self._client is None:
+            raise RuntimeError("the trainer is not connected")
+        await self._client.write_gatt_char(
+            FITNESS_MACHINE_CONTROL_POINT, payload, response=True
+        )
+
+    def controller(self) -> BleTrainerControl | None:
+        """A handle for commanding this device, if it is one that can be."""
+        if FITNESS_MACHINE_SERVICE not in self._services:
+            return None
+        return BleTrainerControl(self.write_control_point)
 
     async def disconnect(self) -> None:
         client, self._client = self._client, None

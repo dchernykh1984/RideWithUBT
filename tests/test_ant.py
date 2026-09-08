@@ -4,9 +4,11 @@ from collections.abc import Callable
 
 import pytest
 
+from app.core.control import Command, CommandKind
 from app.sensors import ant
 from app.sensors import ant_protocol as pages
 from app.sensors.base import DeviceInfo, Transport
+from app.sensors.control_protocol import fec_target_power
 from app.sensors.types import Metric, Reading
 from app.trainer.wheels import Wheel
 
@@ -26,6 +28,7 @@ class FakeRadio:
 
     def __init__(self) -> None:
         self.channels: dict[tuple[int, int], Callable[[bytes], None]] = {}
+        self.sent: list[bytes] = []
 
     async def subscribe(
         self,
@@ -37,6 +40,9 @@ class FakeRadio:
 
     async def unsubscribe(self, device_type: int, device_number: int) -> None:
         self.channels.pop((device_type, device_number), None)
+
+    async def send(self, device_type: int, device_number: int, payload: bytes) -> None:
+        self.sent.append(payload)
 
     def broadcast(self, device_type: int, device_number: int, payload: bytes) -> None:
         self.channels[(device_type, device_number)](payload)
@@ -240,3 +246,29 @@ async def test_without_a_radio_connecting_does_nothing() -> None:
 
     await device.connect(lambda reading: None)
     await device.disconnect()
+
+
+def test_only_fitness_equipment_offers_a_way_to_command_it() -> None:
+    trainer, _ = sensor(pages.DEVICE_FITNESS_EQUIPMENT)
+    strap, _ = sensor(pages.DEVICE_HEART_RATE)
+
+    assert trainer.controller() is not None
+    assert strap.controller() is None, "a heart rate strap takes no orders"
+
+
+async def test_a_control_page_goes_out_on_the_channel() -> None:
+    radio = FakeRadio()
+    device, _ = sensor(pages.DEVICE_FITNESS_EQUIPMENT, radio=radio)
+    control = device.controller()
+    assert control is not None
+
+    await control.apply(Command(CommandKind.TARGET_POWER, 240))
+
+    assert radio.sent == [fec_target_power(240)]
+
+
+async def test_commanding_with_no_stick_says_so() -> None:
+    device, _ = sensor(pages.DEVICE_FITNESS_EQUIPMENT)
+
+    with pytest.raises(RuntimeError, match="no ANT\\+ radio"):
+        await device.send_page(b"\x31")

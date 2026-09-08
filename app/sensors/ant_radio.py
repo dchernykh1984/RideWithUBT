@@ -113,6 +113,17 @@ class OpenAntRadio:  # pragma: no cover - needs an ANT+ stick
         if channel is not None:
             channel.close()
 
+    async def send(self, device_type: int, device_number: int, payload: bytes) -> None:
+        """Send one acknowledged page, which is how FE-C is commanded."""
+        await asyncio.to_thread(self._send, device_type, device_number, payload)
+
+    def _send(self, device_type: int, device_number: int, payload: bytes) -> None:
+        with self._lock:
+            channel = self._channels.get((device_type, device_number))
+        if channel is None:
+            raise AntRadioError("that device is not connected")
+        channel.send_acknowledged_data(list(payload))
+
     async def shutdown(self) -> None:
         """Close every channel and stop the node, releasing the stick."""
         await asyncio.to_thread(self._shutdown)
