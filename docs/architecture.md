@@ -84,6 +84,11 @@ window.** Everything else has to run headless. That is what keeps the physics,
 the sensors and the workout engine testable in CI without a GPU, and what would
 let a second frontend be added later without touching them.
 
+The rule is what makes the renderer thin enough to trust without tests. The shape
+of the track is worked out in `app/world/mesh.py`, which has no graphics in it
+and is tested; `app/render` copies those numbers into vertex buffers and reads
+the navigator once a frame. Nothing in it decides anything.
+
 ## Sensors
 
 One interface, two transports. A sensor is a source of typed readings - power,
@@ -272,7 +277,7 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
 5. World description and the track network: segments, junctions, both Sokol
    rings and the pit lane, built from open data. *(done, except elevation)*
 6. The renderer draws the track and moves a rider along it, with the junction
-   arrow and its keyboard control.
+   arrow and its keyboard control. *(done, at a fixed speed)*
 7. Workout model, Garmin and `training_plan_generator` import, interval engine
    with ERG control for smart trainers.
 8. Trainer profile capture mode and the pull-request flow for contributing one.
