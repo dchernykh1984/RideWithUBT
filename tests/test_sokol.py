@@ -52,8 +52,10 @@ def test_the_shipped_world_is_what_the_tracked_inputs_produce(
     assert description.describe(rebuilt) == shipped
 
 
-def test_the_circuit_is_one_loop_with_two_alternatives(sokol: TrackNetwork) -> None:
-    assert len(sokol.junctions) == 2
+def test_the_circuit_is_one_loop_with_its_alternatives(sokol: TrackNetwork) -> None:
+    # Two racing alternatives - the small ring cut and the chicane - plus the
+    # pit lane, which is a third place the rider can leave the circuit.
+    assert len(sokol.junctions) == 3
     assert len(sokol.routes) == 4
     assert sokol.name == "Sokol International Racetrack"
 
@@ -148,12 +150,71 @@ def test_riding_past_the_line_carries_on_into_the_next_lap(
 
 def test_the_track_is_wide_enough_to_race_on(sokol: TrackNetwork) -> None:
     """FIA grade 2 wants twelve metres; the extract has no width, so it is set."""
-    assert all(segment.width_m >= 12.0 for segment in sokol.segments)
+    racing = [s for s in sokol.segments if not s.id.startswith("pit-lane")]
+
+    assert all(segment.width_m >= 12.0 for segment in racing)
     assert all(segment.surface == "asphalt" for segment in sokol.segments)
 
 
-def test_the_circuit_is_flat_until_a_terrain_model_is_added(
+# The pit lane, which OpenStreetMap does not have for this circuit.
+
+
+def test_the_pit_lane_runs_alongside_the_circuit(sokol: TrackNetwork) -> None:
+    lane = sokol.segment("pit-lane-0")
+    entry = sokol.segment(sokol.exit_from(lane.start_node) or "")
+
+    assert lane.width_m == 8.0
+    assert lane.length_m == pytest.approx(entry.length_m, rel=0.05)
+
+
+def test_the_pit_lane_sits_beside_the_track_not_on_it(sokol: TrackNetwork) -> None:
+    """Fourteen metres off the centre line clears a twelve metre wide track."""
+    lane = sokol.segment("pit-lane-0")
+    beside = sokol.segment(sokol.exit_from(lane.start_node) or "")
+
+    gap = lane.point_at(lane.length_m / 2).distance_to(
+        beside.point_at(beside.length_m / 2)
+    )
+    assert gap == pytest.approx(14.0, abs=1.0)
+
+
+def test_the_pit_lane_is_a_choice_and_never_the_default(sokol: TrackNetwork) -> None:
+    lane = sokol.segment("pit-lane-0")
+    junction = sokol.junction_at(lane.start_node)
+
+    assert junction is not None
+    assert lane.id in junction.exits
+    assert junction.default_exit != lane.id
+
+
+def test_the_pit_lane_is_on_no_lap(sokol: TrackNetwork) -> None:
+    """Riding a configuration must not send anyone through the pits."""
+    for route in sokol.routes:
+        assert "pit-lane-0" not in lap_segments(sokol, route)
+
+
+def test_a_rider_can_turn_into_the_pits_and_come_back_out(
     sokol: TrackNetwork,
 ) -> None:
-    """Elevation is not in the extract. This test exists to be deleted."""
-    assert all(point.z == 0.0 for segment in sokol.segments for point in segment.points)
+    """The whole point of the lane: leave the circuit, run through, rejoin it."""
+    lane = sokol.segment("pit-lane-0")
+    approach = next(
+        segment
+        for segment in sokol.segments
+        if segment.end_node == lane.start_node and segment.id.startswith("main-")
+    )
+    navigator = Navigator(sokol, route=sokol.route("big-ring"))
+
+    for _ in range(1000):
+        if navigator.position.segment_id == approach.id:
+            break
+        navigator.advance(25.0)
+    else:  # pragma: no cover - a lap is far shorter than this
+        pytest.fail("never reached the pit entry")
+
+    navigator.choose(lane.id)
+    navigator.advance(approach.length_m)
+    assert navigator.position.segment_id == lane.id
+
+    navigator.advance(lane.length_m)
+    assert navigator.position.segment_id.startswith("main-"), "the lane rejoins"

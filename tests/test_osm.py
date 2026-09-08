@@ -217,3 +217,75 @@ def test_building_from_files(tmp_path: Path) -> None:
     assert network.id == "square"
     assert network.route("short").choices == {"n2": "cut-0"}
     assert origin == {"lat": 0.0, "lon": 0.0}
+
+
+# The pit lane, which open data usually does not have and the generator builds.
+
+
+def pit(**overrides: object) -> osm.PitLane:
+    fields: dict[str, object] = {
+        "entry_node": 2,
+        "exit_node": 3,
+        "offset_m": -14.0,
+    }
+    fields.update(overrides)
+    return osm.PitLane(**fields)  # type: ignore[arg-type]
+
+
+def test_a_span_runs_forwards_along_the_way() -> None:
+    way = extract()[100]
+
+    assert osm.span(way, 2, 4) == [1, 2, 3]
+
+
+def test_a_span_may_wrap_round_a_closed_way() -> None:
+    """A pit lane can sit across the point where the mapper started drawing."""
+    way = extract()[100]
+
+    assert osm.span(way, 4, 2) == [3, 4, 0, 1]
+
+
+def test_a_span_off_the_end_of_an_open_way_is_refused() -> None:
+    way = extract()[200]
+
+    with pytest.raises(NetworkError, match="does not run from"):
+        osm.span(way, 4, 2)
+
+
+def test_a_span_between_nodes_that_are_not_on_the_way() -> None:
+    with pytest.raises(NetworkError, match="node 999 is not on way"):
+        osm.span(extract()[100], 999, 2)
+
+
+def test_the_pit_lane_becomes_a_segment_alongside_the_circuit() -> None:
+    network = osm.build(recipe(pit_lane=pit(width_m=8.0)), extract())
+
+    lane = network.segment("pit-lane-0")
+    assert lane.start_node == "n2"
+    assert lane.end_node == "n3"
+    assert lane.width_m == 8.0
+    # It runs beside the circuit, so it is about as long as the stretch it follows.
+    beside = network.segment("main-1")
+    assert lane.length_m == pytest.approx(beside.length_m, rel=0.05)
+
+
+def test_turning_into_the_pit_lane_is_a_choice_like_any_other() -> None:
+    network = osm.build(recipe(pit_lane=pit()), extract())
+
+    junction = network.junction_at("n2")
+    assert junction is not None
+    assert "pit-lane-0" in junction.exits
+    assert junction.default_exit == "main-1", "the circuit stays the default"
+
+
+def test_the_pit_lane_rejoins_the_circuit() -> None:
+    network = osm.build(recipe(pit_lane=pit()), extract())
+
+    assert network.exit_from("n3") is not None
+    assert network.segment("pit-lane-0").end_node == "n3"
+
+
+def test_no_pit_lane_is_the_normal_case() -> None:
+    network = osm.build(recipe(), extract())
+
+    assert not [s for s in network.segments if s.id.startswith("pit")]
