@@ -1,0 +1,141 @@
+name: build
+
+# Reusable build. With an empty release_tag it runs a fast Linux x64 smoke
+# build (used on pull requests). With a release_tag it builds the full platform
+# matrix and uploads each portable artifact to that GitHub Release.
+#
+# It is called in the SAME run as release-please (see release-please.yml) so the
+# assets actually attach: a release created by GITHUB_TOKEN does not, by design,
+# trigger a separate `release: published` workflow.
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Release tag to attach assets to; empty => Linux-only smoke build, no upload."
+        type: string
+        default: ""
+
+env:
+  # File name: the artifacts and the frozen executable. Kept ASCII and
+  # space-free so a download URL stays readable.
+  APP_NAME: ridewithubt
+  # Name of the .app bundle. macOS shows the bundle's *file name* in the dock
+  # and the task switcher, so the dock name and the file name are one and the
+  # same setting; it stays space-free because the bundle is a file users copy
+  # around.
+  APP_BUNDLE_NAME: RideWithUBT
+  # Reverse-DNS bundle id. macOS keys preferences, granted folder permissions
+  # and LaunchServices registration off this, so every app needs its own.
+  APP_BUNDLE_ID: io.github.dchernykh1984.ridewithubt
+
+jobs:
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        shell: bash
+        run: |
+          full='{"include":[{"os":"ubuntu-22.04","name":"linux-x86_64"},{"os":"ubuntu-24.04-arm","name":"linux-aarch64"},{"os":"windows-latest","name":"windows-x64"},{"os":"macos-14","name":"macos-arm64"}]}'
+          smoke='{"include":[{"os":"ubuntu-22.04","name":"linux-x86_64"}]}'
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            echo "matrix=$full" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix=$smoke" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: targets
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install OpenGL system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libgl1 libx11-6
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build portable app
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          # Pin PyInstaller so a future major release cannot break builds.
+          pyi=(uv run --with "pyinstaller>=6,<7" pyinstaller)
+          # Panda3D ships its runtime as data (models, shaders, etc.) next to the
+          # extension modules, so --collect-all is required; --collect-submodules
+          # alone leaves the frozen app without them. `app` needs it too, for the
+          # locale catalogues it reads at runtime. --copy-metadata keeps
+          # importlib.metadata working, which is where the app reads its version.
+          common=(--noconfirm --collect-all panda3d --collect-all app
+                  --copy-metadata ridewithubt)
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            "${pyi[@]}" --name "$APP_BUNDLE_NAME" --windowed \
+              --osx-bundle-identifier "$APP_BUNDLE_ID" \
+              "${common[@]}" app/cli.py
+            # PyInstaller hardcodes CFBundleShortVersionString to 0.0.0 and
+            # offers no flag for it, so stamp the plist by hand. On a release
+            # the tag is authoritative; on a smoke build fall back to
+            # pyproject.toml.
+            version="${RELEASE_TAG#v}"
+            if [ -z "$version" ]; then
+              version=$(awk -F'"' '/^version *= *"/ {print $2; exit}' pyproject.toml)
+            fi
+            plist="dist/${APP_BUNDLE_NAME}.app/Contents/Info.plist"
+            plutil -replace CFBundleShortVersionString -string "$version" "$plist"
+            plutil -replace CFBundleVersion -string "$version" "$plist"
+            # Editing the plist breaks the ad-hoc signature PyInstaller applied
+            # ("plist or signature have been modified"), so reseal it.
+            codesign --force --sign - "dist/${APP_BUNDLE_NAME}.app"
+            ( cd dist && zip -r -y "${APP_NAME}-${{ matrix.name }}.zip" \
+              "${APP_BUNDLE_NAME}.app" )
+            echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}.zip" >> "$GITHUB_ENV"
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            "${pyi[@]}" --name "$APP_NAME" --onefile "${common[@]}" app/cli.py
+            mv "dist/${APP_NAME}.exe" "dist/${APP_NAME}-${{ matrix.name }}.exe"
+            echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}.exe" >> "$GITHUB_ENV"
+          else
+            "${pyi[@]}" --name "$APP_NAME" --onefile "${common[@]}" app/cli.py
+            mv "dist/${APP_NAME}" "dist/${APP_NAME}-${{ matrix.name }}"
+            echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Verify the artifact was produced
+        shell: bash
+        run: test -s "$ASSET"
+
+      - name: Smoke-launch the frozen app (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          # --selftest boots the real Panda3D engine with an offscreen window and
+          # steps a few frames, so a renderer that failed to freeze fails here
+          # rather than on a user's machine.
+          "$ASSET" --selftest
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.ASSET }}
+
+      - name: Attach to release
+        if: inputs.release_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.release_tag }}" "$ASSET" --clobber
