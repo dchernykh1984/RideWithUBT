@@ -70,8 +70,14 @@ Planned, in the order they are meant to arrive:
   world/          world description, generators, the built scene graph
   services/       Garmin Connect and Strava, called directly
   storage/        the activity store and FIT writing
-data/             inputs the world and trainer generators read (tracked)
+  data/           catalogues, textures and world descriptions (tracked, shipped)
+build-data/       raw generator inputs, tracked but not shipped
 ```
+
+Data lives in two places for one reason: `app/data/` is inside the package, so it
+travels into the frozen app, while `build-data/` holds inputs only the generators
+need - a raw OpenStreetMap extract is worth tracking for reproducibility and
+worth leaving out of a user's download.
 
 **The one structural rule: only `app/render/` may import Panda3D or touch the
 window.** Everything else has to run headless. That is what keeps the physics,
@@ -121,6 +127,17 @@ Profiles are versioned data, reviewed like code. A profile carries the trainer
 model, the resistance setting it was recorded at, the tyre and pressure, the
 sample count and the fit error, because a curve without those is not reusable.
 
+The catalogue ships with the popular trainers and **no profiles at all**: a
+measured curve is the one thing that cannot be invented, so until someone records
+one, a classic trainer is estimated from a generic curve for its resistance type
+and every watt it produces is marked uncalibrated. Smart trainers are never
+estimated - they measure their own power, and the device is believed.
+
+The catalogue is a hint, not an authority. Which protocols a trainer really
+speaks is discovered when it connects; the entries exist so a rider can set up
+before anything is plugged in. One file per trainer, so contributing one is a
+pull request that cannot conflict with anyone else's.
+
 ## Workouts and plans
 
 Two sources, one internal model:
@@ -144,9 +161,32 @@ generator turns them into a scene. Committing the inputs is what makes a build
 reproducible and a world reviewable in a pull request.
 
 The first and, for now, only world is the **Sokol International Racetrack** near
-Almaty (43.585 N, 76.570 E): a 4.495 km circuit with a 3.535 km inner variant.
-Nothing is copied from any existing simulator's version of it - the geometry
-comes from open data and the textures are ours.
+Almaty (43.585 N, 76.570 E). Nothing is copied from any existing simulator's
+version of it - the geometry comes from open data and the textures are ours.
+
+**Only the track surface is modelled**: both rings and the pit lane. The
+surrounding landscape is not the point of this app and is not built.
+
+That makes the world a *road network*, not a loop: the big ring (4.495 km), the
+small ring (3.535 km) and the pit lane share sections and part at junctions. The
+network is a graph of track segments joined at nodes, and every node with more
+than one exit is a junction the rider steers through.
+
+### Junctions
+
+A junction is announced before it arrives, not at it. An arrow appears overhead
+while the rider is still approaching, pointing at the way they are *currently*
+going to go - the default, which is the big ring unless the description says
+otherwise. Pressing left or right swings the arrow to the other exit, and it can
+be changed as many times as the rider likes while the junction is still ahead.
+Whichever way the arrow points at the moment the rider reaches the node is the
+way they go.
+
+This is deliberately not a steering model. The rider is never off the racing
+line, cannot crash and cannot miss a turn by reacting late; the only decision is
+which branch, and it is made in advance and shown the whole time. Announce
+distance is a property of the junction, so a fast approach can be given more
+warning than a slow one.
 
 Adding a second world later means adding a description and its inputs, not
 touching the engine. That is the only sense in which the map system is
@@ -193,12 +233,16 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
 
 ## Roadmap
 
-1. Scaffold: tooling, CI, packaging, localisation, a window that opens. *(this)*
-2. Wheel and tyre catalogue, rollout, virtual power, trainer profile format.
+1. Scaffold: tooling, CI, packaging, localisation, a window that opens. *(done)*
+2. Wheel and tyre catalogue, rollout, virtual power, trainer catalogue and the
+   profile format and fit. *(done)*
 3. Sensor layer: BLE and ANT+ behind one interface, plus a simulated source.
 4. Ride physics and the ride session; recording to FIT in the activity store.
-5. Workout model, Garmin and `training_plan_generator` import, interval engine
+5. World description and the track network: segments, junctions, both Sokol
+   rings and the pit lane, built from open data.
+6. The renderer draws the track and moves a rider along it, with the junction
+   arrow and its keyboard control.
+7. Workout model, Garmin and `training_plan_generator` import, interval engine
    with ERG control for smart trainers.
-6. World pipeline and Sokol; the renderer draws it and a rider moves on it.
-7. Trainer profile capture mode and the pull-request flow for contributing one.
-8. Garmin and Strava upload.
+8. Trainer profile capture mode and the pull-request flow for contributing one.
+9. Garmin and Strava upload.
