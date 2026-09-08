@@ -37,6 +37,14 @@ covered instead by `ridewithubt --selftest`, which boots the engine with no wind
 renders a few frames - CI runs it against the *frozen* app, so a packaging mistake fails
 the build rather than a user's first launch.
 
+## Where data lives
+
+`app/data/` is inside the package, so it ships in the frozen app: catalogues,
+textures, world descriptions. Anything only a generator needs - a raw
+OpenStreetMap extract, say - belongs in `build-data/` at the root instead, tracked
+but not shipped. Adding a trainer or a wheel size is a data change; see
+`docs/trainers.md`.
+
 ## Skills
 
 - `shipping-a-change` - branch, commit, open the PR, watch CI to green.

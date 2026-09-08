@@ -22,7 +22,8 @@ app to Garmin Connect or Strava, never through a RideWithUBT server.
 - **Work without a smart trainer too.** With a plain trainer, a speed sensor and
   your wheel and tyre size, the app computes power from a trainer curve. If you
   own a power meter, you can measure your own trainer's curve and contribute the
-  profile back as a pull request.
+  profile back as a pull request - see [docs/trainers.md](docs/trainers.md),
+  which is also how you add a trainer that is not in the catalogue yet.
 - **Run structured workouts** imported from Garmin Connect or from
   `training_plan_generator` JSON.
 - **Keep everything in one place** - one static data directory holds the
