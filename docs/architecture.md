@@ -90,9 +90,12 @@ One interface, two transports. A sensor is a source of typed readings - power,
 cadence, speed, heart rate, trainer status - and the rest of the app never learns
 whether a reading arrived over Bluetooth or ANT+.
 
-- **Bluetooth Low Energy** through `bleak`, with `pycycling` for the standard
-  profiles: Cycling Power, Cycling Speed and Cadence, Heart Rate, and the
-  Fitness Machine Service.
+- **Bluetooth Low Energy** through `bleak` for the radio, with the standard
+  characteristics parsed here rather than by a library: Cycling Power, Cycling
+  Speed and Cadence, Heart Rate, and the Fitness Machine Service's Indoor Bike
+  Data. Those payloads are public and stable, and parsing them ourselves is what
+  makes the whole translation path - bytes in, readings out - testable with no
+  radio, which a library wrapped around a live client is not.
 - **ANT+** through `openant` and a USB stick (ANTUSB2 / ANTUSB-m). Windows needs
   the libusb driver, Linux needs the udev rule `openant` installs, macOS needs
   libusb only.
@@ -237,6 +240,7 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
 2. Wheel and tyre catalogue, rollout, virtual power, trainer catalogue and the
    profile format and fit. *(done)*
 3. Sensor layer: BLE and ANT+ behind one interface, plus a simulated source.
+   *(the interface, the simulated source and BLE done; ANT+ next)*
 4. Ride physics and the ride session; recording to FIT in the activity store.
 5. World description and the track network: segments, junctions, both Sokol
    rings and the pit lane, built from open data.
