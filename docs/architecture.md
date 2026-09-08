@@ -258,6 +258,21 @@ settings, generated worlds and every recorded ride as a FIT file. No profiles, n
 scattered directories, no hidden cache elsewhere - backing up that one directory
 backs up everything. `RIDEWITHUBT_HOME` moves it; the tests use that.
 
+FIT is written here rather than by a library: it is what Garmin Connect and
+Strava both want for a ride with power in it, nothing in Python writes it well,
+and the format is a documented, stable binary layout that is a few hundred lines
+to encode. The tests decode what the writer produces with `fitparse`, an
+independent implementation - a writer verified against its own reader agrees with
+itself and nothing else.
+
+**A recording carries no coordinates.** A ride in a virtual world is not a ride at
+the place the world was traced from: writing Sokol's real positions into an
+indoor recording would upload something that looks like an outdoor ride there,
+and would put times on the real segments against people who actually rode them.
+So a ride carries distance, speed, power, cadence, heart rate and altitude, and
+is marked in the file as a virtual activity, which is what the services read to
+show it as one.
+
 ## Uploads
 
 Direct, and only on request. Garmin Connect and Strava are called from the user's
@@ -297,7 +312,8 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
    profile format and fit. *(done)*
 3. Sensor layer: BLE and ANT+ behind one interface, plus a simulated source.
    *(done)*
-4. Ride physics and the ride session. *(done; recording to FIT still to come)*
+4. Ride physics and the ride session; recording to FIT in the activity store.
+   *(done)*
 5. World description and the track network: segments, junctions, both Sokol
    rings and the pit lane, built from open data. *(done, except elevation)*
 6. The renderer draws the track and moves a rider along it, with the junction

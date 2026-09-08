@@ -27,7 +27,10 @@ app to Garmin Connect or Strava, never through a RideWithUBT server.
 - **Run structured workouts** imported from Garmin Connect or from
   `training_plan_generator` JSON.
 - **Keep everything in one place** - one static data directory holds the
-  settings, the generated worlds and every recorded ride as a FIT file.
+  settings, the generated worlds and every recorded ride as a FIT file. A
+  recording carries no coordinates: a ride in a virtual world is not a ride at
+  the place the world was traced from, and should not put times on the real
+  segments there.
 - **Speak three languages**: Russian, English and Kazakh.
 
 Riding with other people is a later, opt-in feature. The app is built to stay
@@ -45,6 +48,8 @@ uv run ridewithubt --worlds               # list the worlds and their laps
 uv run ridewithubt --plan plan.png        # draw the world from above
 uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the lap
 uv run ridewithubt --power 240            # what the stand-in rider pushes
+uv run ridewithubt --no-record            # ride without keeping the recording
+uv run ridewithubt --rides                # list the rides already recorded
 uv run ridewithubt --languages            # list the available languages
 uv run ridewithubt --lang kk              # override the saved language for one run
 uv run ridewithubt --selftest             # boot the engine with no window and exit
