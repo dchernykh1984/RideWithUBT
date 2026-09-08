@@ -19,6 +19,7 @@ from typing import Protocol
 
 from app.sensors import ant_protocol as pages
 from app.sensors.base import DeviceInfo, ReadingSink, Transport
+from app.sensors.control import AntTrainerControl
 from app.sensors.revolutions import Cadence, WheelSpeed
 from app.sensors.types import Metric, Reading
 from app.trainer.wheels import Wheel
@@ -77,6 +78,10 @@ class Radio(Protocol):
     ) -> None: ...
 
     async def unsubscribe(self, device_type: int, device_number: int) -> None: ...
+
+    async def send(self, device_type: int, device_number: int, payload: bytes) -> None:
+        """Put one page on the channel, acknowledged."""
+        ...
 
 
 class AntSensor:
@@ -187,6 +192,18 @@ class AntSensor:
             self._device_type, self._device_number, on_broadcast
         )
         self._subscribed = True
+
+    async def send_page(self, payload: bytes) -> None:
+        """Send a control page to this device."""
+        if self._radio is None:
+            raise RuntimeError("there is no ANT+ radio to send through")
+        await self._radio.send(self._device_type, self._device_number, payload)
+
+    def controller(self) -> AntTrainerControl | None:
+        """A handle for commanding this device, if it is fitness equipment."""
+        if self._device_type != pages.DEVICE_FITNESS_EQUIPMENT:
+            return None
+        return AntTrainerControl(self.send_page)
 
     async def disconnect(self) -> None:
         if self._radio is None or not self._subscribed:

@@ -30,6 +30,12 @@ class FakeClient:
         self.address = address
         self.connected = False
         self.subscriptions: dict[str, Any] = {}
+        self.written: list[tuple[str, bytes]] = []
+
+    async def write_gatt_char(
+        self, characteristic: str, payload: bytes, response: bool = False
+    ) -> None:
+        self.written.append((characteristic, bytes(payload)))
 
     async def connect(self) -> None:
         self.connected = True
@@ -270,3 +276,50 @@ async def test_disconnecting_without_connecting_is_harmless() -> None:
     device, _ = sensor()
 
     await device.disconnect()
+
+
+def test_only_a_fitness_machine_offers_a_way_to_command_it() -> None:
+    trainer, _ = sensor([ble.FITNESS_MACHINE_SERVICE])
+    strap, _ = sensor([ble.HEART_RATE_SERVICE])
+
+    assert trainer.controller() is not None
+    assert strap.controller() is None, "a heart rate strap takes no orders"
+
+
+async def test_a_command_reaches_the_control_point() -> None:
+    clients: list[FakeClient] = []
+
+    def factory(address: str) -> FakeClient:
+        client = FakeClient(address)
+        clients.append(client)
+        return client
+
+    device = ble.BleSensor(
+        DeviceInfo(
+            id="AA",
+            name="Trainer",
+            transport=Transport.BLE,
+            metrics=frozenset(),
+            controllable=True,
+        ),
+        [ble.FITNESS_MACHINE_SERVICE],
+        client_factory=factory,
+    )
+    await device.connect(lambda reading: None)
+
+    control = device.controller()
+    assert control is not None
+    await control.take_control()
+
+    (client,) = clients
+    assert [uuid for uuid, _ in client.written] == [
+        ble.FITNESS_MACHINE_CONTROL_POINT,
+        ble.FITNESS_MACHINE_CONTROL_POINT,
+    ]
+
+
+async def test_commanding_a_trainer_that_is_not_connected_says_so() -> None:
+    device, _ = sensor([ble.FITNESS_MACHINE_SERVICE])
+
+    with pytest.raises(RuntimeError, match="not connected"):
+        await device.write_control_point(b"\x00")
