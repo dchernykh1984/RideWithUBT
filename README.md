@@ -24,8 +24,9 @@ app to Garmin Connect or Strava, never through a RideWithUBT server.
   own a power meter, you can measure your own trainer's curve and contribute the
   profile back as a pull request - see [docs/trainers.md](docs/trainers.md),
   which is also how you add a trainer that is not in the catalogue yet.
-- **Run structured workouts** imported from Garmin Connect or from
-  `training_plan_generator` JSON.
+- **Run structured workouts** written by `training_plan_generator`, with Garmin
+  Connect import to follow. Drop the JSON into the `workouts` folder of the data
+  directory and it appears in the list.
 - **Keep everything in one place** - one static data directory holds the
   settings, the generated worlds and every recorded ride as a FIT file. A
   recording carries no coordinates: a ride in a virtual world is not a ride at
@@ -50,12 +51,15 @@ uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the
 uv run ridewithubt --power 240            # what the stand-in rider pushes
 uv run ridewithubt --no-record            # ride without keeping the recording
 uv run ridewithubt --rides                # list the rides already recorded
+uv run ridewithubt --workouts             # list the workouts in the library
+uv run ridewithubt --workout "3x8 Cycling Intervals"   # ride one
 uv run ridewithubt --languages            # list the available languages
 uv run ridewithubt --lang kk              # override the saved language for one run
 uv run ridewithubt --selftest             # boot the engine with no window and exit
 ```
 
-Left and right arrows choose which way to go at a junction; escape quits.
+Left and right arrows choose which way to go at a junction, space ends a workout
+step that runs until you say so, and escape quits.
 
 Speed is computed from power, weight, gradient and air, not set: until sensors
 are connected a stand-in rider pushes a steady `--power`, and the circuit is
