@@ -30,6 +30,7 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
+from app.core.recorder import RideRecorder
 from app.core.session import RideSession, RideState
 from app.render.geometry import arrow_node, geom_node
 from app.sensors.hub import SensorHub
@@ -86,6 +87,7 @@ class RideApp(ShowBase):
         *,
         headless: bool = False,
         offscreen: bool = False,
+        record: bool = False,
     ):
         if headless:
             # No graphics pipe at all: the frozen-app smoke test in CI runs on a
@@ -110,6 +112,9 @@ class RideApp(ShowBase):
         self.rider_source = SimulatedSensors(steady(power_w=power_w))
         self.session = RideSession(self.navigator, hub=self.hub)
         self.state: RideState = self.session.update(0.0, now=0.0)
+        # A picture of the world or a smoke test is not a ride, so neither of
+        # those leaves a file behind in the rider's activity store.
+        self.recorder = RideRecorder() if record else None
 
         self.ground = self._build_ground()
         self.track = self._build_track()
@@ -208,6 +213,8 @@ class RideApp(ShowBase):
         for reading in self.rider_source.sample(now, now):
             self.hub.submit(reading)
         self.state = self.session.update(self._clock.getDt(), now=now)
+        if self.recorder is not None:
+            self.recorder.observe(self.state)
         self._place_rider()
         self._place_camera()
         self._place_arrow()
@@ -289,6 +296,19 @@ class RideApp(ShowBase):
         self._place_rider()
         self._place_camera()
         self._place_arrow()
+
+    def userExit(self) -> None:  # noqa: N802 - overriding Panda3D's own name
+        """Save the ride on the way out, however the window was closed."""
+        self.save_ride()
+        super().userExit()
+
+    def save_ride(self) -> str | None:
+        """Write the recording into the activity store, if there is one."""
+        if self.recorder is None or self.recorder.is_empty:
+            return None
+        path = self.recorder.save()
+        self.recorder = None  # a ride is saved once
+        return str(path)
 
     def run_frames(self, count: int) -> None:
         """Render a fixed number of frames and return, instead of looping forever."""

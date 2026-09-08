@@ -25,6 +25,9 @@ dev = [
     "pytest-xdist>=3.8.0,<4",
     "pytest-asyncio>=1.3.0,<2",
     "pytest-cov>=7.1.0,<8",
+    # An independent FIT reader, used only to check what our writer produces: a
+    # writer verified against its own reader agrees with itself and nothing else.
+    "python-fitparse>=2.1,<3",
 ]
 
 [tool.uv]

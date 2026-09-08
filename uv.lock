@@ -803,6 +803,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-fitparse"
+version = "2.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/d9/cb9b89bf4b7e0ec7d23169a9a1a84f96995f98961f3992dbc52b7a004b80/python_fitparse-2.5.0.tar.gz", hash = "sha256:c3f69916bced6e803655261fb9d66036361f42dcaeb8c15cf7649aca4eff33d0", size = 98920, upload-time = "2026-08-26T06:25:11.823Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/75/c2c81d7c515206968208b837c91164856dfb16eacc285183ceafcebd55fe/python_fitparse-2.5.0-py3-none-any.whl", hash = "sha256:b8c94c48447b5e63a1accf9ced4289702436e488186dc1ba26d0097767fcbbcb", size = 93840, upload-time = "2026-08-26T06:25:10.606Z" },
+]
+
+[[package]]
 name = "pyusb"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -869,6 +878,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
+    { name = "python-fitparse" },
     { name = "ruff" },
     { name = "types-polib" },
 ]
@@ -890,6 +900,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.3.0,<2" },
     { name = "pytest-cov", specifier = ">=7.1.0,<8" },
     { name = "pytest-xdist", specifier = ">=3.8.0,<4" },
+    { name = "python-fitparse", specifier = ">=2.1,<3" },
     { name = "ruff", specifier = ">=0.15.12,<0.17" },
     { name = "types-polib", specifier = ">=1.2,<2" },
 ]
