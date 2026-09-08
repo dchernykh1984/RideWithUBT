@@ -170,3 +170,37 @@ def test_a_plan_view_draws_the_world_from_above(
     assert plan["path"] == target
     assert plan["world_id"] == "sokol"
     assert not renderer.apps
+
+
+def test_the_ride_is_recorded_unless_asked_otherwise(renderer: FakeRenderer) -> None:
+    assert cli.main([]) == 0
+
+    (app,) = renderer.apps
+    assert app.options["record"] is True
+
+
+def test_no_record_rides_without_keeping_it(renderer: FakeRenderer) -> None:
+    assert cli.main(["--no-record"]) == 0
+
+    (app,) = renderer.apps
+    assert app.options["record"] is False
+
+
+def test_rides_reports_an_empty_store(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["--rides"]) == 0
+
+    assert "no rides yet" in capsys.readouterr().out
+
+
+def test_rides_lists_what_has_been_recorded(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from datetime import UTC, datetime
+
+    from app.storage import activities
+
+    activities.save(b"x" * 2048, datetime(2026, 9, 9, 6, 30, tzinfo=UTC))
+
+    assert cli.main(["--rides"]) == 0
+
+    assert "20260909T063000.fit" in capsys.readouterr().out

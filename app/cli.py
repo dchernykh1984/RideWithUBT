@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
-from app import __version__, i18n
+from app import __version__, i18n, paths
 from app.settings import Settings
+from app.storage import activities as activity_store
 from app.world.description import available_worlds
 from app.world.description import load as load_world
 from app.world.navigation import lap_length_m
@@ -72,6 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="With --screenshot, how far into the lap to ride before the picture.",
     )
     parser.add_argument(
+        "--no-record",
+        action="store_true",
+        help="Ride without keeping the recording.",
+    )
+    parser.add_argument(
+        "--rides",
+        action="store_true",
+        help="List the recorded rides in the activity store, and exit.",
+    )
+    parser.add_argument(
         "--plan",
         metavar="PATH",
         help="Draw the whole world from above into an image file, and exit.",
@@ -90,15 +101,24 @@ def resolve_language(requested: str | None) -> str:
     )
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    language = resolve_language(args.lang)
-    translate = i18n.load(language)
+def listings(args: argparse.Namespace, language: str) -> int | None:
+    """The commands that answer a question and exit.
 
+    None of these open a window, so none of them may reach for the renderer -
+    which is why they are answered before it is imported.
+    """
     if args.languages:
         for code in i18n.LOCALES:
             marker = "*" if code == language else " "
             print(f"{marker} {code}  {i18n.locale_name(code)}")
+        return 0
+
+    if args.rides:
+        recorded = activity_store.rides()
+        for path in recorded:
+            print(f"{path.name}  {path.stat().st_size / 1024:.0f} KB")
+        if not recorded:
+            print(f"no rides yet, in {paths.activities_dir()}")
         return 0
 
     if args.worlds:
@@ -110,7 +130,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"    {route.id:22} {route.name:26} {lap:.3f} km")
         return 0
 
-    # Imported here, not at module level, so the checks above never need a GPU.
+    return None
+
+
+def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
+    """Everything that needs the engine, and therefore imports it."""
     from app.render.app import RideApp, plan_view, screenshot, selftest
 
     if args.selftest:
@@ -140,8 +164,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         world_id=args.world,
         route_id=args.route,
         power_w=args.power,
+        record=not args.no_record,
     ).run()
     return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    language = resolve_language(args.lang)
+    translate = i18n.load(language)
+
+    answered = listings(args, language)
+    if answered is not None:
+        return answered
+    return render(args, translate)
 
 
 if __name__ == "__main__":
