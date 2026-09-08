@@ -14,6 +14,7 @@ from collections.abc import Callable, Sequence
 from app import __version__, i18n, paths
 from app.settings import Settings
 from app.storage import activities as activity_store
+from app.workout import library as workout_library
 from app.world.description import available_worlds
 from app.world.description import load as load_world
 from app.world.navigation import lap_length_m
@@ -78,6 +79,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ride without keeping the recording.",
     )
     parser.add_argument(
+        "--workout",
+        metavar="NAME_OR_PATH",
+        help="Ride a structured workout: a name from the library, or a file.",
+    )
+    parser.add_argument(
+        "--workouts",
+        action="store_true",
+        help="List the workouts in the library, and exit.",
+    )
+    parser.add_argument(
         "--rides",
         action="store_true",
         help="List the recorded rides in the activity store, and exit.",
@@ -101,35 +112,57 @@ def resolve_language(requested: str | None) -> str:
     )
 
 
+def print_languages(active: str) -> None:
+    for code in i18n.LOCALES:
+        marker = "*" if code == active else " "
+        print(f"{marker} {code}  {i18n.locale_name(code)}")
+
+
+def print_rides() -> None:
+    recorded = activity_store.rides()
+    for path in recorded:
+        print(f"{path.name}  {path.stat().st_size / 1024:.0f} KB")
+    if not recorded:
+        print(f"no rides yet, in {paths.activities_dir()}")
+
+
+def print_workouts() -> None:
+    library = workout_library.load_library()
+    for workout in library:
+        total = workout.total_time_s
+        length = f"{total / 60:.0f} min" if total else "open ended"
+        print(f"{workout.name}  ({len(workout.ridden_steps)} steps, {length})")
+    if not len(library):
+        print(f"no workouts yet, in {paths.workouts_dir()}")
+    for broken in workout_library.unreadable():
+        print(f"could not read {broken.name}")
+
+
+def print_worlds() -> None:
+    for world_id in available_worlds():
+        world = load_world(world_id)
+        print(f"{world_id}  {world.name}")
+        for route in world.routes:
+            lap = lap_length_m(world, route) / 1000
+            print(f"    {route.id:22} {route.name:26} {lap:.3f} km")
+
+
 def listings(args: argparse.Namespace, language: str) -> int | None:
     """The commands that answer a question and exit.
 
     None of these open a window, so none of them may reach for the renderer -
     which is why they are answered before it is imported.
     """
-    if args.languages:
-        for code in i18n.LOCALES:
-            marker = "*" if code == language else " "
-            print(f"{marker} {code}  {i18n.locale_name(code)}")
-        return 0
-
-    if args.rides:
-        recorded = activity_store.rides()
-        for path in recorded:
-            print(f"{path.name}  {path.stat().st_size / 1024:.0f} KB")
-        if not recorded:
-            print(f"no rides yet, in {paths.activities_dir()}")
-        return 0
-
-    if args.worlds:
-        for world_id in available_worlds():
-            world = load_world(world_id)
-            print(f"{world_id}  {world.name}")
-            for route in world.routes:
-                lap = lap_length_m(world, route) / 1000
-                print(f"    {route.id:22} {route.name:26} {lap:.3f} km")
-        return 0
-
+    asked = (
+        (args.languages, lambda: print_languages(language)),
+        (args.rides, print_rides),
+        (args.workouts, print_workouts),
+        (args.worlds, print_worlds),
+    )
+    for wanted, report in asked:
+        if wanted:
+            report()
+            return 0
     return None
 
 
@@ -165,6 +198,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
         route_id=args.route,
         power_w=args.power,
         record=not args.no_record,
+        workout=workout_library.find(args.workout) if args.workout else None,
     ).run()
     return 0
 

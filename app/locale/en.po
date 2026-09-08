@@ -23,3 +23,9 @@ msgstr "Ride"
 
 msgid "Settings"
 msgstr "Settings"
+
+msgid "Workout complete"
+msgstr "Workout complete"
+
+msgid "Press space when ready"
+msgstr "Press space when ready"

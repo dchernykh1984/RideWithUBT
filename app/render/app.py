@@ -35,6 +35,8 @@ from app.core.session import RideSession, RideState
 from app.render.geometry import arrow_node, geom_node
 from app.sensors.hub import SensorHub
 from app.sensors.simulated import SimulatedSensors, steady
+from app.workout.engine import WorkoutEngine
+from app.workout.model import DurationKind, Workout
 from app.world.description import load as load_world
 from app.world.mesh import Mesh, network_mesh
 from app.world.navigation import Navigator, Steer
@@ -88,6 +90,7 @@ class RideApp(ShowBase):
         headless: bool = False,
         offscreen: bool = False,
         record: bool = False,
+        workout: Workout | None = None,
     ):
         if headless:
             # No graphics pipe at all: the frozen-app smoke test in CI runs on a
@@ -115,6 +118,8 @@ class RideApp(ShowBase):
         # A picture of the world or a smoke test is not a ride, so neither of
         # those leaves a file behind in the rider's activity store.
         self.recorder = RideRecorder() if record else None
+        self.workout = WorkoutEngine(workout) if workout else None
+        self._last_distance_m = 0.0
 
         self.ground = self._build_ground()
         self.track = self._build_track()
@@ -205,6 +210,12 @@ class RideApp(ShowBase):
         self.accept("arrow_left", self.navigator.steer, [Steer.LEFT])
         self.accept("arrow_right", self.navigator.steer, [Steer.RIGHT])
         self.accept("escape", self.userExit)
+        # Space ends a step that runs until the rider says so.
+        self.accept("space", self._end_open_step)
+
+    def _end_open_step(self) -> None:
+        if self.workout is not None:
+            self.workout.advance()
 
     # Every frame.
 
@@ -213,6 +224,7 @@ class RideApp(ShowBase):
         for reading in self.rider_source.sample(now, now):
             self.hub.submit(reading)
         self.state = self.session.update(self._clock.getDt(), now=now)
+        self._follow_workout(self._clock.getDt())
         if self.recorder is not None:
             self.recorder.observe(self.state)
         self._place_rider()
@@ -220,6 +232,25 @@ class RideApp(ShowBase):
         self._place_arrow()
         self._update_hud()
         return Task.cont
+
+    def _follow_workout(self, seconds: float) -> None:
+        """Move the workout on, and let its target drive the stand-in rider.
+
+        A real rider is told the target and decides whether to hold it; the
+        stand-in simply holds it, which is what makes a workout visible before
+        any sensor is connected.
+        """
+        if self.workout is None:
+            return
+        covered = self.state.distance_m - self._last_distance_m
+        self._last_distance_m = self.state.distance_m
+        progress = self.workout.update(seconds, covered, self.state.power_w)
+        step = progress.step
+        if step is None:
+            return
+        target = step.step.power
+        if target is not None:
+            self.rider_source.profile = steady(power_w=target.middle)
 
     def _place_rider(self) -> None:
         point = self.state.point
@@ -283,7 +314,34 @@ class RideApp(ShowBase):
             lines.append(
                 f"{state.upcoming.chosen_exit} in {state.upcoming.distance_m:.0f} m"
             )
+        lines += self._workout_lines()
         self.hud.setText("\n".join(lines))
+
+    def _workout_lines(self) -> list[str]:
+        if self.workout is None:
+            return []
+        progress = self.workout.progress()
+        if progress.finished:
+            return ["", self.translate("Workout complete")]
+        step = progress.step
+        if step is None:  # pragma: no cover - finished covers this
+            return []
+        lines = ["", f"{step.step.label}  {step.index + 1}/{progress.steps_total}"]
+        if step.remaining is None:
+            lines.append(self.translate("Press space when ready"))
+        elif step.step.duration_kind is DurationKind.TIME:
+            lines.append(f"{step.remaining:.0f} s left")
+        else:
+            lines.append(f"{step.remaining:.0f} m left")
+        target = step.step.power
+        if target is not None:
+            held = (
+                ""
+                if step.on_target is None
+                else ("  on target" if step.on_target else "  off target")
+            )
+            lines.append(f"{target.low:.0f}-{target.high:.0f} W{held}")
+        return lines
 
     def ride_forward(self, seconds: float, step: float = 0.5) -> None:
         """Ride on without drawing, to reach a point on the circuit."""

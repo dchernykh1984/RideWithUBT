@@ -20,3 +20,9 @@ msgstr "Жүру"
 
 msgid "Settings"
 msgstr "Баптаулар"
+
+msgid "Workout complete"
+msgstr "Жаттығу аяқталды"
+
+msgid "Press space when ready"
+msgstr "Дайын болғанда бос пернені басыңыз"
