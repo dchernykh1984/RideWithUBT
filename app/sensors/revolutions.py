@@ -15,8 +15,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Event times are counted in 1/1024 of a second in both BLE CSC and ANT+, in a
-# 16-bit field - so it wraps every 64 seconds.
+# Event times live in a 16-bit field. Most sensors count it in 1/1024 of a second,
+# so it wraps every 64 seconds - but the Cycling Power characteristic times its
+# wheel events in 1/2048, which wraps twice as fast. The rate is the tick count
+# divided by the resolution, so a wrong resolution silently halves or doubles it.
 TICKS_PER_SECOND = 1024
 TIME_MODULUS = 1 << 16
 MAX_UNAMBIGUOUS_GAP_S = TIME_MODULUS / TICKS_PER_SECOND
@@ -36,16 +38,21 @@ class RevolutionCounter:
     """Rate in revolutions per second, from cumulative samples.
 
     ``revolution_bits`` is the width of the counter the device sends: 32 for a
-    Bluetooth speed sensor, 16 for cadence and for ANT+.
+    Bluetooth speed sensor, 16 for cadence and for ANT+. ``ticks_per_second`` is
+    the resolution of its event clock, which is not the same for every
+    characteristic.
     """
 
     def __init__(
         self,
         revolution_bits: int = 16,
         stop_after_s: float = 3.0,
+        ticks_per_second: int = TICKS_PER_SECOND,
     ) -> None:
         self._modulus = 1 << revolution_bits
         self._stop_after_s = stop_after_s
+        self._ticks_per_second = ticks_per_second
+        self._max_gap_s = TIME_MODULUS / ticks_per_second
         self._last: Sample | None = None
         self._rate: float | None = None
 
@@ -70,7 +77,7 @@ class RevolutionCounter:
             self._last = Sample(revolutions, event_time, now)
             return None
 
-        if now - last.at > MAX_UNAMBIGUOUS_GAP_S:
+        if now - last.at > self._max_gap_s:
             # The event clock has had time to wrap all the way round, so the
             # difference no longer means anything. Start again from here.
             self._last = Sample(revolutions, event_time, now)
@@ -86,16 +93,23 @@ class RevolutionCounter:
 
         turned = (revolutions - last.revolutions) % self._modulus
         self._last = Sample(revolutions, event_time, now)
-        self._rate = turned * TICKS_PER_SECOND / elapsed_ticks
+        self._rate = turned * self._ticks_per_second / elapsed_ticks
         return self._rate
 
 
 class WheelSpeed:
     """A wheel speed sensor, read as metres per second."""
 
-    def __init__(self, rollout_mm: float, revolution_bits: int = 32) -> None:
+    def __init__(
+        self,
+        rollout_mm: float,
+        revolution_bits: int = 32,
+        ticks_per_second: int = TICKS_PER_SECOND,
+    ) -> None:
         self.rollout_mm = rollout_mm
-        self._counter = RevolutionCounter(revolution_bits=revolution_bits)
+        self._counter = RevolutionCounter(
+            revolution_bits=revolution_bits, ticks_per_second=ticks_per_second
+        )
 
     def update(self, revolutions: int, event_time: int, now: float) -> float | None:
         rate = self._counter.update(revolutions, event_time, now)
@@ -110,8 +124,14 @@ class WheelSpeed:
 class Cadence:
     """A crank sensor, read as revolutions per minute."""
 
-    def __init__(self, revolution_bits: int = 16) -> None:
-        self._counter = RevolutionCounter(revolution_bits=revolution_bits)
+    def __init__(
+        self,
+        revolution_bits: int = 16,
+        ticks_per_second: int = TICKS_PER_SECOND,
+    ) -> None:
+        self._counter = RevolutionCounter(
+            revolution_bits=revolution_bits, ticks_per_second=ticks_per_second
+        )
 
     def update(self, revolutions: int, event_time: int, now: float) -> float | None:
         rate = self._counter.update(revolutions, event_time, now)
