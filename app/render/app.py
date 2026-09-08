@@ -43,10 +43,14 @@ SELFTEST_FRAMES = 5
 
 # The chase camera sits behind and above the rider, looking well ahead so the
 # track reads as a ribbon running into the distance rather than as a wall.
-CAMERA_BEHIND_M = 12.0
-CAMERA_HEIGHT_M = 4.5
-CAMERA_LOOK_AHEAD_M = 45.0
-CAMERA_LOOK_HEIGHT_M = 1.5
+CAMERA_BEHIND_M = 16.0
+CAMERA_HEIGHT_M = 5.0
+CAMERA_LOOK_AHEAD_M = 50.0
+CAMERA_LOOK_HEIGHT_M = 1.0
+# Panda3D's default far plane is a thousand metres, which is less than the far
+# side of a circuit: without this the track is sliced off at the horizon.
+CAMERA_NEAR_M = 0.5
+CAMERA_FAR_M = 6000.0
 
 ARROW_HEIGHT_M = 5.0
 ARROW_SCALE = 2.5
@@ -148,6 +152,8 @@ class RideApp(ShowBase):
     def _prepare_window(self, *, offscreen: bool) -> None:
         self.setBackgroundColor(*SKY)
         self.disableMouse()
+        lens = self.cam.node().getLens()
+        lens.setNearFar(CAMERA_NEAR_M, CAMERA_FAR_M)
         if offscreen:
             # An offscreen buffer is not a window: it has no title bar to name.
             return
