@@ -1,0 +1,13 @@
+{
+  "id": "elite-suito-t",
+  "brand": "Elite",
+  "model": "Suito-T",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

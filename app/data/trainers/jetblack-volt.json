@@ -1,0 +1,13 @@
+{
+  "id": "jetblack-volt",
+  "brand": "JetBlack",
+  "model": "VOLT",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

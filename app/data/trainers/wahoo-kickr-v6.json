@@ -1,0 +1,13 @@
+{
+  "id": "wahoo-kickr-v6",
+  "brand": "Wahoo",
+  "model": "KICKR v6",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

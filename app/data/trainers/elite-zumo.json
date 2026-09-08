@@ -1,0 +1,13 @@
+{
+  "id": "elite-zumo",
+  "brand": "Elite",
+  "model": "Zumo",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

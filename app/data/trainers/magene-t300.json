@@ -1,0 +1,13 @@
+{
+  "id": "magene-t300",
+  "brand": "Magene",
+  "model": "T300",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

@@ -1,0 +1,13 @@
+{
+  "id": "zwift-hub-one",
+  "brand": "Zwift",
+  "model": "Hub One",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

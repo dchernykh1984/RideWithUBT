@@ -1,0 +1,10 @@
+{
+  "id": "saris-fluid2",
+  "brand": "Saris",
+  "model": "Fluid2",
+  "kind": "wheel_on",
+  "resistance": "fluid",
+  "protocols": [],
+  "profile": null,
+  "notes": ""
+}

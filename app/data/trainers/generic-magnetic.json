@@ -1,0 +1,10 @@
+{
+  "id": "generic-magnetic",
+  "brand": "Generic",
+  "model": "Magnetic trainer",
+  "kind": "wheel_on",
+  "resistance": "magnetic",
+  "protocols": [],
+  "profile": null,
+  "notes": ""
+}

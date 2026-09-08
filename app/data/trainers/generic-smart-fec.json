@@ -1,0 +1,12 @@
+{
+  "id": "generic-smart-fec",
+  "brand": "Generic",
+  "model": "Smart trainer (ANT+ FE-C)",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "fec"
+  ],
+  "profile": null,
+  "notes": "Use when the trainer speaks ANT+ FE-C but is not in this catalogue."
+}

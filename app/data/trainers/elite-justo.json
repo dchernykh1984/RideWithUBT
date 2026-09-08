@@ -1,0 +1,13 @@
+{
+  "id": "elite-justo",
+  "brand": "Elite",
+  "model": "Justo",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

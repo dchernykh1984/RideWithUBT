@@ -1,0 +1,13 @@
+{
+  "id": "wahoo-kickr-snap",
+  "brand": "Wahoo",
+  "model": "KICKR SNAP",
+  "kind": "wheel_on",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

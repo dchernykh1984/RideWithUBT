@@ -1,0 +1,13 @@
+{
+  "id": "kinetic-road-machine-smart-control",
+  "brand": "Kinetic",
+  "model": "Road Machine Smart Control",
+  "kind": "wheel_on",
+  "resistance": "fluid",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": "Resistance is fluid; the smart unit varies it and reports power."
+}

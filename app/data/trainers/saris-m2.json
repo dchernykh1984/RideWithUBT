@@ -1,0 +1,13 @@
+{
+  "id": "saris-m2",
+  "brand": "Saris",
+  "model": "M2",
+  "kind": "wheel_on",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

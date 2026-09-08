@@ -1,0 +1,13 @@
+{
+  "id": "wahoo-kickr-move",
+  "brand": "Wahoo",
+  "model": "KICKR MOVE",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

@@ -1,0 +1,12 @@
+{
+  "id": "generic-smart-ftms",
+  "brand": "Generic",
+  "model": "Smart trainer (FTMS)",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms"
+  ],
+  "profile": null,
+  "notes": "Use when the trainer speaks FTMS but is not in this catalogue."
+}

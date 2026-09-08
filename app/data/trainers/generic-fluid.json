@@ -1,0 +1,10 @@
+{
+  "id": "generic-fluid",
+  "brand": "Generic",
+  "model": "Fluid trainer",
+  "kind": "wheel_on",
+  "resistance": "fluid",
+  "protocols": [],
+  "profile": null,
+  "notes": ""
+}
