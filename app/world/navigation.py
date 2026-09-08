@@ -210,3 +210,34 @@ def _first_segment(network: TrackNetwork) -> str:
     if not network.segments:
         raise NetworkError(f"world {network.id!r} has no segments to start on")
     return network.segments[0].id
+
+
+def lap_segments(network: TrackNetwork, route: Route) -> tuple[str, ...]:
+    """The segments of one lap of a route, in the order they are ridden.
+
+    Walked rather than ridden: following the route's choices from its start
+    segment until it comes back gives the exact lap, where stepping a simulated
+    rider round it would only give an answer as fine as the step.
+
+    A configuration that does not close - a point-to-point course, or a network
+    with a mistake in it - returns what it managed before running out.
+    """
+    start = route.start_segment
+    order = [start]
+    seen = {start}
+    node = network.segment(start).end_node
+    while True:
+        next_id = network.exit_from(node, preferred=route.choices.get(node))
+        if next_id is None or next_id in seen:
+            return tuple(order)
+        order.append(next_id)
+        seen.add(next_id)
+        node = network.segment(next_id).end_node
+
+
+def lap_length_m(network: TrackNetwork, route: Route) -> float:
+    """How long one lap of a route is."""
+    return sum(
+        network.segment(segment_id).length_m
+        for segment_id in lap_segments(network, route)
+    )
