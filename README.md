@@ -39,11 +39,19 @@ Requires [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
-uv run ridewithubt                # open the window
-uv run ridewithubt --languages    # list the available languages
-uv run ridewithubt --lang kk      # override the saved language for one run
-uv run ridewithubt --selftest     # boot the engine with no window and exit
+uv run ridewithubt                        # ride, in a window
+uv run ridewithubt --route small-ring     # ride one configuration
+uv run ridewithubt --worlds               # list the worlds and their laps
+uv run ridewithubt --plan plan.png        # draw the world from above
+uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the lap
+uv run ridewithubt --languages            # list the available languages
+uv run ridewithubt --lang kk              # override the saved language for one run
+uv run ridewithubt --selftest             # boot the engine with no window and exit
 ```
+
+Left and right arrows choose which way to go at a junction; escape quits. The
+rider moves at a fixed speed for now - `--speed` changes it - because the ride
+physics has not landed yet.
 
 ## Development
 
