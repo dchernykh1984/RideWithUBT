@@ -96,9 +96,12 @@ whether a reading arrived over Bluetooth or ANT+.
   Data. Those payloads are public and stable, and parsing them ourselves is what
   makes the whole translation path - bytes in, readings out - testable with no
   radio, which a library wrapped around a live client is not.
-- **ANT+** through `openant` and a USB stick (ANTUSB2 / ANTUSB-m). Windows needs
-  the libusb driver, Linux needs the udev rule `openant` installs, macOS needs
-  libusb only.
+- **ANT+** through `openant` for the radio and a USB stick (ANTUSB2 /
+  ANTUSB-m), with the device profile pages parsed here for the same reason as the
+  Bluetooth ones. Windows needs the libusb driver, Linux needs the udev rule
+  `openant` installs, macOS needs libusb only. openant drives the stick from its
+  own blocking loop, so the node runs in a worker thread behind a small radio
+  interface - which is also what lets the connect path be tested without one.
 
 Smart trainers are first-class: where a trainer exposes FTMS or Tacx FE-C the app
 both reads its power and writes resistance back to it, which is what makes ERG
@@ -240,7 +243,7 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
 2. Wheel and tyre catalogue, rollout, virtual power, trainer catalogue and the
    profile format and fit. *(done)*
 3. Sensor layer: BLE and ANT+ behind one interface, plus a simulated source.
-   *(the interface, the simulated source and BLE done; ANT+ next)*
+   *(done)*
 4. Ride physics and the ride session; recording to FIT in the activity store.
 5. World description and the track network: segments, junctions, both Sokol
    rings and the pit lane, built from open data.
