@@ -204,3 +204,50 @@ def test_rides_lists_what_has_been_recorded(
     assert cli.main(["--rides"]) == 0
 
     assert "20260909T063000.fit" in capsys.readouterr().out
+
+
+def test_workouts_reports_an_empty_library(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["--workouts"]) == 0
+
+    assert "no workouts yet" in capsys.readouterr().out
+
+
+def test_workouts_lists_what_can_be_ridden(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import json
+    import shutil
+
+    from app import paths
+
+    paths.ensure_data_tree()
+    shutil.copy(
+        Path(__file__).parent / "data" / "cycling_intervals.json",
+        paths.workouts_dir() / "intervals.json",
+    )
+    (paths.workouts_dir() / "broken.json").write_text(
+        json.dumps({"name": "B", "steps": [{"type": "sprint"}]}), encoding="utf-8"
+    )
+
+    assert cli.main(["--workouts"]) == 0
+
+    out = capsys.readouterr().out
+    assert "3x8 Cycling Intervals" in out
+    assert "open ended" in out, "a workout with an open step has no fixed length"
+    assert "could not read broken.json" in out
+
+
+def test_a_workout_reaches_the_renderer(renderer: FakeRenderer) -> None:
+    example = str(Path(__file__).parent / "data" / "cycling_intervals.json")
+
+    assert cli.main(["--workout", example]) == 0
+
+    (app,) = renderer.apps
+    assert app.options["workout"].name == "3x8 Cycling Intervals"
+
+
+def test_riding_without_a_workout_passes_none(renderer: FakeRenderer) -> None:
+    assert cli.main([]) == 0
+
+    (app,) = renderer.apps
+    assert app.options["workout"] is None

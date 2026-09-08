@@ -20,3 +20,9 @@ msgstr "Поехали"
 
 msgid "Settings"
 msgstr "Настройки"
+
+msgid "Workout complete"
+msgstr "Тренировка завершена"
+
+msgid "Press space when ready"
+msgstr "Нажмите пробел, когда будете готовы"

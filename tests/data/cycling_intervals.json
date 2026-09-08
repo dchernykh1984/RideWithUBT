@@ -1,0 +1,50 @@
+{
+  "name": "3x8 Cycling Intervals",
+  "description": "VO2max build block: 3 sets of 8-minute efforts at 105-115% FTP",
+  "sport": "cycling",
+  "ftp_watts": 260,
+  "estimated_tss": 90,
+  "steps": [
+    {
+      "type": "warmup",
+      "name": "Easy Spin",
+      "duration_seconds": 600,
+      "targets": [{"type": "power", "low": 130, "high": 170}]
+    },
+    {
+      "type": "interval",
+      "name": "1km Build",
+      "duration_type": "distance",
+      "duration_seconds": 1000,
+      "targets": [{"type": "power", "low": 200, "high": 240}]
+    },
+    {
+      "type": "repeat",
+      "count": 3,
+      "steps": [
+        {
+          "type": "interval",
+          "name": "8min Effort",
+          "duration_seconds": 480,
+          "targets": [
+            {"type": "power",      "low": 260, "high": 300},
+            {"type": "cadence",    "low": 88,  "high": 92},
+            {"type": "heart_rate", "low": 155, "high": 165}
+          ]
+        },
+        {
+          "type": "rest",
+          "name": "Active Recovery",
+          "duration_type": "open",
+          "targets": [{"type": "heart_rate", "low": 110, "high": 130}]
+        }
+      ]
+    },
+    {
+      "type": "cooldown",
+      "name": "Easy Spin Down",
+      "duration_seconds": 300,
+      "targets": [{"type": "power", "low": 90, "high": 120}]
+    }
+  ]
+}

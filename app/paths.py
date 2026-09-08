@@ -46,6 +46,11 @@ def worlds_dir() -> Path:
     return data_root() / "worlds"
 
 
+def workouts_dir() -> Path:
+    """Where imported workouts are kept, as the plan format's JSON."""
+    return data_root() / "workouts"
+
+
 def settings_file() -> Path:
     return data_root() / "settings.json"
 
@@ -53,6 +58,6 @@ def settings_file() -> Path:
 def ensure_data_tree() -> Path:
     """Create the data tree if it is missing and return its root."""
     root = data_root()
-    for path in (root, activities_dir(), worlds_dir()):
+    for path in (root, activities_dir(), worlds_dir(), workouts_dir()):
         path.mkdir(parents=True, exist_ok=True)
     return root
