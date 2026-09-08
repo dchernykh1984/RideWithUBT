@@ -1,0 +1,13 @@
+{
+  "id": "tacx-flow-smart",
+  "brand": "Tacx",
+  "model": "Flow Smart",
+  "kind": "wheel_on",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

@@ -1,0 +1,10 @@
+{
+  "id": "elite-volano",
+  "brand": "Elite",
+  "model": "Volano",
+  "kind": "wheel_on",
+  "resistance": "fluid",
+  "protocols": [],
+  "profile": null,
+  "notes": ""
+}

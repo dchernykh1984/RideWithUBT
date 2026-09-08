@@ -1,0 +1,13 @@
+{
+  "id": "wahoo-kickr-rollr",
+  "brand": "Wahoo",
+  "model": "KICKR ROLLR",
+  "kind": "wheel_on",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

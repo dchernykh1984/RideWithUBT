@@ -1,0 +1,10 @@
+{
+  "id": "generic-rollers",
+  "brand": "Generic",
+  "model": "Rollers",
+  "kind": "roller",
+  "resistance": "air",
+  "protocols": [],
+  "profile": null,
+  "notes": ""
+}

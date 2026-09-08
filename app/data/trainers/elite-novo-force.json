@@ -1,0 +1,10 @@
+{
+  "id": "elite-novo-force",
+  "brand": "Elite",
+  "model": "Novo Force",
+  "kind": "wheel_on",
+  "resistance": "magnetic",
+  "protocols": [],
+  "profile": null,
+  "notes": "Eight manual resistance levels; a profile has to be recorded per level."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "wahoo-kickr-v5",
+  "brand": "Wahoo",
+  "model": "KICKR v5",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

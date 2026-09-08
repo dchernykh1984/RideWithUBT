@@ -1,0 +1,13 @@
+{
+  "id": "tacx-neo-2t",
+  "brand": "Tacx",
+  "model": "NEO 2T Smart",
+  "kind": "direct_drive",
+  "resistance": "motor_brake",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

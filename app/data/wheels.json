@@ -1,0 +1,334 @@
+{
+  "comment": [
+    "Wheel standards, by ISO bead seat diameter. Rollout is computed from these:",
+    "pi * (bead_seat_mm + 2 * tyre_width_mm). That is a nominal figure - a loaded",
+    "tyre rolls slightly shorter - so the app always allows a measured rollout to",
+    "be entered by hand, and that value wins when present.",
+    "Adding a size or a width is a data change: edit this file, nothing else."
+  ],
+  "sizes": [
+    {
+      "id": "700c",
+      "bead_seat_mm": 622,
+      "aliases": [
+        "28in",
+        "29in",
+        "29er",
+        "iso-622"
+      ],
+      "widths": [
+        {
+          "id": "18",
+          "mm": 18.0
+        },
+        {
+          "id": "20",
+          "mm": 20.0
+        },
+        {
+          "id": "23",
+          "mm": 23.0
+        },
+        {
+          "id": "25",
+          "mm": 25.0
+        },
+        {
+          "id": "26",
+          "mm": 26.0
+        },
+        {
+          "id": "28",
+          "mm": 28.0
+        },
+        {
+          "id": "30",
+          "mm": 30.0
+        },
+        {
+          "id": "32",
+          "mm": 32.0
+        },
+        {
+          "id": "35",
+          "mm": 35.0
+        },
+        {
+          "id": "38",
+          "mm": 38.0
+        },
+        {
+          "id": "40",
+          "mm": 40.0
+        },
+        {
+          "id": "42",
+          "mm": 42.0
+        },
+        {
+          "id": "45",
+          "mm": 45.0
+        },
+        {
+          "id": "47",
+          "mm": 47.0
+        },
+        {
+          "id": "50",
+          "mm": 50.0
+        },
+        {
+          "id": "2.0in",
+          "mm": 50.8
+        },
+        {
+          "id": "2.1in",
+          "mm": 53.3
+        },
+        {
+          "id": "2.25in",
+          "mm": 57.2
+        },
+        {
+          "id": "2.35in",
+          "mm": 59.7
+        },
+        {
+          "id": "2.4in",
+          "mm": 61.0
+        }
+      ]
+    },
+    {
+      "id": "650b",
+      "bead_seat_mm": 584,
+      "aliases": [
+        "27.5in",
+        "iso-584"
+      ],
+      "widths": [
+        {
+          "id": "38",
+          "mm": 38.0
+        },
+        {
+          "id": "42",
+          "mm": 42.0
+        },
+        {
+          "id": "45",
+          "mm": 45.0
+        },
+        {
+          "id": "47",
+          "mm": 47.0
+        },
+        {
+          "id": "50",
+          "mm": 50.0
+        },
+        {
+          "id": "2.0in",
+          "mm": 50.8
+        },
+        {
+          "id": "2.1in",
+          "mm": 53.3
+        },
+        {
+          "id": "2.25in",
+          "mm": 57.2
+        },
+        {
+          "id": "2.35in",
+          "mm": 59.7
+        },
+        {
+          "id": "2.4in",
+          "mm": 61.0
+        },
+        {
+          "id": "2.6in",
+          "mm": 66.0
+        }
+      ]
+    },
+    {
+      "id": "650c",
+      "bead_seat_mm": 571,
+      "aliases": [
+        "iso-571"
+      ],
+      "widths": [
+        {
+          "id": "20",
+          "mm": 20.0
+        },
+        {
+          "id": "23",
+          "mm": 23.0
+        },
+        {
+          "id": "25",
+          "mm": 25.0
+        },
+        {
+          "id": "28",
+          "mm": 28.0
+        }
+      ]
+    },
+    {
+      "id": "26in",
+      "bead_seat_mm": 559,
+      "aliases": [
+        "iso-559"
+      ],
+      "widths": [
+        {
+          "id": "32",
+          "mm": 32.0
+        },
+        {
+          "id": "35",
+          "mm": 35.0
+        },
+        {
+          "id": "38",
+          "mm": 38.0
+        },
+        {
+          "id": "1.5in",
+          "mm": 38.1
+        },
+        {
+          "id": "1.75in",
+          "mm": 44.5
+        },
+        {
+          "id": "1.9in",
+          "mm": 48.3
+        },
+        {
+          "id": "2.0in",
+          "mm": 50.8
+        },
+        {
+          "id": "2.1in",
+          "mm": 53.3
+        },
+        {
+          "id": "2.25in",
+          "mm": 57.2
+        },
+        {
+          "id": "2.35in",
+          "mm": 59.7
+        },
+        {
+          "id": "2.4in",
+          "mm": 61.0
+        }
+      ]
+    },
+    {
+      "id": "27in",
+      "bead_seat_mm": 630,
+      "aliases": [
+        "iso-630"
+      ],
+      "widths": [
+        {
+          "id": "1.0in",
+          "mm": 25.4
+        },
+        {
+          "id": "1.125in",
+          "mm": 28.6
+        },
+        {
+          "id": "1.25in",
+          "mm": 31.8
+        },
+        {
+          "id": "1.375in",
+          "mm": 34.9
+        }
+      ]
+    },
+    {
+      "id": "24in",
+      "bead_seat_mm": 507,
+      "aliases": [
+        "iso-507"
+      ],
+      "widths": [
+        {
+          "id": "23",
+          "mm": 23.0
+        },
+        {
+          "id": "25",
+          "mm": 25.0
+        },
+        {
+          "id": "28",
+          "mm": 28.0
+        },
+        {
+          "id": "1.5in",
+          "mm": 38.1
+        },
+        {
+          "id": "1.75in",
+          "mm": 44.5
+        },
+        {
+          "id": "1.9in",
+          "mm": 48.3
+        },
+        {
+          "id": "2.0in",
+          "mm": 50.8
+        }
+      ]
+    },
+    {
+      "id": "20in",
+      "bead_seat_mm": 406,
+      "aliases": [
+        "iso-406"
+      ],
+      "widths": [
+        {
+          "id": "28",
+          "mm": 28.0
+        },
+        {
+          "id": "32",
+          "mm": 32.0
+        },
+        {
+          "id": "35",
+          "mm": 35.0
+        },
+        {
+          "id": "1.5in",
+          "mm": 38.1
+        },
+        {
+          "id": "1.75in",
+          "mm": 44.5
+        },
+        {
+          "id": "1.95in",
+          "mm": 49.5
+        },
+        {
+          "id": "2.125in",
+          "mm": 54.0
+        }
+      ]
+    }
+  ]
+}

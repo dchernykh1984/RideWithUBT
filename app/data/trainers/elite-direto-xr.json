@@ -1,0 +1,13 @@
+{
+  "id": "elite-direto-xr",
+  "brand": "Elite",
+  "model": "Direto XR",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

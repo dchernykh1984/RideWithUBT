@@ -1,0 +1,13 @@
+{
+  "id": "wahoo-kickr-core",
+  "brand": "Wahoo",
+  "model": "KICKR CORE",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

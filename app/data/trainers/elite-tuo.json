@@ -1,0 +1,13 @@
+{
+  "id": "elite-tuo",
+  "brand": "Elite",
+  "model": "Tuo",
+  "kind": "wheel_on",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

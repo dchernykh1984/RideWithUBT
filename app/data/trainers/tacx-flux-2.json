@@ -1,0 +1,13 @@
+{
+  "id": "tacx-flux-2",
+  "brand": "Tacx",
+  "model": "Flux 2 Smart",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

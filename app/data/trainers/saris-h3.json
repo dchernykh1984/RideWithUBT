@@ -1,0 +1,13 @@
+{
+  "id": "saris-h3",
+  "brand": "Saris",
+  "model": "H3",
+  "kind": "direct_drive",
+  "resistance": "electromagnetic",
+  "protocols": [
+    "ftms",
+    "fec"
+  ],
+  "profile": null,
+  "notes": ""
+}

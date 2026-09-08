@@ -1,0 +1,10 @@
+{
+  "id": "kinetic-road-machine",
+  "brand": "Kinetic",
+  "model": "Road Machine",
+  "kind": "wheel_on",
+  "resistance": "fluid",
+  "protocols": [],
+  "profile": null,
+  "notes": ""
+}
