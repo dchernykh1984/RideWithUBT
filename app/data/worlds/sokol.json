@@ -5,7 +5,7 @@
   {
    "id": "main-0",
    "start_node": "n10056988504",
-   "end_node": "n10057052227",
+   "end_node": "n10057052138",
    "width_m": 12.0,
    "surface": "asphalt",
    "points": [
@@ -198,7 +198,35 @@
      167.65,
      126.97,
      0.0
+    ]
+   ]
+  },
+  {
+   "id": "main-1",
+   "start_node": "n10057052138",
+   "end_node": "n10057052139",
+   "width_m": 12.0,
+   "surface": "asphalt",
+   "points": [
+    [
+     167.65,
+     126.97,
+     0.0
     ],
+    [
+     734.124,
+     451.038,
+     0.0
+    ]
+   ]
+  },
+  {
+   "id": "main-2",
+   "start_node": "n10057052139",
+   "end_node": "n10057052227",
+   "width_m": 12.0,
+   "surface": "asphalt",
+   "points": [
     [
      734.124,
      451.038,
@@ -307,7 +335,7 @@
    ]
   },
   {
-   "id": "main-1",
+   "id": "main-3",
    "start_node": "n10057052227",
    "end_node": "n10057052245",
    "width_m": 12.0,
@@ -531,7 +559,7 @@
    ]
   },
   {
-   "id": "main-2",
+   "id": "main-4",
    "start_node": "n10057052245",
    "end_node": "n10057052793",
    "width_m": 12.0,
@@ -660,7 +688,7 @@
    ]
   },
   {
-   "id": "main-3",
+   "id": "main-5",
    "start_node": "n10057052793",
    "end_node": "n10057052777",
    "width_m": 12.0,
@@ -679,7 +707,7 @@
    ]
   },
   {
-   "id": "main-4",
+   "id": "main-6",
    "start_node": "n10057052777",
    "end_node": "n10056988504",
    "width_m": 12.0,
@@ -929,25 +957,53 @@
      0.0
     ]
    ]
+  },
+  {
+   "id": "pit-lane-0",
+   "start_node": "n10057052138",
+   "end_node": "n10057052139",
+   "width_m": 8.0,
+   "surface": "asphalt",
+   "points": [
+    [
+     174.602,
+     114.818,
+     0.0
+    ],
+    [
+     741.075,
+     438.886,
+     0.0
+    ]
+   ]
   }
  ],
  "junctions": [
   {
-   "node": "n10057052227",
+   "node": "n10057052138",
    "exits": [
     "main-1",
-    "small-ring-cut-0"
+    "pit-lane-0"
    ],
    "default_exit": "main-1",
    "announce_m": 200.0
   },
   {
-   "node": "n10057052793",
+   "node": "n10057052227",
    "exits": [
     "main-3",
-    "chicane-0"
+    "small-ring-cut-0"
    ],
    "default_exit": "main-3",
+   "announce_m": 200.0
+  },
+  {
+   "node": "n10057052793",
+   "exits": [
+    "main-5",
+    "chicane-0"
+   ],
+   "default_exit": "main-5",
    "announce_m": 200.0
   }
  ],

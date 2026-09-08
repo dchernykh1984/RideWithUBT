@@ -10,13 +10,39 @@
   "surface": "asphalt",
   "announce_m": 200.0,
   "routes": [
-    {"id": "big-ring", "name": "Big Ring", "links": []},
-    {"id": "big-ring-chicane", "name": "Big Ring with Chicane", "links": ["chicane"]},
-    {"id": "small-ring", "name": "Small Ring", "links": ["small-ring-cut"]},
+    {
+      "id": "big-ring",
+      "name": "Big Ring",
+      "links": []
+    },
+    {
+      "id": "big-ring-chicane",
+      "name": "Big Ring with Chicane",
+      "links": [
+        "chicane"
+      ]
+    },
+    {
+      "id": "small-ring",
+      "name": "Small Ring",
+      "links": [
+        "small-ring-cut"
+      ]
+    },
     {
       "id": "small-ring-chicane",
       "name": "Small Ring with Chicane",
-      "links": ["small-ring-cut", "chicane"]
+      "links": [
+        "small-ring-cut",
+        "chicane"
+      ]
     }
-  ]
+  ],
+  "pit_lane": {
+    "id": "pit-lane",
+    "entry_node": 10057052138,
+    "exit_node": 10057052139,
+    "offset_m": -14.0,
+    "width_m": 8.0
+  }
 }
