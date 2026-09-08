@@ -20,7 +20,7 @@ from app.world.navigation import lap_length_m
 # Repeated here rather than imported from app.render, which must not be imported
 # until a window is actually wanted.
 DEFAULT_WORLD = "sokol"
-DEFAULT_SPEED_KMH = 32.0
+DEFAULT_POWER_W = 200.0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,10 +49,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Which configuration of the world to ride, by id.",
     )
     parser.add_argument(
-        "--speed",
+        "--power",
         type=float,
-        default=DEFAULT_SPEED_KMH,
-        help="Riding speed in km/h, until the ride physics arrives.",
+        default=DEFAULT_POWER_W,
+        help="Watts the stand-in rider pushes, until sensors are connected.",
     )
     parser.add_argument(
         "--worlds",
@@ -130,7 +130,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             world_id=args.world,
             route_id=args.route,
             seconds=args.at,
-            speed_kmh=args.speed,
+            power_w=args.power,
         )
         print(f"wrote {args.screenshot}")
         return 0
@@ -139,7 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         translate,
         world_id=args.world,
         route_id=args.route,
-        speed_kmh=args.speed,
+        power_w=args.power,
     ).run()
     return 0
 

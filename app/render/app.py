@@ -30,14 +30,18 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
+from app.core.session import RideSession, RideState
 from app.render.geometry import arrow_node, geom_node
+from app.sensors.hub import SensorHub
+from app.sensors.simulated import SimulatedSensors, steady
 from app.world.description import load as load_world
 from app.world.mesh import Mesh, network_mesh
 from app.world.navigation import Navigator, Steer
 from app.world.network import TrackNetwork
 
 DEFAULT_WORLD = "sokol"
-DEFAULT_SPEED_KMH = 32.0
+# What the stand-in rider pushes until real sensors are connected.
+DEFAULT_POWER_W = 200.0
 # Frames the self-test renders before it is satisfied the engine really runs.
 SELFTEST_FRAMES = 5
 
@@ -78,7 +82,7 @@ class RideApp(ShowBase):
         translate: Callable[[str], str],
         world_id: str = DEFAULT_WORLD,
         route_id: str | None = None,
-        speed_kmh: float = DEFAULT_SPEED_KMH,
+        power_w: float = DEFAULT_POWER_W,
         *,
         headless: bool = False,
         offscreen: bool = False,
@@ -94,11 +98,18 @@ class RideApp(ShowBase):
             loadPrcFileData("offscreen", "window-type offscreen")
         super().__init__()
         self.translate = translate
-        self.speed_ms = speed_kmh / 3.6
         self._clock = ClockObject.getGlobalClock()
         self.network: TrackNetwork = load_world(world_id)
         route = self.network.route(route_id) if route_id else None
         self.navigator = Navigator(self.network, route=route)
+
+        # No sensors are connected yet, so a stand-in rider pushes a steady
+        # power into the same hub a real power meter would report to. Swapping
+        # in the Bluetooth or ANT+ source changes this line and nothing else.
+        self.hub = SensorHub()
+        self.rider_source = SimulatedSensors(steady(power_w=power_w))
+        self.session = RideSession(self.navigator, hub=self.hub)
+        self.state: RideState = self.session.update(0.0, now=0.0)
 
         self.ground = self._build_ground()
         self.track = self._build_track()
@@ -193,7 +204,10 @@ class RideApp(ShowBase):
     # Every frame.
 
     def _tick(self, task: Task) -> int:
-        self.navigator.advance(self.speed_ms * self._clock.getDt())
+        now = self._clock.getFrameTime()
+        for reading in self.rider_source.sample(now, now):
+            self.hub.submit(reading)
+        self.state = self.session.update(self._clock.getDt(), now=now)
         self._place_rider()
         self._place_camera()
         self._place_arrow()
@@ -201,17 +215,17 @@ class RideApp(ShowBase):
         return Task.cont
 
     def _place_rider(self) -> None:
-        point = self.navigator.point
+        point = self.state.point
         self.rider.setPos(point.x, point.y, point.z + 0.4)
-        self.rider.setH(math.degrees(self.navigator.heading_rad) - 90.0)
+        self.rider.setH(math.degrees(self.state.heading_rad) - 90.0)
 
     def _place_camera(self) -> None:
         # With no window there is no camera: the self-test still runs the world
         # and the scene graph, which is what it is there to check.
         if self.camera is None:
             return
-        point = self.navigator.point
-        heading = self.navigator.heading_rad
+        point = self.state.point
+        heading = self.state.heading_rad
         back = LVector3(-math.cos(heading), -math.sin(heading), 0.0) * CAMERA_BEHIND_M
         self.camera.setPos(
             point.x + back.x,
@@ -227,12 +241,12 @@ class RideApp(ShowBase):
 
     def _place_arrow(self) -> None:
         """Above the track ahead, pointing the way the rider is currently going."""
-        upcoming = self.navigator.upcoming
+        upcoming = self.state.upcoming
         if upcoming is None:
             self.arrow.hide()
             return
-        point = self.navigator.point
-        heading = self.navigator.heading_rad
+        point = self.state.point
+        heading = self.state.heading_rad
         ahead = min(upcoming.distance_m, CAMERA_LOOK_AHEAD_M * 2)
         self.arrow.setPos(
             point.x + math.cos(heading) * ahead,
@@ -245,14 +259,36 @@ class RideApp(ShowBase):
     def _update_hud(self) -> None:
         if self.hud is None:
             return
+        state = self.state
+        estimated = " (estimated)" if state.power_estimated else ""
         lines = [
-            f"{self.speed_ms * 3.6:.1f} km/h",
-            f"{self.navigator.travelled_m / 1000:.2f} km",
+            f"{state.speed_kmh:5.1f} km/h",
+            f"{state.power_w:5.0f} W{estimated}",
+            f"{state.distance_m / 1000:5.2f} km",
         ]
-        upcoming = self.navigator.upcoming
-        if upcoming is not None:
-            lines.append(f"{upcoming.chosen_exit}  in {upcoming.distance_m:.0f} m")
+        if state.cadence_rpm is not None:
+            lines.append(f"{state.cadence_rpm:5.0f} rpm")
+        if state.heart_rate_bpm is not None:
+            lines.append(f"{state.heart_rate_bpm:5.0f} bpm")
+        if abs(state.gradient) >= 0.005:
+            lines.append(f"{state.gradient * 100:5.1f} %")
+        if state.upcoming is not None:
+            lines.append(
+                f"{state.upcoming.chosen_exit} in {state.upcoming.distance_m:.0f} m"
+            )
         self.hud.setText("\n".join(lines))
+
+    def ride_forward(self, seconds: float, step: float = 0.5) -> None:
+        """Ride on without drawing, to reach a point on the circuit."""
+        now = 0.0
+        while now < seconds:
+            now += step
+            for reading in self.rider_source.sample(now, now):
+                self.hub.submit(reading)
+            self.state = self.session.update(step, now=now)
+        self._place_rider()
+        self._place_camera()
+        self._place_arrow()
 
     def run_frames(self, count: int) -> None:
         """Render a fixed number of frames and return, instead of looping forever."""
@@ -266,7 +302,7 @@ def screenshot(
     world_id: str = DEFAULT_WORLD,
     route_id: str | None = None,
     seconds: float = 0.0,
-    speed_kmh: float = DEFAULT_SPEED_KMH,
+    power_w: float = DEFAULT_POWER_W,
 ) -> None:
     """Render the world into an image file rather than onto a screen.
 
@@ -278,11 +314,11 @@ def screenshot(
         translate,
         world_id=world_id,
         route_id=route_id,
-        speed_kmh=speed_kmh,
+        power_w=power_w,
         offscreen=True,
     )
     try:
-        app.navigator.advance(app.speed_ms * seconds)
+        app.ride_forward(seconds)
         app.run_frames(SELFTEST_FRAMES)
         app.win.saveScreenshot(Filename.fromOsSpecific(path))
     finally:
