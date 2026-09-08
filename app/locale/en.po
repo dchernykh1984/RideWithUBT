@@ -1,0 +1,25 @@
+# English catalogue for RideWithUBT. English is the source language, so every
+# entry repeats the msgid; the file exists so the language list is built the
+# same way for all locales.
+msgid ""
+msgstr ""
+"Project-Id-Version: RideWithUBT\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Language name"
+msgstr "English"
+
+msgid "Virtual training world"
+msgstr "Virtual training world"
+
+msgid "Loading world..."
+msgstr "Loading world..."
+
+msgid "Ride"
+msgstr "Ride"
+
+msgid "Settings"
+msgstr "Settings"

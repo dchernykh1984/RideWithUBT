@@ -1,0 +1,22 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: RideWithUBT\n"
+"Language: kk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Language name"
+msgstr "Қазақша"
+
+msgid "Virtual training world"
+msgstr "Жаттығуға арналған виртуалды әлем"
+
+msgid "Loading world..."
+msgstr "Әлем жүктелуде..."
+
+msgid "Ride"
+msgstr "Жүру"
+
+msgid "Settings"
+msgstr "Баптаулар"
