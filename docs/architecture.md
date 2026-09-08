@@ -227,6 +227,30 @@ Adding a second world later means adding a description and its inputs, not
 touching the engine. That is the only sense in which the map system is
 "extensible" - the extension point is data, not a plugin API.
 
+## The ride
+
+Power in, speed out. Every step, the hub says how hard the rider is pushing, the
+track under them says how steep it is, the standard cycling power model says how
+fast that makes them go, and the navigator moves them that far.
+
+**Speed is computed, never read from a device.** A trainer reports the speed of
+its own flywheel, which is a fact about the trainer and not about the virtual
+course: believing it would leave the gradient doing nothing, so a climb would
+cost effort and change no number the rider sees.
+
+The model's constants are measured figures rather than ones picked to feel right,
+because they decide whether the speed on screen matches the speed the same effort
+gives outdoors - and a workout ridden at the wrong effort is worse than no
+workout. Eighty kilos on the hoods at 200 W comes out at 33.5 km/h on the flat
+and 15.1 km/h on a five percent climb, which is what every power calculator
+agrees on, and the tests assert those numbers rather than the model's own
+arithmetic.
+
+One deliberate departure from the textbook: at walking pace the propulsive term
+P/v claims an acceleration no bicycle can produce, so acceleration is capped at
+what a strong rider manages off the line. Down there the limit is torque and
+traction, not power.
+
 ## Storage
 
 One static tree, chosen per platform, holding everything the app knows:
@@ -273,11 +297,11 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
    profile format and fit. *(done)*
 3. Sensor layer: BLE and ANT+ behind one interface, plus a simulated source.
    *(done)*
-4. Ride physics and the ride session; recording to FIT in the activity store.
+4. Ride physics and the ride session. *(done; recording to FIT still to come)*
 5. World description and the track network: segments, junctions, both Sokol
    rings and the pit lane, built from open data. *(done, except elevation)*
 6. The renderer draws the track and moves a rider along it, with the junction
-   arrow and its keyboard control. *(done, at a fixed speed)*
+   arrow and its keyboard control. *(done)*
 7. Workout model, Garmin and `training_plan_generator` import, interval engine
    with ERG control for smart trainers.
 8. Trainer profile capture mode and the pull-request flow for contributing one.

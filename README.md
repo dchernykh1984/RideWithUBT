@@ -44,14 +44,17 @@ uv run ridewithubt --route small-ring     # ride one configuration
 uv run ridewithubt --worlds               # list the worlds and their laps
 uv run ridewithubt --plan plan.png        # draw the world from above
 uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the lap
+uv run ridewithubt --power 240            # what the stand-in rider pushes
 uv run ridewithubt --languages            # list the available languages
 uv run ridewithubt --lang kk              # override the saved language for one run
 uv run ridewithubt --selftest             # boot the engine with no window and exit
 ```
 
-Left and right arrows choose which way to go at a junction; escape quits. The
-rider moves at a fixed speed for now - `--speed` changes it - because the ride
-physics has not landed yet.
+Left and right arrows choose which way to go at a junction; escape quits.
+
+Speed is computed from power, weight, gradient and air, not set: until sensors
+are connected a stand-in rider pushes a steady `--power`, and the circuit is
+ridden at whatever speed that is worth.
 
 ## Development
 
