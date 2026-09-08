@@ -139,3 +139,22 @@ def test_wheel_speed_resets() -> None:
     wheel.reset()
 
     assert wheel.update(10, ticks(2.0), now=2.0) is None
+
+
+def test_a_finer_event_clock_is_honoured() -> None:
+    """Cycling Power times wheel events in 1/2048 s; 1/1024 would double the rate."""
+    counter = RevolutionCounter(ticks_per_second=2048)
+    counter.update(10, 0, now=1.0)
+
+    rate = counter.update(15, 2048, now=2.0)
+
+    assert rate == pytest.approx(5.0)
+
+
+def test_the_ambiguity_window_shrinks_with_a_finer_clock() -> None:
+    """At 1/2048 s the 16-bit event field wraps in 32 seconds, not 64."""
+    counter = RevolutionCounter(ticks_per_second=2048)
+    counter.update(10, 0, now=1.0)
+    counter.update(15, 2048, now=2.0)
+
+    assert counter.update(20, 4096, now=2.0 + 40.0) is None
