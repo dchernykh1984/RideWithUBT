@@ -491,14 +491,3 @@ def build_from_files(
         else None
     )
     return build(load_recipe(recipe_path), load_extract(extract_path), heights)
-
-
-def describe_origin(recipe_path: Path, extract_path: Path) -> dict[str, Any]:
-    """The world's origin on the globe, for anything that has to map back."""
-    recipe = load_recipe(recipe_path)
-    ways = load_extract(extract_path)
-    main = ways[recipe.main_way]
-    start = recipe.start_node if recipe.start_node is not None else main.nodes[0]
-    rotated = _rotate_to_start(main, start)
-    lat, lon = rotated.coordinates[0]
-    return {"lat": lat, "lon": lon}

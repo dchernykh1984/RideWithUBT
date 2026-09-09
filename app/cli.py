@@ -375,13 +375,18 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     from app.render.app import RideApp, plan_view, screenshot, selftest
 
     if args.selftest:
-        problems = selfcheck.missing()
+        problems = selfcheck.missing() + [
+            f"{name}: not in this build" for name in selfcheck.missing_dependencies()
+        ]
         if problems:
             for problem in problems:
                 print(f"missing from this build: {problem}")
             return 1
         selftest(translate, world_id=args.world)
-        print(f"selftest ok - {len(selfcheck.LATE_IMPORTS)} late imports present")
+        print(
+            f"selftest ok - {len(selfcheck.LATE_IMPORTS)} late imports and "
+            f"{len(selfcheck.LATE_DEPENDENCIES)} late dependencies present"
+        )
         return 0
 
     if args.plan:

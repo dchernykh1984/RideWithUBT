@@ -8,7 +8,7 @@ from app.core.control import Command, CommandKind
 from app.sensors.base import DeviceInfo, ReadingSink, Transport
 from app.sensors.control import NoTrainerControl
 from app.sensors.hub import SensorHub
-from app.sensors.manager import DeviceManager, UnknownDeviceError
+from app.sensors.manager import DeviceManager, DeviceTransport, UnknownDeviceError
 from app.sensors.types import Metric, Reading
 
 
@@ -89,7 +89,7 @@ class FakeTransport:
         return control
 
 
-def manager(*transports: FakeTransport) -> tuple[DeviceManager, SensorHub]:
+def manager(*transports: DeviceTransport) -> tuple[DeviceManager, SensorHub]:
     hub = SensorHub()
     return DeviceManager(hub=hub, transports=transports), hub
 
@@ -227,3 +227,85 @@ async def test_nothing_to_send_is_not_an_error() -> None:
     devices, _ = manager(FakeTransport())
 
     await devices.apply(None)
+
+
+class Refusing:
+    """A device that will not open, the way a flat battery will not."""
+
+    def __init__(self, info: DeviceInfo) -> None:
+        self.info = info
+        self.disconnected = False
+
+    @property
+    def device(self) -> DeviceInfo:
+        return self.info
+
+    async def connect(self, sink: ReadingSink) -> None:
+        raise RuntimeError("no answer")
+
+    async def disconnect(self) -> None:
+        self.disconnected = True
+
+
+@dataclass
+class RefusingTransport:
+    """A radio whose devices all refuse to open. Not a FakeTransport subclass:
+    they differ in exactly the thing being tested."""
+
+    kind: Transport = Transport.BLE
+    found: list[DeviceInfo] = field(default_factory=list)
+    opened: list[Refusing] = field(default_factory=list)
+
+    @property
+    def transport(self) -> Transport:
+        return self.kind
+
+    async def scan(self, seconds: float) -> list[DeviceInfo]:
+        return list(self.found)
+
+    def open(self, info: DeviceInfo, wheel: object) -> Refusing:
+        source = Refusing(info)
+        self.opened.append(source)
+        return source
+
+    def control_for(self, source: object) -> None:
+        return None
+
+
+async def test_a_device_that_fails_to_open_is_closed_again() -> None:
+    """Half a connection keeps feeding the hub from something nobody can close."""
+    strap = device("Strap")
+    transport = RefusingTransport(Transport.BLE, [strap])
+    devices, _ = manager(transport)
+
+    with pytest.raises(RuntimeError, match="no answer"):
+        await devices.connect(strap)
+
+    assert transport.opened[0].disconnected
+    assert devices.connected == ()
+
+
+async def test_one_device_that_will_not_connect_does_not_cost_the_others() -> None:
+    """A strap with a flat battery must not stop the trainer from working."""
+    good, bad = device("Trainer", controllable=True), device("Strap")
+    working = FakeTransport(Transport.BLE, [good])
+    broken = RefusingTransport(Transport.ANT, [bad])
+    hub = SensorHub()
+    devices = DeviceManager(hub=hub, transports=(working, broken))
+    bad = device("Strap", transport=Transport.ANT)
+
+    opened = await devices.connect_all([good, bad])
+
+    assert [item.info.name for item in opened] == ["Trainer"]
+    assert devices.has_trainer_control
+    assert "no answer" in devices.failures[bad.id]
+
+
+async def test_connecting_after_a_failure_clears_it() -> None:
+    strap = device("Strap")
+    devices, _ = manager(FakeTransport(Transport.BLE, [strap]))
+    devices.failures[strap.id] = "no answer"
+
+    await devices.connect(strap)
+
+    assert strap.id not in devices.failures

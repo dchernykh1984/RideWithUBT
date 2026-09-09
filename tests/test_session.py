@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.physics import Bike, steady_speed_ms
+from app.core.physics import Air, Bike, steady_speed_ms
 from app.core.session import RideSession
 from app.sensors.hub import SensorHub
 from app.sensors.types import Metric, Reading
@@ -183,3 +183,37 @@ def test_a_lap_of_the_real_circuit_takes_about_as_long_as_it_should() -> None:
     ride_until(ride_session, metres=lap_length_m(network, route), power_w=200.0)
 
     assert 7.0 < ride_session.elapsed_s / 60 < 9.0
+
+
+def test_the_rider_breathes_the_air_of_the_place_they_are_riding() -> None:
+    """Sokol is 650 m up, where the air is five percent thinner than at sea level.
+
+    That is worth the better part of a kilometre an hour at 200 W - more than the
+    difference between a good day and a bad one, and free to get right.
+    """
+    network = load("sokol")
+    high = RideSession(Navigator(network, route=network.route("big-ring")))
+    at_sea_level = RideSession(
+        Navigator(network, route=network.route("big-ring")), air=Air()
+    )
+
+    ride(high, seconds=600.0, power_w=200.0)
+    ride(at_sea_level, seconds=600.0, power_w=200.0)
+
+    assert high.speed_ms > at_sea_level.speed_ms
+    assert (high.speed_ms - at_sea_level.speed_ms) * 3.6 > 0.3
+
+
+def test_a_world_that_is_not_anywhere_gets_sea_level_air() -> None:
+    """A hand-built network at zero metres is not on the sea bed; it is nowhere."""
+    session = RideSession(Navigator(loop_network(), start_segment="north"))
+
+    assert session.air_here(0.0).density_kgm3 == pytest.approx(
+        Air().density_kgm3, rel=1e-6
+    )
+
+
+def test_fixing_the_air_holds_it_still() -> None:
+    session = RideSession(Navigator(loop_network(), start_segment="north"), air=Air())
+
+    assert session.air_here(3000.0) == Air()
