@@ -29,3 +29,6 @@ msgstr "Workout complete"
 
 msgid "Press space when ready"
 msgstr "Press space when ready"
+
+msgid "Press tab to close"
+msgstr "Press tab to close"

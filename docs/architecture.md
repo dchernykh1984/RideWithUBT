@@ -98,6 +98,13 @@ The test for the rule is not "does it import Panda3D" but "could this be tested"
 Anything in `app/render` that answers no to the second while passing the first is
 in the wrong file.
 
+The setup screen is the same rule applied to a menu. Picking a wheel and a
+trainer from a window is walking two lists and saving the result, and none of
+that needs a window to be decided, so `app/core/preferences.py` holds a
+`SetupMenu` - rows, where each points, what the choices are worth - and the
+renderer only draws its lines and hands it key presses. It is the same
+catalogue and the same settings file the command line writes.
+
 ## Sensors
 
 One interface, two transports. A sensor is a source of typed readings - power,

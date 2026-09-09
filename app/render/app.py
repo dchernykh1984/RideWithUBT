@@ -33,6 +33,7 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
+from app.core.preferences import SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
 from app.core.session import RideState
 from app.render.geometry import arrow_node, geom_node
@@ -114,6 +115,8 @@ class RideApp(ShowBase):
         if not headless:
             self._prepare_window(offscreen=offscreen)
         self.hud = self._build_hud(headless=headless or offscreen)
+        self.menu: SetupMenu | None = None
+        self.menu_text = self._build_menu_text(headless=headless or offscreen)
         self._light()
         self._bind_keys()
         self.taskMgr.add(self._tick, "ride")
@@ -204,6 +207,21 @@ class RideApp(ShowBase):
             mayChange=True,
         )
 
+    def _build_menu_text(self, *, headless: bool) -> OnscreenText | None:
+        if headless:
+            return None
+        text = OnscreenText(
+            text="",
+            pos=(0.0, 0.4),
+            scale=0.06,
+            fg=(1, 1, 1, 1),
+            bg=(0, 0, 0, 0.65),
+            align=TextNode.ACenter,
+            mayChange=True,
+        )
+        text.hide()
+        return text
+
     def _light(self) -> None:
         ambient = AmbientLight("ambient")
         ambient.setColor((0.55, 0.55, 0.6, 1))
@@ -216,11 +234,15 @@ class RideApp(ShowBase):
 
     def _bind_keys(self) -> None:
         """Left and right move the junction arrow; nothing else steers."""
-        self.accept("arrow_left", self.ride.steer, [Steer.LEFT])
-        self.accept("arrow_right", self.ride.steer, [Steer.RIGHT])
+        self.accept("arrow_left", self._left)
+        self.accept("arrow_right", self._right)
+        self.accept("arrow_up", self._menu_key, [-1, 0])
+        self.accept("arrow_down", self._menu_key, [1, 0])
         self.accept("escape", self.userExit)
         # Space ends a step that runs until the rider says so.
         self.accept("space", self.ride.end_open_step)
+        # Tab opens the settings, and the arrows move about in it while it is up.
+        self.accept("tab", self._toggle_menu)
 
     def _tick(self, task: Task) -> int:
         now = self._clock.getFrameTime()
@@ -236,6 +258,60 @@ class RideApp(ShowBase):
         point = self.state.point
         self.rider.setPos(point.x, point.y, point.z + 0.4)
         self.rider.setH(math.degrees(self.state.heading_rad) - 90.0)
+
+    def _left(self) -> None:
+        """Left changes a setting while the menu is up, and steers when it is not."""
+        if self.menu is None:
+            self.ride.steer(Steer.LEFT)
+        else:
+            self._menu_key(0, -1)
+
+    def _right(self) -> None:
+        if self.menu is None:
+            self.ride.steer(Steer.RIGHT)
+        else:
+            self._menu_key(0, 1)
+
+    def _toggle_menu(self) -> None:
+        """Open the settings, or close them and keep what was chosen.
+
+        Saving on the way out rather than on every keystroke: a rider stepping
+        through the trainer list is looking, not choosing, and writing the file
+        thirty times would make the last look the decision.
+        """
+        if self.menu is None:
+            self.menu = SetupMenu()
+        else:
+            self.menu.save()
+            self.menu = None
+        self._update_menu()
+
+    def _menu_key(self, rows: int, values: int) -> None:
+        if self.menu is None:
+            return
+        if rows:
+            self.menu.move(rows)
+        if values:
+            self.menu.change(values)
+        self._update_menu()
+
+    def _update_menu(self) -> None:
+        if self.menu_text is None:
+            return
+        if self.menu is None:
+            self.menu_text.hide()
+            return
+        lines = [
+            self.translate("Settings"),
+            "",
+            *self.menu.lines(),
+            "",
+            self.menu.summary,
+            "",
+            self.translate("Press tab to close"),
+        ]
+        self.menu_text.setText("\n".join(lines))
+        self.menu_text.show()
 
     def _place_companions(self) -> None:
         """Draw whoever else is on the road, making a marker for anyone new.
