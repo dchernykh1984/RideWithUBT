@@ -566,7 +566,13 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
         world.route(args.route)
 
     from app.core.ride import Ride, RideSetup
-    from app.render.app import RideApp, plan_view, screenshot, selftest
+    from app.render.app import (
+        RideApp,
+        display_modules_available,
+        plan_view,
+        screenshot,
+        selftest,
+    )
 
     if args.selftest:
         problems = (
@@ -584,10 +590,22 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
             for problem in problems:
                 print(f"missing from this build: {problem}")
             return 1
+        # Asked before the headless run, not after: a build that cannot open a
+        # window passes every other check here, because a self-test with no
+        # window never needs one. That is exactly how a release shipped that
+        # died in the dock a second after being double-clicked.
+        pipes = display_modules_available()
+        if not pipes:
+            print(
+                "this build cannot open a window: Panda3D found no display "
+                "module. It is packaged but unreachable - see app/frozen.py.",
+            )
+            return 1
         selftest(translate, world_id=args.world)
         print(
-            f"selftest ok - {len(selfcheck.LATE_IMPORTS)} late imports and "
-            f"{len(selfcheck.LATE_DEPENDENCIES)} late dependencies present"
+            f"selftest ok - {len(selfcheck.LATE_IMPORTS)} late imports, "
+            f"{len(selfcheck.LATE_DEPENDENCIES)} late dependencies and "
+            f"{len(pipes)} display module(s): {', '.join(pipes)}"
         )
         return 0
 
