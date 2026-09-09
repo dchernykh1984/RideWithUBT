@@ -360,9 +360,24 @@ setup supplies a credential without a keyring at all.
 
 ## Uploads
 
-Direct, and only on request. Garmin Connect and Strava are called from the user's
-machine with the user's own credentials. Nothing is relayed, mirrored or queued
-on a server belonging to this project, because there is no such server.
+Direct, and only on request. Garmin Connect and Strava are called from the
+rider's machine with the rider's own credentials. Nothing is relayed, mirrored or
+queued on a server belonging to this project, because there is no such server.
+
+Strava is OAuth, so the rider registers **their own** API application. This app
+has no client of its own to hand out, and holding one would put every rider's
+rides behind a key that is not theirs. Strava rotates refresh tokens, so each
+refresh stores the new one - miss that and the next upload is the last one that
+works.
+
+A ride is sent to Strava as a **VirtualRide**. Sent as a plain ride, a lap of a
+virtual world would sit among rides done outdoors.
+
+**A ride is marked as sent only when the service says it took it.** An upload log
+in the data tree records what went where; recording on failure would quietly lose
+a ride, and not recording at all would make two rides on the service out of one
+file. The log is keyed by file name and service, deliberately not by anything
+inside the file: a re-recorded ride is a new file and should go up again.
 
 ## Multiplayer
 

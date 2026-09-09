@@ -18,6 +18,17 @@ from app.sensors.hub import SensorHub
 from app.sensors.manager import DeviceManager
 from app.services.credentials import CredentialsError
 from app.services.garmin_session import GarminLoginError, connect_to_garmin
+from app.services.strava_session import (
+    CLIENT_ID,
+    CLIENT_SECRET,
+    StravaKeys,
+    StravaSetupError,
+    authorize_url,
+    connect_to_strava,
+    exchange_strava_code,
+)
+from app.services.upload import GarminUploader, Uploader, send
+from app.services.uploads import UploadLog
 from app.settings import Settings
 from app.storage import activities as activity_store
 from app.workout import library as workout_library
@@ -138,6 +149,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="List the workouts in the library, and exit.",
     )
     parser.add_argument(
+        "--upload",
+        nargs="?",
+        const="all",
+        choices=["all", "garmin", "strava"],
+        metavar="SERVICE",
+        help="Send the rides that have not gone up yet.",
+    )
+    parser.add_argument(
+        "--strava-setup",
+        nargs=2,
+        metavar=("CLIENT_ID", "CLIENT_SECRET"),
+        help="Start connecting your own Strava API application.",
+    )
+    parser.add_argument(
+        "--strava-code",
+        metavar="CODE",
+        help="Finish connecting Strava, with the code from the browser.",
+    )
+    parser.add_argument(
         "--rides",
         action="store_true",
         help="List the recorded rides in the activity store, and exit.",
@@ -228,6 +258,56 @@ def import_garmin_workouts(limit: int, username: str | None) -> None:
         print("that account has no workouts to import")
 
 
+def upload_rides(which: str) -> None:
+    """Send whatever has not gone up, to whichever service was asked for."""
+    rides = activity_store.rides()
+    if not rides:
+        print("no rides to upload")
+        return
+    log = UploadLog.load()
+    for service in ("garmin", "strava") if which == "all" else (which,):
+        uploader = _uploader_for(service)
+        if uploader is None:
+            continue
+        for result in send(uploader, rides, log):
+            if result.ok:
+                print(f"{result.ride.name} -> {service} {result.reference}".rstrip())
+            else:
+                print(result.problem)
+    log.save()
+
+
+def _uploader_for(service: str) -> Uploader | None:
+    try:
+        if service == "garmin":
+            username = Settings.load().garmin_username
+            if not username:
+                print("say which Garmin account with --garmin-user EMAIL")
+                return None
+            return GarminUploader(client=connect_to_garmin(username).client)
+        return connect_to_strava()
+    except (CredentialsError, GarminLoginError, StravaSetupError) as error:
+        print(str(error))
+        return None
+
+
+def start_strava_setup(client_id: str, client_secret: str) -> None:
+    StravaKeys.write(CLIENT_ID, client_id)
+    StravaKeys.write(CLIENT_SECRET, client_secret)
+    print("open this, allow access, then copy the `code` from the address bar:")
+    print(authorize_url(client_id))
+    print("then run: ridewithubt --strava-code CODE")
+
+
+def finish_strava_setup(code: str) -> None:
+    try:
+        exchange_strava_code(code)
+    except StravaSetupError as error:
+        print(str(error))
+        return
+    print("Strava connected")
+
+
 def print_rides() -> None:
     recorded = activity_store.rides()
     for path in recorded:
@@ -269,6 +349,12 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
         (args.pair, lambda: pair_device(args.pair)),
         (args.unpair, lambda: unpair_device(args.unpair)),
         (args.devices, print_paired_devices),
+        (args.upload is not None, lambda: upload_rides(args.upload)),
+        (
+            args.strava_setup is not None,
+            lambda: start_strava_setup(*(args.strava_setup or ("", ""))),
+        ),
+        (args.strava_code, lambda: finish_strava_setup(args.strava_code)),
         (
             args.import_garmin is not None,
             lambda: import_garmin_workouts(args.import_garmin, args.garmin_user),
