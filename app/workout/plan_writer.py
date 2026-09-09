@@ -7,7 +7,6 @@ shape and a workout can be looked at, edited or shared as a file.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import Any
 
 from app.workout.model import DurationKind, Element, Repeat, Step, Workout
@@ -53,7 +52,3 @@ def describe_workout(workout: Workout) -> dict[str, Any]:
     if workout.ftp_watts is not None:
         raw["ftp_watts"] = workout.ftp_watts
     return raw
-
-
-def describe_all(workouts: Sequence[Workout]) -> list[dict[str, Any]]:
-    return [describe_workout(workout) for workout in workouts]

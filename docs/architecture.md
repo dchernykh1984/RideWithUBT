@@ -334,6 +334,11 @@ P/v claims an acceleration no bicycle can produce, so acceleration is capped at
 what a strong rider manages off the line. Down there the limit is torque and
 traction, not power.
 
+The air comes from the world as well. Sokol sits about 650 m up, where the air is
+five percent thinner than at sea level - worth the better part of a kilometre an
+hour at 200 W, which is more than the difference between a good day and a bad
+one. A world that does not say how high it is gets sea level.
+
 ## Storage
 
 One static tree, chosen per platform, holding everything the app knows:

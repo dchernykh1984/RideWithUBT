@@ -22,7 +22,6 @@ import struct
 # --- Bluetooth: the Fitness Machine Control Point (0x2AD9) --------------------
 
 FTMS_REQUEST_CONTROL = 0x00
-FTMS_RESET = 0x01
 FTMS_SET_TARGET_POWER = 0x05
 FTMS_START_OR_RESUME = 0x07
 FTMS_SET_SIMULATION = 0x11
@@ -77,10 +76,6 @@ def ftms_request_control() -> bytes:
 
 def ftms_start() -> bytes:
     return bytes([FTMS_START_OR_RESUME])
-
-
-def ftms_reset() -> bytes:
-    return bytes([FTMS_RESET])
 
 
 def ftms_target_power(watts: float) -> bytes:

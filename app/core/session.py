@@ -8,13 +8,18 @@ how fast that makes them go, and the navigator moves them that far.
 which is a fact about the trainer and not about the virtual course: believing it
 would leave the gradient doing nothing, so a climb would cost effort and change
 no number the rider sees. Power is the input; speed is the result.
+
+The air comes from the world too. Sokol sits about 650 m up, where the air is
+five percent thinner than at sea level - worth the better part of a kilometre an
+hour at 200 W, which is more than the difference between a good day and a bad
+one. A world that does not say how high it is gets sea level.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.core.physics import STANDARD_AIR, Air, Bike, step_speed_ms
+from app.core.physics import Air, Bike, step_speed_ms
 from app.sensors.hub import SensorHub
 from app.world.navigation import Navigator, UpcomingJunction
 from app.world.network import Point
@@ -57,18 +62,28 @@ class RideSession:
         navigator: Navigator,
         hub: SensorHub | None = None,
         bike: Bike | None = None,
-        air: Air = STANDARD_AIR,
+        air: Air | None = None,
     ) -> None:
         self.navigator = navigator
         self.hub = hub or SensorHub()
         self.bike = bike or Bike()
+        #: None means "whatever the air is where the rider is", which is what a
+        #: world with a real elevation should give them. A fixed value is for
+        #: tests and for anyone who wants to hold one thing still.
         self.air = air
+        self.fixed_air = air is not None
         self.speed_ms = 0.0
         self.elapsed_s = 0.0
 
     @property
     def distance_m(self) -> float:
         return self.navigator.travelled_m
+
+    def air_here(self, elevation_m: float) -> Air:
+        """The air at the rider's own height, unless one was fixed for them."""
+        if self.air is not None:
+            return self.air
+        return Air.at_altitude(elevation_m)
 
     def update(self, seconds: float, now: float) -> RideState:
         """Advance the ride by one step and report where it got to."""
@@ -78,7 +93,12 @@ class RideSession:
         gradient = self.navigator.gradient
 
         self.speed_ms = step_speed_ms(
-            self.speed_ms, watts, gradient, seconds, self.bike, self.air
+            self.speed_ms,
+            watts,
+            gradient,
+            seconds,
+            self.bike,
+            self.air_here(self.navigator.point.z),
         )
         self.elapsed_s += seconds
         self.navigator.advance(self.speed_ms * seconds)

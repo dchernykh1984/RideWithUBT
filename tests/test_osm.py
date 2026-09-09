@@ -212,11 +212,10 @@ def test_building_from_files(tmp_path: Path) -> None:
     )
 
     network = osm.build_from_files(tmp_path / "recipe.json", tmp_path / "extract.json")
-    origin = osm.describe_origin(tmp_path / "recipe.json", tmp_path / "extract.json")
-
     assert network.id == "square"
     assert network.route("short").choices == {"n2": "cut-0"}
-    assert origin == {"lat": 0.0, "lon": 0.0}
+    assert network.origin is not None
+    assert (network.origin.lat, network.origin.lon) == (0.0, 0.0)
 
 
 # The pit lane, which open data usually does not have and the generator builds.

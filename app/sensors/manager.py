@@ -63,6 +63,8 @@ class DeviceManager:
     transports: Sequence[DeviceTransport] = ()
     wheel: Wheel | None = None
     connections: dict[str, Connection] = field(default_factory=dict)
+    #: Devices that would not open, and what they said, by id.
+    failures: dict[str, str] = field(default_factory=dict)
 
     @property
     def connected(self) -> tuple[DeviceInfo, ...]:
@@ -113,16 +115,35 @@ class DeviceManager:
             return existing
         transport = self._transport_for(device)
         source = transport.open(device, self.wheel)
-        await source.connect(self.hub.submit)
-        control = transport.control_for(source)
-        if control is not None:
-            await control.take_control()
+        try:
+            await source.connect(self.hub.submit)
+            control = transport.control_for(source)
+            if control is not None:
+                await control.take_control()
+        except Exception:
+            # Half a connection is worse than none: it would keep feeding the hub
+            # from a device the manager does not know it has, and so cannot close.
+            await source.disconnect()
+            raise
         connection = Connection(info=device, source=source, control=control)
         self.connections[device.id] = connection
+        self.failures.pop(device.id, None)
         return connection
 
     async def connect_all(self, devices: Iterable[DeviceInfo]) -> list[Connection]:
-        return [await self.connect(device) for device in devices]
+        """Connect what will connect. One device that will not must not cost the rest.
+
+        A strap with a flat battery should not stop the trainer from working.
+        """
+        opened = []
+        for device in devices:
+            try:
+                opened.append(await self.connect(device))
+            except Exception as error:
+                # Kept rather than swallowed: a rider whose strap did not answer
+                # should be told which one, not left guessing why it is blank.
+                self.failures[device.id] = str(error)
+        return opened
 
     async def disconnect(self, device_id: str) -> None:
         """Close a device and forget what it told us.
