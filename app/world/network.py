@@ -168,6 +168,21 @@ class Route:
 
 
 @dataclass(frozen=True)
+class Start:
+    """Where a rider is put when a ride begins.
+
+    Deliberately not the same thing as a route's `start_segment`, which is
+    where a *lap* is measured from. At an autodrome a session begins in the
+    pits and the lap is the circuit; conflating the two would either put the
+    rider on the track when they should be rolling out of a box, or count the
+    pit lane as part of a lap that does not include it.
+    """
+
+    segment_id: str
+    offset_m: float = 0.0
+
+
+@dataclass(frozen=True)
 class TrackNetwork:
     """Every segment of a world, and how they join.
 
@@ -183,6 +198,10 @@ class TrackNetwork:
     junctions: tuple[Junction, ...] = ()
     routes: tuple[Route, ...] = ()
     origin: Origin | None = None
+    #: Where a ride begins, when the world says. Without one a rider starts at
+    #: the beginning of the first segment, which is wherever the data happened
+    #: to start - fine for a test world, arbitrary for a real place.
+    start: Start | None = None
 
     def __post_init__(self) -> None:
         self._check()
@@ -203,6 +222,18 @@ class TrackNetwork:
                 raise NetworkError(
                     f"route {route.id!r} starts on {route.start_segment!r}, "
                     "which is not a segment"
+                )
+        if self.start is not None:
+            if self.start.segment_id not in self.by_id:
+                raise NetworkError(
+                    f"world {self.id!r} starts on {self.start.segment_id!r}, "
+                    "which is not a segment"
+                )
+            length = self.by_id[self.start.segment_id].length_m
+            if not 0.0 <= self.start.offset_m <= length:
+                raise NetworkError(
+                    f"world {self.id!r} starts {self.start.offset_m:.0f} m along "
+                    f"{self.start.segment_id!r}, which is {length:.0f} m long"
                 )
 
     @cached_property

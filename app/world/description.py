@@ -23,6 +23,7 @@ from app.world.network import (
     Point,
     Route,
     Segment,
+    Start,
     TrackNetwork,
 )
 
@@ -72,6 +73,15 @@ def parse_origin(raw: dict[str, Any] | None) -> Origin | None:
     return Origin(lat=float(raw["lat"]), lon=float(raw["lon"]))
 
 
+def parse_start(raw: dict[str, Any] | None) -> Start | None:
+    if raw is None:
+        return None
+    return Start(
+        segment_id=str(raw["segment"]),
+        offset_m=float(raw.get("offset_m", 0.0)),
+    )
+
+
 def parse_world(raw: dict[str, Any]) -> TrackNetwork:
     """Build a network from a parsed description, checking it as it goes."""
     try:
@@ -82,6 +92,7 @@ def parse_world(raw: dict[str, Any]) -> TrackNetwork:
             junctions=tuple(parse_junction(item) for item in raw.get("junctions", ())),
             routes=tuple(parse_route(item) for item in raw.get("routes", ())),
             origin=parse_origin(raw.get("origin")),
+            start=parse_start(raw.get("start")),
         )
     except KeyError as error:
         raise NetworkError(f"world description is missing {error.args[0]!r}") from None
@@ -151,5 +162,10 @@ def describe(network: TrackNetwork) -> dict[str, Any]:
         document["origin"] = {
             "lat": round(network.origin.lat, 9),
             "lon": round(network.origin.lon, 9),
+        }
+    if network.start is not None:
+        document["start"] = {
+            "segment": network.start.segment_id,
+            "offset_m": round(network.start.offset_m, 3),
         }
     return document

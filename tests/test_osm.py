@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.world import osm
-from app.world.network import NetworkError
+from app.world.network import NetworkError, Point, Segment
 
 # A square circuit with one corner cut off, which is the shape every alternative
 # racing configuration has: a main loop and a shorter way across it.
@@ -357,3 +357,97 @@ def test_reading_the_sampled_heights_from_a_file(tmp_path: Path) -> None:
     )
 
     assert osm.load_heights(path) == {1: 650.5}
+
+
+# Where the recipe says a ride begins.
+
+
+def straight_segment(identifier: str, length_m: float) -> Segment:
+    return Segment(
+        id=identifier,
+        start_node="a",
+        end_node="b",
+        points=(Point(0.0, 0.0, 0.0), Point(length_m, 0.0, 0.0)),
+    )
+
+
+def test_a_recipe_can_say_where_a_ride_starts(tmp_path: Path) -> None:
+    path = tmp_path / "recipe.json"
+    path.write_text(
+        json.dumps(
+            {
+                "id": "w",
+                "name": "W",
+                "main_way": 1,
+                "start_on": {"key": "pit-lane", "fraction": 0.5},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    recipe = osm.load_recipe(path)
+
+    assert recipe.start_on is not None
+    assert recipe.start_on.key == "pit-lane"
+    assert recipe.start_on.fraction == 0.5
+
+
+def test_a_recipe_that_says_nothing_starts_nowhere_in_particular(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "recipe.json"
+    path.write_text(
+        json.dumps({"id": "w", "name": "W", "main_way": 1}), encoding="utf-8"
+    )
+
+    assert osm.load_recipe(path).start_on is None
+
+
+def test_a_fraction_lands_on_the_segment_that_holds_it() -> None:
+    """A named group is several segments once the splitting is done."""
+    group = {
+        "pit-lane": [
+            straight_segment("pit-lane-0", 100.0),
+            straight_segment("pit-lane-1", 300.0),
+        ]
+    }
+
+    start = osm._start(osm.StartOn("pit-lane", 0.5), group)
+
+    assert start is not None
+    assert start.segment_id == "pit-lane-1", "200 m in is 100 m along the second"
+    assert start.offset_m == pytest.approx(100.0)
+
+
+def test_the_beginning_and_the_end_of_a_group() -> None:
+    group = {"pit-lane": [straight_segment("pit-lane-0", 100.0)]}
+
+    beginning = osm._start(osm.StartOn("pit-lane", 0.0), group)
+    end = osm._start(osm.StartOn("pit-lane", 1.0), group)
+
+    assert beginning is not None and end is not None
+    assert beginning.offset_m == pytest.approx(0.0)
+    assert end.offset_m == pytest.approx(100.0)
+
+
+@pytest.mark.parametrize("fraction", [-1.0, 2.0])
+def test_a_fraction_outside_the_lane_is_pulled_back_onto_it(fraction: float) -> None:
+    """A typo in a data file should not put a rider off the end of the road."""
+    group = {"pit-lane": [straight_segment("pit-lane-0", 100.0)]}
+
+    start = osm._start(osm.StartOn("pit-lane", fraction), group)
+
+    assert start is not None
+    assert 0.0 <= start.offset_m <= 100.0
+
+
+def test_starting_on_something_this_world_does_not_have_says_so() -> None:
+    with pytest.raises(NetworkError, match="no segments for"):
+        osm._start(
+            osm.StartOn("pit-lane", 0.5),
+            {"main": [straight_segment("main-0", 10.0)]},
+        )
+
+
+def test_nothing_asked_for_is_nothing_built() -> None:
+    assert osm._start(None, {}) is None

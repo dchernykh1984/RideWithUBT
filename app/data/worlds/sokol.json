@@ -1043,5 +1043,9 @@
  "origin": {
   "lat": 43.5814425,
   "lon": 76.5651263
+ },
+ "start": {
+  "segment": "pit-lane-0",
+  "offset_m": 326.313
  }
 }

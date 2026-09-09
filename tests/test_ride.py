@@ -318,14 +318,30 @@ def test_releasing_a_ride_that_had_no_devices() -> None:
 
 
 def test_steering_reaches_the_navigator() -> None:
-    """Sokol's first junction is the pit entry, which is a real choice to make."""
+    """A ride begins in the pits, so the first choice comes after the roll-out."""
     riding = ride(route_id="big-ring")
-    lane = riding.network.segment("pit-lane-0")
     while riding.navigator.upcoming is None:
         riding.navigator.advance(20.0)
+    upcoming = riding.navigator.upcoming
+    assert upcoming is not None
 
     chosen = riding.steer(Steer.LEFT)
 
     assert chosen is not None
-    assert chosen in riding.navigator.upcoming.exits  # type: ignore[union-attr]
-    assert lane.id in {exit_id for exit_id in riding.navigator.upcoming.exits}  # type: ignore[union-attr]
+    assert chosen in upcoming.exits
+
+
+def test_the_pits_are_still_somewhere_you_can_turn_into() -> None:
+    """Starting in the pit lane must not stop it being a choice on the lap.
+
+    The rider leaves the pits at the exit and comes back to the entry a lap
+    later, which is the same junction it always was.
+    """
+    riding = ride(route_id="big-ring")
+    offered: set[str] = set()
+    for _ in range(300):
+        riding.navigator.advance(20.0)
+        if riding.navigator.upcoming is not None:
+            offered |= set(riding.navigator.upcoming.exits)
+
+    assert "pit-lane-0" in offered

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from app.world import description
 from app.world.navigation import Navigator, Steer
-from app.world.network import NetworkError, Point
+from app.world.network import NetworkError, Point, Start
 from tests.worlds import forked_network
 
 
@@ -104,3 +105,47 @@ def test_the_shipped_worlds_all_load() -> None:
         world = description.load(world_id)
         assert world.segments
         assert world.total_length_m > 0
+
+
+# Where a ride begins, once the world has been written out and read back.
+
+
+def test_a_start_survives_being_written_and_read_back() -> None:
+    """The build writes a world to JSON; the app reads that, not the recipe.
+
+    A field that the writer forgets is a field the application never sees,
+    however carefully the build worked it out.
+    """
+    network = forked_network()
+    with_start = replace(
+        network, start=Start(segment_id=network.segments[1].id, offset_m=12.5)
+    )
+
+    again = description.parse_world(description.describe(with_start))
+
+    assert again.start == with_start.start
+
+
+def test_a_world_with_no_start_writes_none() -> None:
+    written = description.describe(forked_network())
+
+    assert "start" not in written
+    assert description.parse_world(written).start is None
+
+
+def test_a_start_with_no_offset_reads_as_the_beginning() -> None:
+    document = description.describe(forked_network())
+    document["start"] = {"segment": forked_network().segments[0].id}
+
+    start = description.parse_world(document).start
+    assert start is not None
+    assert start.offset_m == 0.0
+
+
+def test_sokol_ships_with_its_start_in_the_file() -> None:
+    """The shipped world file, not the recipe: that is what a rider loads."""
+    path = Path(description.__file__).parent.parent / "data" / "worlds" / "sokol.json"
+    raw = json.loads(path.read_text(encoding="utf-8"))
+
+    assert raw["start"]["segment"] == "pit-lane-0"
+    assert raw["start"]["offset_m"] > 0.0

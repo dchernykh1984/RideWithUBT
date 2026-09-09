@@ -45,5 +45,9 @@
     "offset_m": 14.0,
     "width_m": 8.0
   },
-  "elevation_window_m": 400.0
+  "elevation_window_m": 400.0,
+  "start_on": {
+    "key": "pit-lane",
+    "fraction": 0.5
+  }
 }
