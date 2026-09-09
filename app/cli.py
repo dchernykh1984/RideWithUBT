@@ -12,13 +12,16 @@ import asyncio
 import sys
 from collections.abc import Callable, Sequence
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from app import __version__, i18n, paths, selfcheck, setup_commands
-from app.core.companions import DEFAULT_PARTNER_WATTS, parse_partners
+from app.core.companions import DEFAULT_PARTNER_WATTS, CompanionSource, parse_partners
 from app.core.control import ControlMode
+from app.core.presence import RiderState, anonymous_id
 from app.sensors.discovery import default_transports
 from app.sensors.hub import SensorHub
 from app.sensors.manager import DeviceManager
+from app.services.company import DEFAULT_PORT, NetworkCompany, parse_host
 from app.services.credentials import CredentialsError
 from app.services.garmin import GarminWorkouts
 from app.services.garmin_session import GarminLoginError, connect_to_garmin
@@ -42,6 +45,9 @@ from app.world.description import available_worlds
 from app.world.description import load as load_world
 from app.world.navigation import lap_length_m
 from app.world.network import NetworkError
+
+if TYPE_CHECKING:  # a window's worth of imports, only wanted when one is opened
+    from app.core.ride import RideSetup
 
 # Repeated here rather than imported from app.render, which must not be imported
 # until a window is actually wanted.
@@ -110,6 +116,27 @@ def build_parser() -> argparse.ArgumentParser:
         const=",".join(f"{watts:.0f}" for watts in DEFAULT_PARTNER_WATTS),
         metavar="WATTS",
         help="Put pace partners on the circuit, for example: --partners 150,220,290",
+    )
+    parser.add_argument(
+        "--ride-with",
+        metavar="HOST[:PORT]",
+        help=(
+            "Join other riders through a relay, for example: "
+            "--ride-with 192.168.1.20. Nothing goes to a RideWithUBT server; "
+            "there is none."
+        ),
+    )
+    parser.add_argument(
+        "--name",
+        metavar="NAME",
+        help="The name other riders see. Saved, and only ever sent to a relay.",
+    )
+    parser.add_argument(
+        "--host-room",
+        nargs="?",
+        const=str(DEFAULT_PORT),
+        metavar="PORT",
+        help="Be the relay other riders join, and nothing else. Ctrl-c to stop.",
     )
     parser.add_argument(
         "--capture-trainer",
@@ -538,7 +565,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     if args.route:
         world.route(args.route)
 
-    from app.core.ride import RideSetup
+    from app.core.ride import Ride, RideSetup
     from app.render.app import RideApp, plan_view, screenshot, selftest
 
     if args.selftest:
@@ -569,6 +596,9 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
         print(f"wrote {args.plan}")
         return 0
 
+    if args.host_room:
+        return host_room(args.host_room)
+
     if args.screenshot:
         screenshot(
             translate,
@@ -581,22 +611,89 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
         print(f"wrote {args.screenshot}")
         return 0
 
-    settings = Settings.load()
-    RideApp(
-        translate,
-        RideSetup(
-            world_id=args.world,
-            route_id=args.route,
-            power_w=args.power,
-            record=not args.no_record,
-            workout=_chosen_workout(args),
-            paired_device_ids=tuple(settings.paired_device_ids),
-            control_mode=settings.trainer_control,
-            capture_trainer=args.capture_trainer or settings.record_trainer_data,
-            partner_watts=parse_partners(args.partners) if args.partners else (),
-        ),
-    ).run()
+    # A rider who never joins a room never gets an id: identity is minted on
+    # the way into one, not on the way into the application.
+    joining = bool(args.ride_with or args.name)
+    settings = identify(args.name) if joining else Settings.load()
+    setup = RideSetup(
+        world_id=args.world,
+        route_id=args.route,
+        power_w=args.power,
+        record=not args.no_record,
+        workout=_chosen_workout(args),
+        paired_device_ids=tuple(settings.paired_device_ids),
+        control_mode=settings.trainer_control,
+        capture_trainer=args.capture_trainer or settings.record_trainer_data,
+        partner_watts=parse_partners(args.partners) if args.partners else (),
+        rider_id=settings.rider_id,
+        rider_name=settings.rider_name,
+    )
+    RideApp(translate, ride=Ride(setup, others=join_room(args.ride_with, setup))).run()
     return 0
+
+
+def host_room(port_text: str) -> int:
+    """Be the relay. It forwards datagrams between riders and keeps nothing."""
+    from app.services.room import serve
+
+    try:
+        port = int(port_text)
+    except ValueError:
+        raise ValueError(f"{port_text!r} is not a port number") from None
+    if not 1 <= port <= 65535:
+        raise ValueError(f"{port} is not a port number")
+    serve(port=port)
+    return 0
+
+
+def identify(name: str | None) -> Settings:
+    """Who this rider is to other riders, minted the first time they need to be.
+
+    Nothing is generated until somebody joins a room. A rider who never does
+    has no id in their settings file, which is the correct amount of identity
+    for an application that works alone.
+    """
+    settings = Settings.load()
+    changed = False
+    if name:
+        settings.rider_name, changed = name.strip(), True
+    if not settings.rider_id:
+        settings.rider_id, changed = anonymous_id(), True
+    if not settings.rider_name:
+        settings.rider_name, changed = f"rider-{settings.rider_id[:4]}", True
+    if changed:
+        settings.save()
+    return settings
+
+
+def join_room(host: str | None, setup: RideSetup) -> CompanionSource | None:
+    """Open the socket that other riders come through, or ride alone."""
+    if not host:
+        return None
+    address = parse_host(host)
+    company = NetworkCompany(
+        address=address,
+        me=RiderState(
+            id=setup.rider_id,
+            name=setup.rider_name,
+            world_id=setup.world_id,
+            x=0.0,
+            y=0.0,
+            z=0.0,
+            heading_rad=0.0,
+            distance_m=0.0,
+            speed_ms=0.0,
+        ),
+    )
+    if company.lost:
+        # Not fatal: a ride is a training session, and it happens either way.
+        print(f"riding alone: {company.lost}")
+    else:
+        print(
+            f"riding with whoever is at {address[0]}:{address[1]}, as "
+            f"{setup.rider_name}"
+        )
+    return company
 
 
 #: Where to look when someone asked for something that is not there. The message

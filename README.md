@@ -101,10 +101,12 @@ without one, `--worlds`, `--setup` and the other listing commands still work.
   as ridden indoors.
 - **Speak three languages**: Russian, English and Kazakh.
 
-Riding with other people over a network is a later feature, and the shape it
-needs is already here: `--partners` puts riders on the circuit who ride the same
-physics on the same ground, and a network source would be another way of saying
-where riders are. The app stays fully usable with nobody else on the road.
+- **Ride with other people without joining anything.** `--partners` puts riders
+  on the circuit who ride the same physics on the same ground. `--ride-with`
+  puts real ones there, through a relay that somebody in your club runs with
+  `--host-room` - a laptop on the same network is enough. There is no
+  RideWithUBT server to sign up to, and none to be down. See
+  [Riding together](docs/protocol.md).
 
 ## Running from source
 
@@ -146,6 +148,10 @@ uv run ridewithubt --workout "3x8 Cycling Intervals"   # ride one
 uv run ridewithubt --languages            # list the available languages
 uv run ridewithubt --lang kk              # override the saved language for one run
 uv run ridewithubt --selftest             # boot the engine with no window and exit
+
+uv run ridewithubt --host-room            # be the relay other riders join
+uv run ridewithubt --ride-with 192.168.1.20   # ride with whoever is in that room
+uv run ridewithubt --name Askar           # what they see above your rider
 ```
 
 Left and right arrows choose which way to go at a junction, space ends a workout

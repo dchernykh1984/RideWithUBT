@@ -23,8 +23,10 @@ from app.core.companions import (
     CompanionSource,
     NoCompany,
     PacePartners,
+    Peloton,
 )
 from app.core.control import ControlMode, TrainerDirector
+from app.core.presence import RiderState
 from app.core.recorder import RideRecorder
 from app.core.session import RideSession, RideState
 from app.sensors.hub import SensorHub
@@ -37,6 +39,7 @@ from app.workout.engine import WorkoutEngine, WorkoutProgress
 from app.workout.model import Workout
 from app.world.description import load as load_world
 from app.world.navigation import Navigator, Steer
+from app.world.network import Route
 
 DEFAULT_WORLD = "sokol"
 #: What the stand-in rider pushes until real sensors are connected.
@@ -57,6 +60,11 @@ class RideSetup:
     capture_trainer: bool = False
     #: Powers to put pace partners on the circuit at. Empty is riding alone.
     partner_watts: Sequence[float] = ()
+    #: Who we are to other riders in a room: a name they read, and an id their
+    #: machines tell us apart by. Both are only ever sent to a relay the rider
+    #: named, and neither exists until they join one.
+    rider_id: str = ""
+    rider_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -76,6 +84,10 @@ class Ride:
     transports: Sequence[DeviceTransport] | None = None
     sensor_loop: Loop | None = None
     hub: SensorHub = field(default_factory=SensorHub)
+    #: Riders from somewhere else - a relay, over a network. Handed in rather
+    #: than built here: that client owns a socket, and sockets are
+    #: `app/services`, not the ride.
+    others: CompanionSource | None = None
 
     def __post_init__(self) -> None:
         # Read once: two reads could see different files and set the ride up with
@@ -101,15 +113,28 @@ class Ride:
             if self.sensors
             else SimulatedSensors(steady(power_w=self.setup.power_w))
         )
-        self.company: CompanionSource = (
-            PacePartners.holding(self.network, self.setup.partner_watts, route)
-            if self.setup.partner_watts
-            else NoCompany()
-        )
+        self.company: CompanionSource = self._prepare_company(route)
         self._last_distance_m = 0.0
         self.state: RideState = self.session.update(0.0, now=0.0)
 
     # Setting up.
+
+    def _prepare_company(self, route: Route | None) -> CompanionSource:
+        """Who else is on the road: made-up riders, real ones, or nobody.
+
+        Both at once is a real thing to want - a club ride with a partner to
+        chase - so they compose rather than exclude one another.
+        """
+        sources: list[CompanionSource] = []
+        if self.setup.partner_watts:
+            sources.append(
+                PacePartners.holding(self.network, self.setup.partner_watts, route)
+            )
+        if self.others is not None:
+            sources.append(self.others)
+        if not sources:
+            return NoCompany()
+        return sources[0] if len(sources) == 1 else Peloton(tuple(sources))
 
     def _prepare_capture(self) -> TrainerCapture | None:
         """Measure this trainer's curve during the ride, if asked and possible.
@@ -154,6 +179,7 @@ class Ride:
             for reading in self.rider_source.sample(now, now):
                 self.hub.submit(reading)
         self.state = self.session.update(seconds, now=now)
+        self.company.report(self.me())
         self.company.advance(seconds)
         self._follow_workout(seconds)
         self._command_trainer(now)
@@ -170,6 +196,27 @@ class Ride:
         """What a rider does when a step runs until they say so."""
         if self.workout is not None:
             self.workout.advance()
+
+    def me(self) -> RiderState:
+        """Where we are, in the only terms other riders are told anything.
+
+        Position, heading, speed, distance, cadence, power. Not a heart rate,
+        not a workout, not a name for the machine - the smallest thing that
+        lets somebody else draw us on their road.
+        """
+        return RiderState(
+            id=self.setup.rider_id,
+            name=self.setup.rider_name,
+            world_id=self.setup.world_id,
+            x=self.state.point.x,
+            y=self.state.point.y,
+            z=self.state.point.z,
+            heading_rad=self.state.heading_rad,
+            distance_m=self.state.distance_m,
+            speed_ms=self.state.speed_ms,
+            cadence_rpm=self.state.cadence_rpm,
+            power_w=self.state.power_w,
+        )
 
     @property
     def companions(self) -> Sequence[Companion]:
