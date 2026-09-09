@@ -5,7 +5,7 @@ import math
 import pytest
 
 from app.world import description
-from app.world.mesh import EMPTY, Mesh, network_mesh, ribbon
+from app.world.mesh import EMPTY, Mesh, ground_plane, network_mesh, ribbon
 from app.world.network import Point, Segment
 from tests.worlds import forked_network, line
 
@@ -162,3 +162,40 @@ def test_the_shipped_circuit_builds_a_mesh_of_a_sensible_size() -> None:
 
     assert 200 < len(mesh.triangles) < 20_000
     assert not any(math.isnan(value) for vertex in mesh.vertices for value in vertex)
+
+
+def test_the_ground_sits_under_the_track_not_under_zero() -> None:
+    """Sokol is 645 m up. A backdrop pinned to sea level leaves the track in the
+    sky above it - which is exactly what a screenshot showed the day the circuit
+    stopped being flat."""
+    world = description.load("sokol")
+    lowest = min(point.z for segment in world.segments for point in segment.points)
+
+    ground = ground_plane(world, size_m=8000.0, drop_m=0.15)
+
+    heights = {round(z, 3) for _, _, z in ground.vertices}
+    assert heights == {round(lowest - 0.15, 3)}
+    assert lowest > 600, "the circuit really is that high up"
+
+
+def test_the_ground_covers_the_world_it_is_under() -> None:
+    world = description.load("sokol")
+    reach = max(
+        abs(value)
+        for segment in world.segments
+        for point in segment.points
+        for value in (point.x, point.y)
+    )
+
+    ground = ground_plane(world, size_m=8000.0, drop_m=0.15)
+
+    assert min(x for x, _, _ in ground.vertices) < -reach
+    assert max(x for x, _, _ in ground.vertices) > reach
+
+
+def test_a_world_with_no_segments_still_gets_a_backdrop() -> None:
+    from app.world.network import TrackNetwork
+
+    ground = ground_plane(TrackNetwork(id="e", name="E", segments=()), 100.0, 0.5)
+
+    assert {round(z, 3) for _, _, z in ground.vertices} == {-0.5}

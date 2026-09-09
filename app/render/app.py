@@ -12,7 +12,7 @@ and see that the geometry, the junctions and the steering all work.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 
 from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBase import ShowBase
@@ -30,28 +30,14 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
-from app import paths
-from app.core.control import ControlMode, TrainerDirector
-from app.core.recorder import RideRecorder
-from app.core.session import RideSession, RideState
+from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
+from app.core.session import RideState
 from app.render.geometry import arrow_node, geom_node
-from app.sensors.discovery import default_transports
-from app.sensors.hub import SensorHub
-from app.sensors.loop import SensorLoop
-from app.sensors.manager import DeviceManager
-from app.sensors.simulated import SimulatedSensors, steady
-from app.settings import Settings
-from app.trainer.capture import TrainerCapture
-from app.workout.engine import WorkoutEngine
-from app.workout.model import DurationKind, Workout
-from app.world.description import load as load_world
-from app.world.mesh import Mesh, network_mesh
-from app.world.navigation import Navigator, Steer
+from app.workout.model import DurationKind
+from app.world.mesh import ground_plane, network_mesh
+from app.world.navigation import Steer
 from app.world.network import TrackNetwork
 
-DEFAULT_WORLD = "sokol"
-# What the stand-in rider pushes until real sensors are connected.
-DEFAULT_POWER_W = 200.0
 # Frames the self-test renders before it is satisfied the engine really runs.
 SELFTEST_FRAMES = 5
 
@@ -85,22 +71,20 @@ PLAN_CAMERA_HEIGHT_M = 4000.0
 
 
 class RideApp(ShowBase):
-    """The application window."""
+    """The window. It builds the scene and, once a frame, draws where a ride is.
+
+    Everything that decides anything - the sensors, the workout, the trainer, the
+    recording - is a `Ride`, which needs no window and is tested without one.
+    """
 
     def __init__(
         self,
         translate: Callable[[str], str],
-        world_id: str = DEFAULT_WORLD,
-        route_id: str | None = None,
-        power_w: float = DEFAULT_POWER_W,
+        setup: RideSetup | None = None,
         *,
         headless: bool = False,
         offscreen: bool = False,
-        record: bool = False,
-        workout: Workout | None = None,
-        paired_device_ids: Sequence[str] = (),
-        control_mode: ControlMode = ControlMode.OFF,
-        capture_trainer: bool = False,
+        ride: Ride | None = None,
     ):
         if headless:
             # No graphics pipe at all: the frozen-app smoke test in CI runs on a
@@ -114,34 +98,7 @@ class RideApp(ShowBase):
         super().__init__()
         self.translate = translate
         self._clock = ClockObject.getGlobalClock()
-        self.network: TrackNetwork = load_world(world_id)
-        # Read once: two reads could see different files and set the ride up
-        # with one rider's wheel and another's trainer.
-        self.settings = Settings.load()
-        self.wheel = self.settings.wheel
-        route = self.network.route(route_id) if route_id else None
-        self.navigator = Navigator(self.network, route=route)
-
-        # Real sensors and the stand-in rider report to the same hub, and only
-        # one of them is used: a rider with paired devices gets their own watts,
-        # and a rider with none gets a steady stand-in so the world can still be
-        # ridden. Nothing downstream can tell which it is looking at.
-        self.hub = SensorHub()
-        # Not `self.devices`: ShowBase already owns that name for Panda3D's own
-        # input device manager, and shadowing it breaks its data loop.
-        self.sensors, self.sensor_loop = self._start_sensors(paired_device_ids)
-        self.rider_source = (
-            None if self.sensors else SimulatedSensors(steady(power_w=power_w))
-        )
-        self.director = TrainerDirector(mode=control_mode)
-        self.session = RideSession(self.navigator, hub=self.hub)
-        self.state: RideState = self.session.update(0.0, now=0.0)
-        # A picture of the world or a smoke test is not a ride, so neither of
-        # those leaves a file behind in the rider's activity store.
-        self.recorder = RideRecorder() if record else None
-        self.workout = WorkoutEngine(workout) if workout else None
-        self.capture = self._start_capture(capture_trainer)
-        self._last_distance_m = 0.0
+        self.ride = ride or Ride(setup or RideSetup())
 
         self.ground = self._build_ground()
         self.track = self._build_track()
@@ -154,60 +111,20 @@ class RideApp(ShowBase):
         self._bind_keys()
         self.taskMgr.add(self._tick, "ride")
 
+    @property
+    def state(self) -> RideState:
+        return self.ride.state
+
+    @property
+    def network(self) -> TrackNetwork:
+        return self.ride.network
+
     # Building the scene.
 
-    def _start_capture(self, wanted: bool) -> TrainerCapture | None:
-        """Measure this trainer's curve during the ride, if asked and possible.
-
-        It needs a trainer to attribute the curve to and a wheel to turn the
-        speed sensor's revolutions into a speed; without either there is nothing
-        a profile could be recorded against.
-        """
-        if not wanted:
-            return None
-        trainer, wheel = self.settings.trainer, self.settings.wheel
-        if trainer is None or wheel is None:
-            return None
-        return TrainerCapture(trainer=trainer, wheel=wheel)
-
-    def _start_sensors(
-        self, paired_device_ids: Sequence[str]
-    ) -> tuple[DeviceManager | None, SensorLoop | None]:
-        """Connect the rider's own devices, on a thread of their own.
-
-        The connecting is not waited for. A scan takes seconds, and a window
-        that will not draw until the radios have finished looking is a window
-        that looks broken; devices simply start reporting when they answer.
-        """
-        if not paired_device_ids:
-            return None, None
-        loop = SensorLoop()
-        loop.start()
-        manager = DeviceManager(
-            hub=self.hub, transports=default_transports(), wheel=self.wheel
-        )
-        loop.submit(self._connect_paired(manager, tuple(paired_device_ids)))
-        return manager, loop
-
-    @staticmethod
-    async def _connect_paired(manager: DeviceManager, wanted: tuple[str, ...]) -> None:
-        """Connect whichever paired devices answer. One that does not is absent."""
-        found = await manager.scan()
-        await manager.connect_all(device for device in found if device.id in wanted)
-
     def _build_ground(self) -> NodePath:
-        """One big quad under everything, a touch below the track surface."""
-        half = GROUND_SIZE_M / 2.0
-        mesh = Mesh(
-            vertices=(
-                (-half, -half, -GROUND_DROP_M),
-                (half, -half, -GROUND_DROP_M),
-                (half, half, -GROUND_DROP_M),
-                (-half, half, -GROUND_DROP_M),
-            ),
-            tex_coords=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
-            triangles=((0, 1, 2), (0, 2, 3)),
-        )
+        """A backdrop under the circuit. Not terrain - the landscape around Sokol
+        is not modelled - just something for the track to sit on."""
+        mesh = ground_plane(self.network, GROUND_SIZE_M, GROUND_DROP_M)
         node = self.render.attachNewNode(geom_node(mesh, "ground"))
         node.setColor(*GROUND_COLOUR)
         return node
@@ -268,73 +185,20 @@ class RideApp(ShowBase):
 
     def _bind_keys(self) -> None:
         """Left and right move the junction arrow; nothing else steers."""
-        self.accept("arrow_left", self.navigator.steer, [Steer.LEFT])
-        self.accept("arrow_right", self.navigator.steer, [Steer.RIGHT])
+        self.accept("arrow_left", self.ride.steer, [Steer.LEFT])
+        self.accept("arrow_right", self.ride.steer, [Steer.RIGHT])
         self.accept("escape", self.userExit)
         # Space ends a step that runs until the rider says so.
-        self.accept("space", self._end_open_step)
-
-    def _end_open_step(self) -> None:
-        if self.workout is not None:
-            self.workout.advance()
-
-    # Every frame.
+        self.accept("space", self.ride.end_open_step)
 
     def _tick(self, task: Task) -> int:
         now = self._clock.getFrameTime()
-        if self.rider_source is not None:
-            for reading in self.rider_source.sample(now, now):
-                self.hub.submit(reading)
-        self.state = self.session.update(self._clock.getDt(), now=now)
-        if self.capture is not None:
-            self.capture.observe(self.hub.snapshot(now))
-        self._command_trainer(now)
-        self._follow_workout(self._clock.getDt())
-        if self.recorder is not None:
-            self.recorder.observe(self.state)
+        self.ride.advance(self._clock.getDt(), now)
         self._place_rider()
         self._place_camera()
         self._place_arrow()
         self._update_hud()
         return Task.cont
-
-    def _command_trainer(self, now: float) -> None:
-        """Tell the trainer what to hold, when there is anything new to say."""
-        if self.sensors is None or self.sensor_loop is None:
-            return
-        command = self.director.update(
-            now, gradient=self.state.gradient, target_w=self._target_power_w()
-        )
-        if command is not None:
-            self.sensor_loop.submit(self.sensors.apply(command))
-
-    def _target_power_w(self) -> float | None:
-        if self.workout is None:
-            return None
-        step = self.workout.progress().step
-        if step is None:
-            return None
-        target = step.step.power
-        return target.middle if target is not None else None
-
-    def _follow_workout(self, seconds: float) -> None:
-        """Move the workout on, and let its target drive the stand-in rider.
-
-        A real rider is told the target and decides whether to hold it; the
-        stand-in simply holds it, which is what makes a workout visible before
-        any sensor is connected.
-        """
-        if self.workout is None:
-            return
-        covered = self.state.distance_m - self._last_distance_m
-        self._last_distance_m = self.state.distance_m
-        progress = self.workout.update(seconds, covered, self.state.power_w)
-        step = progress.step
-        if step is None or self.rider_source is None:
-            return
-        target = step.step.power
-        if target is not None:
-            self.rider_source.profile = steady(power_w=target.middle)
 
     def _place_rider(self) -> None:
         point = self.state.point
@@ -402,9 +266,11 @@ class RideApp(ShowBase):
         self.hud.setText("\n".join(lines))
 
     def _workout_lines(self) -> list[str]:
-        if self.workout is None:
+        if self.ride.workout is None:
             return []
-        progress = self.workout.progress()
+        progress = self.ride.workout_progress
+        if progress is None:  # pragma: no cover - guarded by the caller
+            return []
         if progress.finished:
             return ["", self.translate("Workout complete")]
         step = progress.step
@@ -432,47 +298,16 @@ class RideApp(ShowBase):
         now = 0.0
         while now < seconds:
             now += step
-            if self.rider_source is not None:
-                for reading in self.rider_source.sample(now, now):
-                    self.hub.submit(reading)
-            self.state = self.session.update(step, now=now)
+            self.ride.advance(step, now)
         self._place_rider()
         self._place_camera()
         self._place_arrow()
 
     def userExit(self) -> None:  # noqa: N802 - overriding Panda3D's own name
         """Save the ride and release the radios, however the window was closed."""
-        self.save_ride()
-        self.save_trainer_profile()
-        self.release_sensors()
+        self.ride.save()
+        self.ride.release()
         super().userExit()
-
-    def save_trainer_profile(self) -> str | None:
-        """Write the measured profile out, if the ride measured a usable one."""
-        if self.capture is None:
-            return None
-        report = self.capture.report()
-        if not report.publishable:
-            return None
-        path = self.capture.write_contribution(paths.contributions_dir())
-        self.capture = None
-        return str(path)
-
-    def release_sensors(self) -> None:
-        """Disconnect every device and stop the sensor thread."""
-        if self.sensors is not None and self.sensor_loop is not None:
-            self.sensor_loop.run(self.sensors.disconnect_all())
-        if self.sensor_loop is not None:
-            self.sensor_loop.stop()
-        self.sensors, self.sensor_loop = None, None
-
-    def save_ride(self) -> str | None:
-        """Write the recording into the activity store, if there is one."""
-        if self.recorder is None or self.recorder.is_empty:
-            return None
-        path = self.recorder.save()
-        self.recorder = None  # a ride is saved once
-        return str(path)
 
     def run_frames(self, count: int) -> None:
         """Render a fixed number of frames and return, instead of looping forever."""
@@ -496,9 +331,7 @@ def screenshot(
     """
     app = RideApp(
         translate,
-        world_id=world_id,
-        route_id=route_id,
-        power_w=power_w,
+        RideSetup(world_id=world_id, route_id=route_id, power_w=power_w),
         offscreen=True,
     )
     try:
@@ -523,7 +356,7 @@ def plan_view(
     mistake in any of them is obvious in a way a diff of coordinates is not.
     """
     loadPrcFileData("plan", f"win-size {size_px} {size_px}")
-    app = RideApp(translate, world_id=world_id, offscreen=True)
+    app = RideApp(translate, RideSetup(world_id=world_id), offscreen=True)
     try:
         # Nothing moves in a plan view, so the ride does not run.
         app.taskMgr.remove("ride")
@@ -556,7 +389,7 @@ def selftest(translate: Callable[[str], str], world_id: str = DEFAULT_WORLD) -> 
     world file that failed to travel with it - raises here rather than on a
     user's machine.
     """
-    app = RideApp(translate, world_id=world_id, headless=True)
+    app = RideApp(translate, RideSetup(world_id=world_id), headless=True)
     try:
         app.run_frames(SELFTEST_FRAMES)
     finally:

@@ -18,8 +18,9 @@ Translate = Callable[[str], str]
 class FakeRideApp:
     """Stand-in for the Panda3D window, which needs a GPU the test runner lacks."""
 
-    def __init__(self, translate: Translate, **options: Any) -> None:
+    def __init__(self, translate: Translate, setup: Any = None, **options: Any) -> None:
         self.translate = translate
+        self.setup = setup
         self.options = options
         self.ran = False
 
@@ -36,8 +37,10 @@ class FakeRenderer:
     screenshots: list[dict[str, Any]] = field(default_factory=list)
     plans: list[dict[str, Any]] = field(default_factory=list)
 
-    def build_app(self, translate: Translate, **options: Any) -> FakeRideApp:
-        app = FakeRideApp(translate, **options)
+    def build_app(
+        self, translate: Translate, setup: Any = None, **options: Any
+    ) -> FakeRideApp:
+        app = FakeRideApp(translate, setup, **options)
         self.apps.append(app)
         return app
 
@@ -117,7 +120,7 @@ def test_default_run_opens_a_localised_window(renderer: FakeRenderer) -> None:
     (app,) = renderer.apps
     assert app.ran
     assert app.translate("Settings") != "Settings"
-    assert app.options["world_id"] == "sokol"
+    assert app.setup.world_id == "sokol"
 
 
 def test_the_world_route_and_power_reach_the_renderer(
@@ -128,8 +131,8 @@ def test_the_world_route_and_power_reach_the_renderer(
     )
 
     (app,) = renderer.apps
-    assert app.options["route_id"] == "small-ring"
-    assert app.options["power_w"] == 240.0
+    assert app.setup.route_id == "small-ring"
+    assert app.setup.power_w == 240.0
 
 
 def test_worlds_lists_every_configuration_with_its_lap(
@@ -176,14 +179,14 @@ def test_the_ride_is_recorded_unless_asked_otherwise(renderer: FakeRenderer) -> 
     assert cli.main([]) == 0
 
     (app,) = renderer.apps
-    assert app.options["record"] is True
+    assert app.setup.record is True
 
 
 def test_no_record_rides_without_keeping_it(renderer: FakeRenderer) -> None:
     assert cli.main(["--no-record"]) == 0
 
     (app,) = renderer.apps
-    assert app.options["record"] is False
+    assert app.setup.record is False
 
 
 def test_rides_reports_an_empty_store(capsys: pytest.CaptureFixture[str]) -> None:
@@ -243,14 +246,14 @@ def test_a_workout_reaches_the_renderer(renderer: FakeRenderer) -> None:
     assert cli.main(["--workout", example]) == 0
 
     (app,) = renderer.apps
-    assert app.options["workout"].name == "3x8 Cycling Intervals"
+    assert app.setup.workout.name == "3x8 Cycling Intervals"
 
 
 def test_riding_without_a_workout_passes_none(renderer: FakeRenderer) -> None:
     assert cli.main([]) == 0
 
     (app,) = renderer.apps
-    assert app.options["workout"] is None
+    assert app.setup.workout is None
 
 
 def test_pairing_and_unpairing_a_device(capsys: pytest.CaptureFixture[str]) -> None:

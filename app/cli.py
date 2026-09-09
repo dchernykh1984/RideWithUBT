@@ -40,6 +40,8 @@ from app.world.network import NetworkError
 
 # Repeated here rather than imported from app.render, which must not be imported
 # until a window is actually wanted.
+# Repeated here rather than imported from app.core.ride, which the CLI must
+# not need until a ride is actually wanted.
 DEFAULT_WORLD = "sokol"
 DEFAULT_POWER_W = 200.0
 DEFAULT_SCAN_SECONDS = 6.0
@@ -380,6 +382,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     if args.route:
         world.route(args.route)
 
+    from app.core.ride import RideSetup
     from app.render.app import RideApp, plan_view, screenshot, selftest
 
     if args.selftest:
@@ -425,14 +428,16 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     settings = Settings.load()
     RideApp(
         translate,
-        world_id=args.world,
-        route_id=args.route,
-        power_w=args.power,
-        record=not args.no_record,
-        workout=workout_library.find(args.workout) if args.workout else None,
-        paired_device_ids=settings.paired_device_ids,
-        control_mode=settings.trainer_control,
-        capture_trainer=args.capture_trainer or settings.record_trainer_data,
+        RideSetup(
+            world_id=args.world,
+            route_id=args.route,
+            power_w=args.power,
+            record=not args.no_record,
+            workout=workout_library.find(args.workout) if args.workout else None,
+            paired_device_ids=tuple(settings.paired_device_ids),
+            control_mode=settings.trainer_control,
+            capture_trainer=args.capture_trainer or settings.record_trainer_data,
+        ),
     ).run()
     return 0
 
