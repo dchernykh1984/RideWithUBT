@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.1.0...v0.2.0) (2026-09-09)
+
+
+### Features
+
+* **core:** ride with other people on the same road ([c435d50](https://github.com/dchernykh1984/RideWithUBT/commit/c435d50631466a5320ef55f3e6697883bbb3b648))
+* **render:** draw the track on a surface, with a line at each edge ([7d908b0](https://github.com/dchernykh1984/RideWithUBT/commit/7d908b00b659be9bd1eca9343abdfc40f1e06e97))
+* **settings:** choose your wheel, tyre and trainer ([423bc1d](https://github.com/dchernykh1984/RideWithUBT/commit/423bc1de0950e22946b4d68648c2f1e3f03aacd7))
+* **workout:** read the training plan's calendar from Garmin ([a4094c5](https://github.com/dchernykh1984/RideWithUBT/commit/a4094c5d1f7cb5c9c54f694388ce55b5b18f1b2d))
+
+
+### Documentation
+
+* say how to open an unsigned build on each platform ([a78a51a](https://github.com/dchernykh1984/RideWithUBT/commit/a78a51aedc8e939da6433df41a55e9a67c8dbf8e))
+
 ## 0.1.0 (2026-09-09)
 
 
