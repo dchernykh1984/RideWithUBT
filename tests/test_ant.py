@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 
 import pytest
@@ -272,3 +273,56 @@ async def test_commanding_with_no_stick_says_so() -> None:
 
     with pytest.raises(RuntimeError, match="no ANT\\+ radio"):
         await device.send_page(b"\x31")
+
+
+# The transport, as the device manager uses it.
+
+
+def test_a_device_id_splits_back_into_the_channel_it_names() -> None:
+    assert ant.parse_device_id("ant:11:42") == (11, 42)
+
+
+@pytest.mark.parametrize("bad", ["ble:11:42", "ant:11", "ant:power:42"])
+def test_an_id_that_is_not_an_ant_device(bad: str) -> None:
+    with pytest.raises(ant.NetworkIdError, match="not an ANT"):
+        ant.parse_device_id(bad)
+
+
+async def test_scanning_reports_whatever_answers_on_each_profile() -> None:
+    radio = FakeRadio()
+    transport = ant.AntTransport(radio, profiles=(pages.DEVICE_HEART_RATE,))
+
+    async def answer() -> None:
+        # A strap broadcasts on the wildcard channel while the scan is listening.
+        await asyncio.sleep(0)
+        radio.broadcast(pages.DEVICE_HEART_RATE, 0, page(0, 0, 0, 0, 0, 0, 1, 140))
+
+    found, _ = await asyncio.gather(transport.scan(0.01), answer())
+
+    assert [device.name for device in found] == ["Heart rate monitor #0"]
+    assert radio.channels == {}, "the scan closes what it opened"
+
+
+async def test_scanning_without_a_stick_finds_nothing() -> None:
+    assert await ant.AntTransport().scan(0.01) == []
+
+
+def test_the_transport_opens_a_device_from_its_id() -> None:
+    radio = FakeRadio()
+    transport = ant.AntTransport(radio)
+    info = ant.device_from_channel(pages.DEVICE_FITNESS_EQUIPMENT, 7)
+    assert info is not None
+
+    opened = transport.open(info, WHEEL)
+
+    assert transport.transport is Transport.ANT
+    assert transport.control_for(opened) is not None
+    assert opened.device.id == "ant:17:7"
+
+
+def test_only_fitness_equipment_gets_a_controller_from_the_transport() -> None:
+    transport = ant.AntTransport(FakeRadio())
+    info = ant.device_from_channel(pages.DEVICE_HEART_RATE, 3)
+    assert info is not None
+
+    assert transport.control_for(transport.open(info, None)) is None

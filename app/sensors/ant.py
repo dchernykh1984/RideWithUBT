@@ -13,16 +13,22 @@ channel. So an `AntSensor` is created for one device type and stays that way.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable
 from typing import Protocol
 
 from app.sensors import ant_protocol as pages
-from app.sensors.base import DeviceInfo, ReadingSink, Transport
+from app.sensors.base import DeviceInfo, ReadingSink, SensorSource, Transport
 from app.sensors.control import AntTrainerControl
 from app.sensors.revolutions import Cadence, WheelSpeed
 from app.sensors.types import Metric, Reading
 from app.trainer.wheels import Wheel
+
+
+class NetworkIdError(ValueError):
+    """A device id that does not name an ANT+ device."""
+
 
 # What each profile can tell us, and what to call it before the rider renames it.
 DEVICE_PROFILES: dict[int, tuple[str, frozenset[Metric]]] = {
@@ -45,6 +51,8 @@ DEVICE_PROFILES: dict[int, tuple[str, frozenset[Metric]]] = {
 # Fitness equipment is the profile that also takes commands, which is what ERG
 # mode and on-course gradient will need.
 CONTROLLABLE_DEVICE_TYPES = frozenset({pages.DEVICE_FITNESS_EQUIPMENT})
+# Zero on a channel id means "any device of this type", which is how pairing works.
+WILDCARD = 0
 
 
 def device_id(device_type: int, device_number: int) -> str:
@@ -82,6 +90,17 @@ class Radio(Protocol):
     async def send(self, device_type: int, device_number: int, payload: bytes) -> None:
         """Put one page on the channel, acknowledged."""
         ...
+
+
+def parse_device_id(device_id: str) -> tuple[int, int]:
+    """Split an id back into the profile and the sensor it names."""
+    parts = device_id.split(":")
+    if len(parts) != 3 or parts[0] != "ant":
+        raise NetworkIdError(f"{device_id!r} is not an ANT+ device id")
+    try:
+        return int(parts[1]), int(parts[2])
+    except ValueError as error:
+        raise NetworkIdError(f"{device_id!r} is not an ANT+ device id") from error
 
 
 class AntSensor:
@@ -210,3 +229,52 @@ class AntSensor:
             return
         await self._radio.unsubscribe(self._device_type, self._device_number)
         self._subscribed = False
+
+
+class AntTransport:
+    """ANT+, as the device manager needs it.
+
+    Scanning here is not like Bluetooth's. There is no advertisement to listen
+    for: a wildcard channel is opened per profile and whatever answers on it is
+    the device. That needs a stick, so the scan is only as good as the radio it
+    is given.
+    """
+
+    def __init__(
+        self, radio: Radio | None = None, profiles: tuple[int, ...] = ()
+    ) -> None:
+        self.radio = radio
+        self.profiles = profiles or tuple(DEVICE_PROFILES)
+
+    @property
+    def transport(self) -> Transport:
+        return Transport.ANT
+
+    async def scan(self, seconds: float) -> list[DeviceInfo]:
+        """Listen on a wildcard channel per profile and report who answered."""
+        if self.radio is None:
+            return []
+        seen: dict[int, int] = {}
+
+        def note(device_type: int) -> Callable[[bytes], None]:
+            def heard(_payload: bytes) -> None:
+                seen.setdefault(device_type, WILDCARD)
+
+            return heard
+
+        for device_type in self.profiles:
+            await self.radio.subscribe(device_type, WILDCARD, note(device_type))
+        await asyncio.sleep(seconds)
+        for device_type in self.profiles:
+            await self.radio.unsubscribe(device_type, WILDCARD)
+        found = [device_from_channel(kind, number) for kind, number in seen.items()]
+        return [device for device in found if device is not None]
+
+    def open(self, device: DeviceInfo, wheel: Wheel | None) -> AntSensor:
+        device_type, device_number = parse_device_id(device.id)
+        return AntSensor(
+            device, device_type, device_number, wheel=wheel, radio=self.radio
+        )
+
+    def control_for(self, source: SensorSource) -> AntTrainerControl | None:
+        return source.controller() if isinstance(source, AntSensor) else None

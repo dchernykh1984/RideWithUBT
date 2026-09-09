@@ -131,6 +131,29 @@ sends whole watts and hundredths of a percent, signed. A target outside what a
 trainer could hold is refused rather than allowed to wrap, because wrapping is
 the failure that would silently ask for the opposite.
 
+## Devices, and the thread they live on
+
+One manager knows about both radios so nothing above it does: it scans them at
+once, opens the devices the rider paired, points their readings at the hub, and
+passes trainer commands to whichever connected device can take them. A radio that
+is missing is not an error - a rider with no ANT+ stick is still offered what
+Bluetooth found.
+
+Both radios are asynchronous and the renderer is a synchronous loop that must not
+be blocked for a millisecond, so device work runs on its own thread with its own
+event loop. The two meet in exactly two places: readings go into the hub, which
+takes a lock, and commands go out without being waited for. Not waiting is the
+point - a trainer command that took a hundred milliseconds to acknowledge would
+otherwise drop three frames.
+
+Connecting is not waited for either. A scan takes seconds, and a window that will
+not draw until the radios have finished looking is a window that looks broken;
+devices simply start reporting when they answer.
+
+Pairing stores ids, not devices. At the start of a ride the app looks for what it
+knows and connects whatever answers; a device that does not is absent rather than
+an error.
+
 ## Power, wheels and trainer profiles
 
 This works in **both directions**, and which direction is active is an explicit

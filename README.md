@@ -16,7 +16,9 @@ app to Garmin Connect or Strava, never through a RideWithUBT server.
   repository - OpenStreetMap geometry, open elevation data and textures authored
   here. The first one is the Sokol International Racetrack near Almaty.
 - **Read your sensors** over Bluetooth Low Energy or ANT+ (with a USB stick):
-  power, speed, cadence, heart rate.
+  power, speed, cadence, heart rate. Pair them once with `--scan` and `--pair`,
+  and they are connected at the start of every ride. With none paired, a
+  stand-in rider pushes a steady `--power` so the world can still be ridden.
 - **Drive a smart trainer** over FTMS or Tacx FE-C, so intervals hold their
   target and gradients are felt rather than displayed.
 - **Work without a smart trainer too.** With a plain trainer, a speed sensor and
@@ -51,6 +53,9 @@ uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the
 uv run ridewithubt --power 240            # what the stand-in rider pushes
 uv run ridewithubt --no-record            # ride without keeping the recording
 uv run ridewithubt --rides                # list the rides already recorded
+uv run ridewithubt --scan                 # look for sensors on every radio
+uv run ridewithubt --pair ble:AA:BB:CC    # remember one, for every ride
+uv run ridewithubt --devices              # list the paired devices
 uv run ridewithubt --workouts             # list the workouts in the library
 uv run ridewithubt --workout "3x8 Cycling Intervals"   # ride one
 uv run ridewithubt --languages            # list the available languages

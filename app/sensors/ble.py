@@ -16,7 +16,7 @@ import time
 from collections.abc import Awaitable, Callable, Iterable
 from typing import Any
 
-from app.sensors.base import DeviceInfo, ReadingSink, Transport
+from app.sensors.base import DeviceInfo, ReadingSink, SensorSource, Transport
 from app.sensors.ble_protocol import (
     CRANK_TICKS_PER_SECOND,
     CrankData,
@@ -110,15 +110,55 @@ class BleScanner:
 
     def __init__(self, discover: Discover | None = None) -> None:
         self._discover = discover or _bleak_discover
+        self._services: dict[str, tuple[str, ...]] = {}
 
     async def scan(self, seconds: float = 5.0) -> list[DeviceInfo]:
         found = await self._discover(seconds)
-        devices = [
-            device
-            for address, name, services in found
-            if (device := device_from_advertisement(address, name, services))
-        ]
+        devices = []
+        for address, name, services in found:
+            device = device_from_advertisement(address, name, services)
+            if device is None:
+                continue
+            # Which services a device advertised is what it will be subscribed
+            # to later, and it is not part of what the rest of the app sees, so
+            # the scanner remembers it rather than putting it in DeviceInfo.
+            self._services[device.id] = tuple(service.lower() for service in services)
+            devices.append(device)
         return sorted(devices, key=lambda device: device.name.lower())
+
+    def services_for(self, device_id: str) -> tuple[str, ...]:
+        """What the device advertised when it was last seen."""
+        return self._services.get(device_id, ())
+
+
+class BleTransport:
+    """Bluetooth, as the device manager needs it."""
+
+    def __init__(
+        self,
+        scanner: BleScanner | None = None,
+        client_factory: Callable[[str], Any] | None = None,
+    ) -> None:
+        self.scanner = scanner or BleScanner()
+        self._client_factory = client_factory
+
+    @property
+    def transport(self) -> Transport:
+        return Transport.BLE
+
+    async def scan(self, seconds: float) -> list[DeviceInfo]:
+        return await self.scanner.scan(seconds)
+
+    def open(self, device: DeviceInfo, wheel: Wheel | None) -> BleSensor:
+        return BleSensor(
+            device,
+            self.scanner.services_for(device.id),
+            wheel=wheel,
+            client_factory=self._client_factory,
+        )
+
+    def control_for(self, source: SensorSource) -> BleTrainerControl | None:
+        return source.controller() if isinstance(source, BleSensor) else None
 
 
 class BleSensor:

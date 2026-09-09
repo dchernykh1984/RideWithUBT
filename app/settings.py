@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any
 
 from app import i18n, paths
+from app.core.control import ControlMode
 from app.trainer.catalog import Trainer, UnknownTrainerError
 from app.trainer.catalog import catalogue as trainer_catalogue
 from app.trainer.wheels import UnknownWheelError, Wheel
@@ -29,10 +30,23 @@ class Settings:
     # habit: it is only useful with a power meter fitted, and the rider has to
     # know it is happening before they are asked to contribute the result.
     record_trainer_data: bool = False
+    #: Devices the rider has paired, by id. They are looked for at the start of
+    #: a ride and connected if they answer; one that does not is simply absent.
+    paired_device_ids: list[str] = field(default_factory=list)
+    #: How the trainer is commanded: "off", "erg" or "simulation".
+    control_mode: str = ControlMode.SIMULATION.value
 
     @property
     def effective_language(self) -> str:
         return i18n.normalise(self.language) if self.language else i18n.system_locale()
+
+    @property
+    def trainer_control(self) -> ControlMode:
+        """The saved control mode, or leaving the trainer alone if it is unknown."""
+        try:
+            return ControlMode(self.control_mode)
+        except ValueError:
+            return ControlMode.OFF
 
     @property
     def wheel(self) -> Wheel | None:

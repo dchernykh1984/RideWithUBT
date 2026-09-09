@@ -323,3 +323,42 @@ async def test_commanding_a_trainer_that_is_not_connected_says_so() -> None:
 
     with pytest.raises(RuntimeError, match="not connected"):
         await device.write_control_point(b"\x00")
+
+
+# The transport, as the device manager uses it.
+
+
+async def test_the_transport_remembers_what_a_device_advertised() -> None:
+    """The services decide what gets subscribed to, and are not in DeviceInfo."""
+
+    async def discover(seconds: float) -> list[tuple[str, str | None, list[str]]]:
+        return [("AA", "Trainer", [ble.FITNESS_MACHINE_SERVICE])]
+
+    transport = ble.BleTransport(ble.BleScanner(discover))
+    (found,) = await transport.scan(1.0)
+
+    opened = transport.open(found, WHEEL)
+
+    assert opened.characteristics == [ble.INDOOR_BIKE_DATA]
+    assert transport.transport is Transport.BLE
+
+
+async def test_the_transport_offers_control_only_for_a_trainer() -> None:
+    async def discover(seconds: float) -> list[tuple[str, str | None, list[str]]]:
+        return [
+            ("AA", "Trainer", [ble.FITNESS_MACHINE_SERVICE]),
+            ("BB", "Strap", [ble.HEART_RATE_SERVICE]),
+        ]
+
+    transport = ble.BleTransport(ble.BleScanner(discover))
+    strap, trainer = sorted(await transport.scan(1.0), key=lambda d: d.name)
+
+    assert transport.control_for(transport.open(trainer, None)) is not None
+    assert transport.control_for(transport.open(strap, None)) is None
+
+
+def test_a_device_the_scanner_never_saw_has_no_services() -> None:
+    async def nothing(seconds: float) -> list[tuple[str, str | None, list[str]]]:
+        return []
+
+    assert ble.BleScanner(nothing).services_for("AA") == ()

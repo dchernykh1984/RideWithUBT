@@ -251,3 +251,81 @@ def test_riding_without_a_workout_passes_none(renderer: FakeRenderer) -> None:
 
     (app,) = renderer.apps
     assert app.options["workout"] is None
+
+
+def test_pairing_and_unpairing_a_device(capsys: pytest.CaptureFixture[str]) -> None:
+    from app.settings import Settings
+
+    assert cli.main(["--pair", "ble:AA:BB"]) == 0
+    assert Settings.load().paired_device_ids == ["ble:AA:BB"]
+
+    assert cli.main(["--devices"]) == 0
+    assert "ble:AA:BB" in capsys.readouterr().out
+
+    assert cli.main(["--unpair", "ble:AA:BB"]) == 0
+    assert Settings.load().paired_device_ids == []
+
+
+def test_pairing_the_same_device_twice_keeps_one() -> None:
+    from app.settings import Settings
+
+    cli.main(["--pair", "ble:AA:BB"])
+    cli.main(["--pair", "ble:AA:BB"])
+
+    assert Settings.load().paired_device_ids == ["ble:AA:BB"]
+
+
+def test_unpairing_something_that_was_never_paired() -> None:
+    assert cli.main(["--unpair", "ble:nothing"]) == 0
+
+
+def test_devices_reports_an_empty_list(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["--devices"]) == 0
+
+    assert "no devices paired yet" in capsys.readouterr().out
+
+
+def test_a_scan_that_finds_nothing_says_so(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "default_transports", list)
+
+    assert cli.main(["--scan", "0.01"]) == 0
+
+    assert "nothing answered" in capsys.readouterr().out
+
+
+def test_a_scan_lists_what_answered(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.sensors.base import DeviceInfo, Transport
+    from app.sensors.types import Metric
+
+    found = DeviceInfo(
+        id="ble:AA",
+        name="KICKR",
+        transport=Transport.BLE,
+        metrics=frozenset({Metric.POWER}),
+        controllable=True,
+    )
+
+    class OneDevice:
+        transport = Transport.BLE
+
+        async def scan(self, seconds: float) -> list[DeviceInfo]:
+            return [found]
+
+        def open(self, device: DeviceInfo, wheel: object) -> object:  # pragma: no cover
+            raise NotImplementedError
+
+        def control_for(self, source: object) -> None:  # pragma: no cover
+            return None
+
+    monkeypatch.setattr(cli, "default_transports", lambda: [OneDevice()])
+
+    assert cli.main(["--scan"]) == 0
+
+    out = capsys.readouterr().out
+    assert "ble:AA" in out
+    assert "controllable" in out
+    assert "power" in out
