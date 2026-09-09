@@ -26,3 +26,6 @@ msgstr "Тренировка завершена"
 
 msgid "Press space when ready"
 msgstr "Нажмите пробел, когда будете готовы"
+
+msgid "Press tab to close"
+msgstr "Нажмите tab, чтобы закрыть"

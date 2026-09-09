@@ -151,6 +151,13 @@ uv run ridewithubt --selftest             # boot the engine with no window and e
 Left and right arrows choose which way to go at a junction, space ends a workout
 step that runs until you say so, and escape quits.
 
+Tab opens the setup screen without leaving the ride: arrows move between the
+wheel, tyre, trainer and control rows and through each row's options, and the
+line underneath says what the choices are worth - the rollout, and the power
+that speed will be read as. Tab again closes it and saves. Everything on that
+screen can also be set from the command line above; it is the same catalogue and
+the same settings file, in the place where a rider is actually sitting.
+
 Speed is computed from power, weight, gradient and air, not set: until sensors
 are connected a stand-in rider pushes a steady `--power`, and the circuit is
 ridden at whatever speed that is worth.
