@@ -7,11 +7,13 @@ it: one bad file should not stop a rider from starting any of the others.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from app import paths
 from app.workout.model import Workout, WorkoutError, WorkoutLibrary
 from app.workout.plan_format import load_workout
+from app.workout.plan_writer import describe_workout
 
 SUFFIX = ".json"
 
@@ -41,6 +43,29 @@ def unreadable(directory: Path | None = None) -> list[Path]:
         except WorkoutError, ValueError:
             broken.append(path)
     return broken
+
+
+def file_name_for(workout: Workout) -> str:
+    """A file name from a workout's own name, safe on every platform."""
+    kept = [
+        character if character.isalnum() or character in " -_" else "-"
+        for character in workout.name
+    ]
+    slug = "".join(kept).strip().replace(" ", "-").lower()
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return f"{slug or 'workout'}{SUFFIX}"
+
+
+def save(workout: Workout, directory: Path | None = None) -> Path:
+    """Write a workout into the library, in the one format it stores."""
+    folder = directory or paths.workouts_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / file_name_for(workout)
+    path.write_text(
+        json.dumps(describe_workout(workout), indent=2) + "\n", encoding="utf-8"
+    )
+    return path
 
 
 def find(reference: str, directory: Path | None = None) -> Workout:

@@ -35,6 +35,9 @@ class Settings:
     paired_device_ids: list[str] = field(default_factory=list)
     #: How the trainer is commanded: "off", "erg" or "simulation".
     control_mode: str = ControlMode.SIMULATION.value
+    #: The Garmin Connect account to import from. Only the name is kept here;
+    #: the password lives in the operating system's credential store.
+    garmin_username: str = ""
 
     @property
     def effective_language(self) -> str:

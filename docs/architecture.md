@@ -203,8 +203,11 @@ pull request that cannot conflict with anyone else's.
 
 Two sources, one internal model:
 
-- **Garmin Connect** - workouts and training plans pulled directly from the
-  user's own account, using their credentials, with nothing in between.
+- **Garmin Connect** - workouts pulled directly from the rider's own account,
+  using their credentials, with nothing in between. Two of Garmin's names do not
+  say what they mean and are read rather than trusted: an open step's end
+  condition is `lap.button`, and a power target's type is `power.zone` whether
+  its values are watts or a zone.
 - **`training_plan_generator` JSON** - the format already in use in this
   workspace: `steps` of `warmup`/`interval`/`rest`/`cooldown`/`repeat` with
   power, cadence and heart-rate targets, and duration by time, distance or open.
@@ -342,6 +345,18 @@ invented one.
 
 A world with no origin - one that is not anywhere - records no positions rather
 than made-up ones.
+
+## Credentials
+
+The operating system's own credential store, through `keyring`: the Keychain on
+macOS, the Credential Locker on Windows, the Secret Service on Linux. That is the
+only place this app puts a password, and settings keep the account name only.
+
+A machine with no credential store gets a clear failure rather than a quiet
+fallback to a file. Writing a password into the data directory would be a
+surprise, and the sort nobody finds until it has already happened. The
+environment can override a lookup, which is how the tests run and how a headless
+setup supplies a credential without a keyring at all.
 
 ## Uploads
 

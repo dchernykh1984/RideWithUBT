@@ -16,6 +16,8 @@ from app import __version__, i18n, paths
 from app.sensors.discovery import default_transports
 from app.sensors.hub import SensorHub
 from app.sensors.manager import DeviceManager
+from app.services.credentials import CredentialsError
+from app.services.garmin_session import GarminLoginError, connect_to_garmin
 from app.settings import Settings
 from app.storage import activities as activity_store
 from app.workout import library as workout_library
@@ -28,6 +30,7 @@ from app.world.navigation import lap_length_m
 DEFAULT_WORLD = "sokol"
 DEFAULT_POWER_W = 200.0
 DEFAULT_SCAN_SECONDS = 6.0
+DEFAULT_IMPORT_LIMIT = 20
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -117,6 +120,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ride a structured workout: a name from the library, or a file.",
     )
     parser.add_argument(
+        "--import-garmin",
+        nargs="?",
+        type=int,
+        const=DEFAULT_IMPORT_LIMIT,
+        metavar="COUNT",
+        help="Download your latest Garmin Connect workouts into the library.",
+    )
+    parser.add_argument(
+        "--garmin-user",
+        metavar="EMAIL",
+        help="The Garmin Connect account to use. Remembered after the first time.",
+    )
+    parser.add_argument(
         "--workouts",
         action="store_true",
         help="List the workouts in the library, and exit.",
@@ -187,6 +203,31 @@ def print_paired_devices() -> None:
         print("no devices paired yet - run --scan to find them")
 
 
+def import_garmin_workouts(limit: int, username: str | None) -> None:
+    """Download workouts into the library, reporting each one as it lands."""
+    settings = Settings.load()
+    account = username or settings.garmin_username
+    if not account:
+        print("say which account with --garmin-user EMAIL")
+        return
+    try:
+        workouts = connect_to_garmin(account)
+    except (CredentialsError, GarminLoginError) as error:
+        print(str(error))
+        return
+    if account != settings.garmin_username:
+        settings.garmin_username = account
+        settings.save()
+    summaries = workouts.list(limit)
+    for summary, workout, problem in workouts.download(summaries):
+        if workout is None:
+            print(f"skipped {summary.name}: {problem}")
+            continue
+        print(f"{workout.name} -> {workout_library.save(workout).name}")
+    if not summaries:
+        print("that account has no workouts to import")
+
+
 def print_rides() -> None:
     recorded = activity_store.rides()
     for path in recorded:
@@ -228,6 +269,10 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
         (args.pair, lambda: pair_device(args.pair)),
         (args.unpair, lambda: unpair_device(args.unpair)),
         (args.devices, print_paired_devices),
+        (
+            args.import_garmin is not None,
+            lambda: import_garmin_workouts(args.import_garmin, args.garmin_user),
+        ),
         (args.rides, print_rides),
         (args.workouts, print_workouts),
         (args.worlds, print_worlds),
