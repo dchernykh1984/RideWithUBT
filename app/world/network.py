@@ -18,6 +18,11 @@ from itertools import pairwise
 
 from app.world.geo import Origin
 
+# How much track a gradient is measured across. Short enough that a real ramp is
+# still felt where it starts, long enough that the elevation model's metre of
+# rounding is not a hill.
+GRADIENT_BASELINE_M = 20.0
+
 
 class NetworkError(ValueError):
     """A network that does not describe a track anyone could ride."""
@@ -85,11 +90,24 @@ class Segment:
             z=before.z + (after.z - before.z) * fraction,
         )
 
-    def gradient_at(self, distance_m: float) -> float:
-        """The slope under the rider, as a fraction: 0.05 is a five percent climb."""
-        clamped = min(max(distance_m, 0.0), self.length_m)
-        index = _segment_index(self.cumulative_m, clamped)
-        before, after = self.points[index], self.points[index + 1]
+    def gradient_at(
+        self, distance_m: float, baseline_m: float = GRADIENT_BASELINE_M
+    ) -> float:
+        """The slope under the rider, as a fraction: 0.05 is a five percent climb.
+
+        Measured over a fixed length of track rather than between whichever two
+        described points happen to be adjacent. How far apart those points are is
+        a fact about how the circuit was mapped - three metres in one corner and
+        eight hundred down a straight - and dividing a height difference by three
+        metres turns the elevation model's rounding into a wall.
+        """
+        half = baseline_m / 2
+        middle = min(max(distance_m, 0.0), self.length_m)
+        low = max(0.0, middle - half)
+        high = min(self.length_m, middle + half)
+        if high <= low:  # pragma: no cover - a segment always has length
+            return 0.0
+        before, after = self.point_at(low), self.point_at(high)
         run = math.dist((before.x, before.y), (after.x, after.y))
         if run <= 0.0:  # pragma: no cover - a vertical step is not a track
             return 0.0

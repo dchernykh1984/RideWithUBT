@@ -48,7 +48,11 @@ def test_the_shipped_world_is_what_the_tracked_inputs_produce(
     sokol: TrackNetwork,
 ) -> None:
     """Nobody can hand-edit the built world: it has to come from the extract."""
-    rebuilt = build_from_files(BUILD_DATA / "recipe.json", BUILD_DATA / "overpass.json")
+    rebuilt = build_from_files(
+        BUILD_DATA / "recipe.json",
+        BUILD_DATA / "overpass.json",
+        BUILD_DATA / "elevation.json",
+    )
 
     shipped = json.loads(world_path(WORLD_ID).read_text(encoding="utf-8"))
     assert description.describe(rebuilt) == shipped
@@ -254,3 +258,70 @@ def test_a_rider_can_turn_into_the_pits_and_come_back_out(
 
     navigator.advance(lane.length_m)
     assert navigator.position.segment_id.startswith("main-"), "the lane rejoins"
+
+
+# The ground, which comes from an elevation model rather than from the extract.
+
+
+def _lap_gradients(world: TrackNetwork) -> list[float]:
+    route = world.route("big-ring")
+    navigator = Navigator(world, route=route)
+    gradients = []
+    for _ in range(int(lap_m(world, route) / 5)):
+        navigator.advance(5.0)
+        gradients.append(navigator.gradient)
+    return gradients
+
+
+def test_the_circuit_sits_where_it_really_does(sokol: TrackNetwork) -> None:
+    """Sokol is on a plain about 650 m up, and a recording of it says so."""
+    heights = [point.z for segment in sokol.segments for point in segment.points]
+
+    assert 600 < min(heights) < 700
+    assert max(heights) - min(heights) < 15, "it is a plain, not a mountain"
+
+
+def test_the_ground_is_gentle_enough_to_be_real(sokol: TrackNetwork) -> None:
+    """The raw elevation model contains a 22% wall on this flat circuit.
+
+    That is its own rounding, not terrain, and it would reach the rider's legs
+    through a smart trainer. A circuit that rises and falls four metres cannot
+    have a gradient like that anywhere on it.
+    """
+    gradients = [abs(gradient) for gradient in _lap_gradients(sokol)]
+
+    assert max(gradients) < 0.02
+    assert max(gradients) > 0.002, "and it is not flattened into nothing either"
+
+
+def test_a_lap_climbs_something_but_not_much(sokol: TrackNetwork) -> None:
+    route = sokol.route("big-ring")
+    navigator = Navigator(sokol, route=route)
+    climb, last = 0.0, navigator.point.z
+    for _ in range(int(lap_m(sokol, route) / 5)):
+        navigator.advance(5.0)
+        climb += max(0.0, navigator.point.z - last)
+        last = navigator.point.z
+
+    assert 2 < climb < 30, "a few metres a lap, as the ground there does"
+
+
+def test_the_ground_makes_a_difference_worth_having(sokol: TrackNetwork) -> None:
+    """If the slope changed nothing, modelling it would be decoration."""
+    from app.core.physics import Bike, steady_speed_ms
+
+    gradients = _lap_gradients(sokol)
+
+    fastest = steady_speed_ms(200, min(gradients), Bike()) * 3.6
+    slowest = steady_speed_ms(200, max(gradients), Bike()) * 3.6
+    assert fastest - slowest > 5, "the same effort is worth several km/h either way"
+
+
+def test_the_pit_lane_is_on_the_same_ground_as_the_track(
+    sokol: TrackNetwork,
+) -> None:
+    """It runs beside the circuit, so it cannot be at a different height."""
+    lane = sokol.segment("pit-lane-0")
+    beside = sokol.segment(sokol.exit_from(lane.start_node) or "")
+
+    assert abs(lane.points[0].z - beside.points[0].z) < 0.5

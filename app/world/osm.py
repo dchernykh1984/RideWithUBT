@@ -20,12 +20,14 @@ separate change.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
+from app.world import elevation
 from app.world.geo import Origin
 from app.world.network import (
     Junction,
@@ -102,12 +104,22 @@ class Recipe:
     width_m: float = 12.0
     surface: str = "asphalt"
     announce_m: float = 200.0
+    #: How much track the ground profile is averaged over. It is a property of
+    #: the elevation model, not of the terrain: a coarse one needs a wide window
+    #: to keep its rounding from becoming hills, a better one needs less.
+    elevation_window_m: float = elevation.DEFAULT_WINDOW_M
     start_node: int | None = None
     pit_lane: PitLane | None = None
 
     @property
     def ways(self) -> dict[str, int]:
         return {MAIN_WAY_KEY: self.main_way, **self.links}
+
+
+def load_heights(path: Path) -> dict[int, float]:
+    """Read the sampled ground height of each node, as the fetch script wrote it."""
+    document = json.loads(path.read_text(encoding="utf-8"))
+    return {int(node): float(height) for node, height in document["nodes"].items()}
 
 
 def load_extract(path: Path) -> dict[int, Way]:
@@ -146,6 +158,9 @@ def load_recipe(path: Path) -> Recipe:
         width_m=float(raw.get("width_m", 12.0)),
         surface=str(raw.get("surface", "asphalt")),
         announce_m=float(raw.get("announce_m", 200.0)),
+        elevation_window_m=float(
+            raw.get("elevation_window_m", elevation.DEFAULT_WINDOW_M)
+        ),
         start_node=int(raw["start_node"]) if "start_node" in raw else None,
         pit_lane=_parse_pit_lane(raw.get("pit_lane")),
     )
@@ -183,7 +198,12 @@ def split_nodes(ways: Sequence[Way], start_node: int) -> set[int]:
 
 
 def split_way(
-    way: Way, key: str, breaks: Iterable[int], origin: Origin, recipe: Recipe
+    way: Way,
+    key: str,
+    breaks: Iterable[int],
+    origin: Origin,
+    recipe: Recipe,
+    heights: dict[int, float] | None = None,
 ) -> list[Segment]:
     """Cut one way into segments at the given nodes."""
     at = set(breaks)
@@ -204,7 +224,11 @@ def split_way(
                 start_node=node_id(way.nodes[start]),
                 end_node=node_id(way.nodes[end]),
                 points=tuple(
-                    _point(origin, way.coordinates[index])
+                    _point(
+                        origin,
+                        way.coordinates[index],
+                        (heights or {}).get(way.nodes[index], 0.0),
+                    )
                     for index in range(start, end + 1)
                 ),
                 width_m=recipe.width_m,
@@ -214,10 +238,61 @@ def split_way(
     return segments
 
 
-def _point(origin: Origin, coordinate: tuple[float, float]) -> Point:
+def _point(
+    origin: Origin, coordinate: tuple[float, float], height: float = 0.0
+) -> Point:
     x, y = origin.to_local(*coordinate)
-    # Elevation is not in the extract; the format carries it for when it is.
-    return Point(x=x, y=y, z=0.0)
+    return Point(x=x, y=y, z=height)
+
+
+def way_distances(way: Way, origin: Origin) -> list[float]:
+    """How far along the way each of its nodes is."""
+    points = [origin.to_local(*coordinate) for coordinate in way.coordinates]
+    distances = [0.0]
+    for before, after in pairwise(points):
+        distances.append(distances[-1] + math.dist(before, after))
+    return distances
+
+
+def smoothed_heights(
+    selected: dict[str, Way], raw: dict[int, float], origin: Origin, window_m: float
+) -> dict[int, float]:
+    """A rideable ground profile for every node of every way.
+
+    The circuit is smoothed as the loop it is, so the profile joins across the
+    start line. Each branch is smoothed on its own and then tilted to meet the
+    circuit at both ends, which keeps its own shape without leaving a step at the
+    junction it leaves from.
+    """
+    main = selected[MAIN_WAY_KEY]
+    heights = dict(
+        zip(
+            main.nodes,
+            elevation.smooth(
+                way_distances(main, origin),
+                [raw.get(node, 0.0) for node in main.nodes],
+                window_m=window_m,
+                closed=main.nodes[0] == main.nodes[-1],
+            ),
+            strict=True,
+        )
+    )
+    for key, way in selected.items():
+        if key == MAIN_WAY_KEY:
+            continue
+        smoothed = elevation.smooth(
+            way_distances(way, origin),
+            [raw.get(node, 0.0) for node in way.nodes],
+            window_m=window_m,
+        )
+        joined = elevation.levelled(
+            smoothed,
+            start=heights.get(way.nodes[0], smoothed[0]),
+            end=heights.get(way.nodes[-1], smoothed[-1]),
+        )
+        for node, height in zip(way.nodes, joined, strict=True):
+            heights.setdefault(node, height)
+    return heights
 
 
 def _rotate_to_start(way: Way, start_node: int) -> Way:
@@ -264,10 +339,20 @@ def span(way: Way, from_node: int, to_node: int) -> list[int]:
     return [index % ring for index in range(start, end + ring + 1)]
 
 
-def build_pit_lane(pit: PitLane, main: Way, origin: Origin) -> Segment:
-    """A lane offset from the circuit, between two of its nodes."""
+def build_pit_lane(
+    pit: PitLane, main: Way, origin: Origin, heights: dict[int, float] | None = None
+) -> Segment:
+    """A lane offset from the circuit, between two of its nodes.
+
+    It follows the circuit's own ground, because it runs beside it.
+    """
     indices = span(main, pit.entry_node, pit.exit_node)
-    along = [_point(origin, main.coordinates[index]) for index in indices]
+    along = [
+        _point(
+            origin, main.coordinates[index], (heights or {}).get(main.nodes[index], 0.0)
+        )
+        for index in indices
+    ]
     return Segment(
         id=f"{pit.id}-0",
         start_node=node_id(pit.entry_node),
@@ -278,7 +363,11 @@ def build_pit_lane(pit: PitLane, main: Way, origin: Origin) -> Segment:
     )
 
 
-def build(recipe: Recipe, ways: dict[int, Way]) -> TrackNetwork:
+def build(
+    recipe: Recipe,
+    ways: dict[int, Way],
+    raw_heights: dict[int, float] | None = None,
+) -> TrackNetwork:
     """Turn an extract plus a recipe into a network, junctions and all."""
     selected = _select(recipe, ways)
     main = selected[MAIN_WAY_KEY]
@@ -286,18 +375,24 @@ def build(recipe: Recipe, ways: dict[int, Way]) -> TrackNetwork:
     selected[MAIN_WAY_KEY] = _rotate_to_start(main, start)
     origin = Origin(*selected[MAIN_WAY_KEY].coordinates[0])
 
+    heights = (
+        smoothed_heights(selected, raw_heights, origin, recipe.elevation_window_m)
+        if raw_heights
+        else {}
+    )
+
     breaks = split_nodes(list(selected.values()), start)
     if recipe.pit_lane is not None:
         # The lane's ends have to break the circuit too, or the rider would be
         # carried straight past the place they can turn into it.
         breaks |= {recipe.pit_lane.entry_node, recipe.pit_lane.exit_node}
     by_key = {
-        key: split_way(way, key, breaks, origin, recipe)
+        key: split_way(way, key, breaks, origin, recipe, heights)
         for key, way in selected.items()
     }
     if recipe.pit_lane is not None:
         by_key[recipe.pit_lane.id] = [
-            build_pit_lane(recipe.pit_lane, selected[MAIN_WAY_KEY], origin)
+            build_pit_lane(recipe.pit_lane, selected[MAIN_WAY_KEY], origin, heights)
         ]
     segments = [segment for group in by_key.values() for segment in group]
     junctions = _junctions(segments, by_key[MAIN_WAY_KEY], recipe.announce_m)
@@ -385,8 +480,17 @@ def _routes(
     return routes
 
 
-def build_from_files(recipe_path: Path, extract_path: Path) -> TrackNetwork:
-    return build(load_recipe(recipe_path), load_extract(extract_path))
+def build_from_files(
+    recipe_path: Path, extract_path: Path, elevation_path: Path | None = None
+) -> TrackNetwork:
+    """Build a world from its tracked inputs. Elevation is optional: a world
+    without it is flat, which is wrong but not misleading."""
+    heights = (
+        load_heights(elevation_path)
+        if elevation_path is not None and elevation_path.is_file()
+        else None
+    )
+    return build(load_recipe(recipe_path), load_extract(extract_path), heights)
 
 
 def describe_origin(recipe_path: Path, extract_path: Path) -> dict[str, Any]:

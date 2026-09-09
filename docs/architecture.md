@@ -264,9 +264,23 @@ because a refreshed extract with the way drawn the other way round would reverse
 the lap and move the lane to the other side of the track without failing
 anything else.
 
-Elevation is not in the extract, so the built circuit is flat for now. The format
-carries it and the physics reads it, so filling it in from a terrain model
-changes the generator and nothing else.
+Elevation is not in the extract either. It is sampled separately from an open
+model and tracked beside the geometry, and it is **smoothed before it is used**:
+SRTM rounds to the metre every 30 m while a circuit's points are 10 m apart, so
+raw neighbouring differences are mostly rounding - they put a 22% wall on a
+circuit that rises and falls six metres in four and a half kilometres.
+
+Gradient is also measured over a fixed length of track rather than between
+whichever two described points happen to be adjacent. How far apart those are is
+a fact about how the circuit was mapped - three metres in one corner, eight
+hundred down a straight - and dividing a height difference by three metres turns
+rounding into a wall on its own.
+
+Both corrections earn their place for the same reason: the gradient goes into the
+power model and out to the rider's legs through a smart trainer. A fake slope is
+not a cosmetic wobble, it is resistance somebody actually pushes against. What
+Sokol has left is a 1.2% maximum and about seven metres of climb a lap, which is
+worth eleven km/h at 200 W between its shallowest descent and its steepest rise.
 
 **Only the track surface is modelled**: both rings and the pit lane. The
 surrounding landscape is not the point of this app and is not built.

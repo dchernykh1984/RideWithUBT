@@ -289,3 +289,72 @@ def test_no_pit_lane_is_the_normal_case() -> None:
     network = osm.build(recipe(), extract())
 
     assert not [s for s in network.segments if s.id.startswith("pit")]
+
+
+# The ground, which the extract does not carry.
+
+
+def heights(**by_node: float) -> dict[int, float]:
+    return {int(node.lstrip("n")): height for node, height in by_node.items()}
+
+
+def test_without_elevation_a_world_is_flat() -> None:
+    """Wrong, but not misleading - and it says so by being exactly zero."""
+    network = osm.build(recipe(), extract())
+
+    assert all(
+        point.z == 0.0 for segment in network.segments for point in segment.points
+    )
+
+
+def test_sampled_ground_reaches_the_points() -> None:
+    sampled = {node: 650.0 for node in (1, 2, 3, 4, 5, 9)}
+
+    network = osm.build(recipe(), extract(), sampled)
+
+    assert all(
+        point.z == pytest.approx(650.0)
+        for segment in network.segments
+        for point in segment.points
+    )
+
+
+def test_a_branch_is_joined_to_the_circuit_at_both_ends() -> None:
+    """Smoothed on its own it would drift, and leave a step at the junction."""
+    sampled = {1: 650.0, 2: 652.0, 3: 654.0, 4: 656.0, 5: 652.0, 9: 700.0}
+
+    network = osm.build(recipe(elevation_window_m=1.0), extract(), sampled)
+
+    circuit_at_the_fork = network.segment("main-1").points[0]
+    branch_at_the_fork = network.segment("cut-0").points[0]
+    circuit_at_the_rejoin = network.segment("main-2").points[0]
+    branch_at_the_rejoin = network.segment("cut-0").points[-1]
+    assert branch_at_the_fork.z == pytest.approx(circuit_at_the_fork.z)
+    assert branch_at_the_rejoin.z == pytest.approx(circuit_at_the_rejoin.z)
+
+
+def test_a_node_the_model_never_sampled_sits_at_zero() -> None:
+    """Missing is missing; inventing a height would be worse than admitting it."""
+    network = osm.build(recipe(), extract(), {1: 650.0})
+
+    assert network.segment("main-0").points[0].z == pytest.approx(650.0, abs=1.0)
+
+
+def test_the_pit_lane_follows_the_ground_beside_it() -> None:
+    sampled = {node: 640.0 + node for node in (1, 2, 3, 4, 5, 9)}
+    network = osm.build(
+        recipe(pit_lane=pit(), elevation_window_m=1.0), extract(), sampled
+    )
+
+    lane = network.segment("pit-lane-0")
+    beside = network.segment("main-1")
+    assert lane.points[0].z == pytest.approx(beside.points[0].z)
+
+
+def test_reading_the_sampled_heights_from_a_file(tmp_path: Path) -> None:
+    path = tmp_path / "elevation.json"
+    path.write_text(
+        json.dumps({"dataset": "srtm30m", "nodes": {"1": 650.5}}), encoding="utf-8"
+    )
+
+    assert osm.load_heights(path) == {1: 650.5}
