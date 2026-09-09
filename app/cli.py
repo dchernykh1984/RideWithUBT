@@ -11,6 +11,7 @@ import argparse
 import asyncio
 import sys
 from collections.abc import Callable, Sequence
+from datetime import date, timedelta
 
 from app import __version__, i18n, paths, selfcheck, setup_commands
 from app.core.control import ControlMode
@@ -18,6 +19,7 @@ from app.sensors.discovery import default_transports
 from app.sensors.hub import SensorHub
 from app.sensors.manager import DeviceManager
 from app.services.credentials import CredentialsError
+from app.services.garmin import GarminWorkouts
 from app.services.garmin_session import GarminLoginError, connect_to_garmin
 from app.services.strava_session import (
     CLIENT_ID,
@@ -33,7 +35,8 @@ from app.services.uploads import UploadLog
 from app.settings import Settings
 from app.storage import activities as activity_store
 from app.workout import library as workout_library
-from app.workout.model import WorkoutError
+from app.workout import schedule as workout_schedule
+from app.workout.model import Workout, WorkoutError
 from app.world.description import available_worlds
 from app.world.description import load as load_world
 from app.world.navigation import lap_length_m
@@ -46,7 +49,10 @@ from app.world.network import NetworkError
 DEFAULT_WORLD = "sokol"
 DEFAULT_POWER_W = 200.0
 DEFAULT_SCAN_SECONDS = 6.0
+#: Enough of the account's workouts to find the ones a month of plan points at.
+MAX_PLAN_WORKOUTS = 200
 DEFAULT_IMPORT_LIMIT = 20
+DEFAULT_SCHEDULE_DAYS = 28
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -186,6 +192,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="The Garmin Connect account to use. Remembered after the first time.",
     )
     parser.add_argument(
+        "--import-schedule",
+        nargs="?",
+        type=int,
+        const=DEFAULT_SCHEDULE_DAYS,
+        metavar="DAYS",
+        help="Download your Garmin training plan's next few weeks, and its workouts.",
+    )
+    parser.add_argument(
+        "--schedule",
+        action="store_true",
+        help="Show what your plan has you riding, and exit.",
+    )
+    parser.add_argument(
+        "--today",
+        action="store_true",
+        help="Ride what your plan has scheduled for today.",
+    )
+    parser.add_argument(
         "--workouts",
         action="store_true",
         help="List the workouts in the library, and exit.",
@@ -277,20 +301,10 @@ def print_paired_devices() -> None:
 
 def import_garmin_workouts(limit: int, username: str | None) -> None:
     """Download workouts into the library, reporting each one as it lands."""
-    settings = Settings.load()
-    account = username or settings.garmin_username
-    if not account:
-        print("say which account with --garmin-user EMAIL")
+    workouts = _garmin_for(username)
+    if workouts is None:
         return
-    try:
-        workouts = connect_to_garmin(account)
-    except (CredentialsError, GarminLoginError) as error:
-        print(str(error))
-        return
-    if account != settings.garmin_username:
-        settings.garmin_username = account
-        settings.save()
-    summaries = workouts.list(limit)
+    summaries = workouts.summaries(limit)
     for summary, workout, problem in workouts.download(summaries):
         if workout is None:
             print(f"skipped {summary.name}: {problem}")
@@ -348,6 +362,66 @@ def finish_strava_setup(code: str) -> None:
         print(str(error))
         return
     print("Strava connected")
+
+
+def import_schedule(days: int, username: str | None) -> None:
+    """Pull the plan's calendar, and every workout it points at."""
+    workouts = _garmin_for(username)
+    if workouts is None:
+        return
+    start = date.today()
+    schedule, skipped = workouts.schedule(start, start + timedelta(days=days))
+    for entry in skipped:
+        print(f"skipped an entry that said too little: {entry}")
+    if not len(schedule):
+        print(f"nothing scheduled in the next {days} days")
+        return
+    schedule.save()
+    print(
+        f"{len(schedule)} rides scheduled between {start} and "
+        f"{start + timedelta(days=days)}"
+    )
+    wanted = {ride.source_id for ride in schedule if ride.source_id}
+    known = {workout.name for workout in workout_library.load_library()}
+    for summary in workouts.summaries(limit=MAX_PLAN_WORKOUTS):
+        if summary.id not in wanted or summary.name in known:
+            continue
+        fetched = workouts.fetch(summary.id)
+        print(f"  {fetched.name} -> {workout_library.save(fetched).name}")
+
+
+def print_schedule() -> None:
+    schedule = workout_schedule.Schedule.load()
+    if not len(schedule):
+        print("no plan imported - try --import-schedule")
+        return
+    today = date.today()
+    for ride in schedule:
+        when = "today" if ride.on == today else ride.on.isoformat()
+        print(f"{when:12} {ride.workout_name}")
+
+
+def todays_workout() -> str | None:
+    """The workout the plan has for today, if it has one."""
+    rides = workout_schedule.Schedule.load().today()
+    return rides[0].workout_name if rides else None
+
+
+def _garmin_for(username: str | None) -> GarminWorkouts | None:
+    settings = Settings.load()
+    account = username or settings.garmin_username
+    if not account:
+        print("say which account with --garmin-user EMAIL")
+        return None
+    try:
+        workouts = connect_to_garmin(account)
+    except (CredentialsError, GarminLoginError) as error:
+        print(str(error))
+        return None
+    if account != settings.garmin_username:
+        settings.garmin_username = account
+        settings.save()
+    return workouts
 
 
 def print_rides() -> None:
@@ -420,6 +494,11 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
             args.import_garmin is not None,
             lambda: import_garmin_workouts(args.import_garmin, args.garmin_user),
         ),
+        (
+            args.import_schedule is not None,
+            lambda: import_schedule(args.import_schedule, args.garmin_user),
+        ),
+        (args.schedule, print_schedule),
         (args.rides, print_rides),
         (args.workouts, print_workouts),
         (args.worlds, print_worlds),
@@ -429,6 +508,18 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
             report()
             return 0
     return None
+
+
+def _chosen_workout(args: argparse.Namespace) -> Workout | None:
+    """The workout to ride: the one named, or the one the plan has for today."""
+    wanted = args.workout
+    if args.today and not wanted:
+        wanted = todays_workout()
+        if wanted is None:
+            print("nothing scheduled for today")
+            return None
+        print(f"today: {wanted}")
+    return workout_library.find(wanted) if wanted else None
 
 
 def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
@@ -490,7 +581,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
             route_id=args.route,
             power_w=args.power,
             record=not args.no_record,
-            workout=workout_library.find(args.workout) if args.workout else None,
+            workout=_chosen_workout(args),
             paired_device_ids=tuple(settings.paired_device_ids),
             control_mode=settings.trainer_control,
             capture_trainer=args.capture_trainer or settings.record_trainer_data,

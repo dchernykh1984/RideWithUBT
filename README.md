@@ -88,7 +88,8 @@ without one, `--worlds`, `--setup` and the other listing commands still work.
   profile back as a pull request - see [docs/trainers.md](docs/trainers.md),
   which is also how you add a trainer that is not in the catalogue yet.
 - **Run structured workouts** written by `training_plan_generator`, or imported
-  from your own Garmin Connect account. Whatever they came from, they are stored
+  from your own Garmin Connect account - including your training plan's calendar,
+  so `--today` rides whatever the plan has for today. Whatever they came from, they are stored
   in one format in the `workouts` folder of the data directory. Your Garmin
   password goes in the operating system's credential store, never into a file
   here.
@@ -133,6 +134,9 @@ uv run ridewithubt --pair ble:AA:BB:CC    # remember one, for every ride
 uv run ridewithubt --devices              # list the paired devices
 uv run ridewithubt --capture-trainer      # measure this trainer's curve as you ride
 uv run ridewithubt --import-garmin --garmin-user you@example.com   # import workouts
+uv run ridewithubt --import-schedule      # and your training plan's calendar
+uv run ridewithubt --schedule             # what the plan has you riding
+uv run ridewithubt --today                # ride today's scheduled workout
 uv run ridewithubt --workouts             # list the workouts in the library
 uv run ridewithubt --workout "3x8 Cycling Intervals"   # ride one
 uv run ridewithubt --languages            # list the available languages
