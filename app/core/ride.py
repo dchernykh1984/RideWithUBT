@@ -18,6 +18,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app import paths
+from app.core.companions import (
+    Companion,
+    CompanionSource,
+    NoCompany,
+    PacePartners,
+)
 from app.core.control import ControlMode, TrainerDirector
 from app.core.recorder import RideRecorder
 from app.core.session import RideSession, RideState
@@ -49,6 +55,8 @@ class RideSetup:
     paired_device_ids: Sequence[str] = ()
     control_mode: ControlMode = ControlMode.OFF
     capture_trainer: bool = False
+    #: Powers to put pace partners on the circuit at. Empty is riding alone.
+    partner_watts: Sequence[float] = ()
 
 
 @dataclass(frozen=True)
@@ -92,6 +100,11 @@ class Ride:
             None
             if self.sensors
             else SimulatedSensors(steady(power_w=self.setup.power_w))
+        )
+        self.company: CompanionSource = (
+            PacePartners.holding(self.network, self.setup.partner_watts, route)
+            if self.setup.partner_watts
+            else NoCompany()
         )
         self._last_distance_m = 0.0
         self.state: RideState = self.session.update(0.0, now=0.0)
@@ -141,6 +154,7 @@ class Ride:
             for reading in self.rider_source.sample(now, now):
                 self.hub.submit(reading)
         self.state = self.session.update(seconds, now=now)
+        self.company.advance(seconds)
         self._follow_workout(seconds)
         self._command_trainer(now)
         if self.capture is not None:
@@ -156,6 +170,11 @@ class Ride:
         """What a rider does when a step runs until they say so."""
         if self.workout is not None:
             self.workout.advance()
+
+    @property
+    def companions(self) -> Sequence[Companion]:
+        """Everyone else on the road right now."""
+        return self.company.companions()
 
     @property
     def workout_progress(self) -> WorkoutProgress | None:

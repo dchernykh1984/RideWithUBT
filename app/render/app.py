@@ -58,6 +58,7 @@ SKY = (0.53, 0.71, 0.87, 1.0)
 ASPHALT = (0.24, 0.24, 0.26, 1.0)
 ARROW_COLOUR = (1.0, 0.78, 0.13, 1.0)
 RIDER_COLOUR = (0.85, 0.16, 0.20, 1.0)
+COMPANION_COLOUR = (0.20, 0.45, 0.85, 1.0)
 # A plain backdrop under the circuit. Not terrain - the landscape around Sokol is
 # not modelled - just something for the track to sit on so it does not float.
 GROUND_COLOUR = (0.42, 0.45, 0.34, 1.0)
@@ -103,6 +104,7 @@ class RideApp(ShowBase):
         self.ground = self._build_ground()
         self.track = self._build_track()
         self.rider = self._build_rider()
+        self.companions: dict[str, NodePath] = {}
         self.arrow = self._build_arrow()
         if not headless:
             self._prepare_window(offscreen=offscreen)
@@ -195,6 +197,7 @@ class RideApp(ShowBase):
         now = self._clock.getFrameTime()
         self.ride.advance(self._clock.getDt(), now)
         self._place_rider()
+        self._place_companions()
         self._place_camera()
         self._place_arrow()
         self._update_hud()
@@ -204,6 +207,24 @@ class RideApp(ShowBase):
         point = self.state.point
         self.rider.setPos(point.x, point.y, point.z + 0.4)
         self.rider.setH(math.degrees(self.state.heading_rad) - 90.0)
+
+    def _place_companions(self) -> None:
+        """Draw whoever else is on the road, making a marker for anyone new.
+
+        Markers are kept by id rather than rebuilt, because a network source will
+        eventually add and drop riders mid-ride and rebuilding the scene graph
+        every frame for that would be the wrong shape to have started with.
+        """
+        for companion in self.ride.companions:
+            marker = self.companions.get(companion.id)
+            if marker is None:
+                marker = self.render.attachNewNode(arrow_node(companion.id))
+                marker.setColor(*COMPANION_COLOUR)
+                marker.setScale(1.2)
+                self.companions[companion.id] = marker
+            point = companion.point
+            marker.setPos(point.x, point.y, point.z + 0.4)
+            marker.setH(math.degrees(companion.heading_rad) - 90.0)
 
     def _place_camera(self) -> None:
         # With no window there is no camera: the self-test still runs the world
@@ -262,8 +283,21 @@ class RideApp(ShowBase):
             lines.append(
                 f"{state.upcoming.chosen_exit} in {state.upcoming.distance_m:.0f} m"
             )
+        lines += self._company_lines()
         lines += self._workout_lines()
         self.hud.setText("\n".join(lines))
+
+    def _company_lines(self) -> list[str]:
+        """Who is up the road and who is behind, in metres."""
+        others = self.ride.companions
+        if not others:
+            return []
+        mine = self.state.distance_m
+        nearby = sorted(others, key=lambda other: abs(other.distance_m - mine))[:3]
+        return [
+            "",
+            *(f"{other.name:>7}  {other.distance_m - mine:+.0f} m" for other in nearby),
+        ]
 
     def _workout_lines(self) -> list[str]:
         if self.ride.workout is None:
