@@ -12,7 +12,7 @@ and see that the geometry, the junctions and the steering all work.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBase import ShowBase
@@ -30,11 +30,16 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
+from app.core.control import ControlMode, TrainerDirector
 from app.core.recorder import RideRecorder
 from app.core.session import RideSession, RideState
 from app.render.geometry import arrow_node, geom_node
+from app.sensors.discovery import default_transports
 from app.sensors.hub import SensorHub
+from app.sensors.loop import SensorLoop
+from app.sensors.manager import DeviceManager
 from app.sensors.simulated import SimulatedSensors, steady
+from app.settings import Settings
 from app.workout.engine import WorkoutEngine
 from app.workout.model import DurationKind, Workout
 from app.world.description import load as load_world
@@ -91,6 +96,8 @@ class RideApp(ShowBase):
         offscreen: bool = False,
         record: bool = False,
         workout: Workout | None = None,
+        paired_device_ids: Sequence[str] = (),
+        control_mode: ControlMode = ControlMode.OFF,
     ):
         if headless:
             # No graphics pipe at all: the frozen-app smoke test in CI runs on a
@@ -105,14 +112,22 @@ class RideApp(ShowBase):
         self.translate = translate
         self._clock = ClockObject.getGlobalClock()
         self.network: TrackNetwork = load_world(world_id)
+        self.wheel = Settings.load().wheel
         route = self.network.route(route_id) if route_id else None
         self.navigator = Navigator(self.network, route=route)
 
-        # No sensors are connected yet, so a stand-in rider pushes a steady
-        # power into the same hub a real power meter would report to. Swapping
-        # in the Bluetooth or ANT+ source changes this line and nothing else.
+        # Real sensors and the stand-in rider report to the same hub, and only
+        # one of them is used: a rider with paired devices gets their own watts,
+        # and a rider with none gets a steady stand-in so the world can still be
+        # ridden. Nothing downstream can tell which it is looking at.
         self.hub = SensorHub()
-        self.rider_source = SimulatedSensors(steady(power_w=power_w))
+        # Not `self.devices`: ShowBase already owns that name for Panda3D's own
+        # input device manager, and shadowing it breaks its data loop.
+        self.sensors, self.sensor_loop = self._start_sensors(paired_device_ids)
+        self.rider_source = (
+            None if self.sensors else SimulatedSensors(steady(power_w=power_w))
+        )
+        self.director = TrainerDirector(mode=control_mode)
         self.session = RideSession(self.navigator, hub=self.hub)
         self.state: RideState = self.session.update(0.0, now=0.0)
         # A picture of the world or a smoke test is not a ride, so neither of
@@ -133,6 +148,31 @@ class RideApp(ShowBase):
         self.taskMgr.add(self._tick, "ride")
 
     # Building the scene.
+
+    def _start_sensors(
+        self, paired_device_ids: Sequence[str]
+    ) -> tuple[DeviceManager | None, SensorLoop | None]:
+        """Connect the rider's own devices, on a thread of their own.
+
+        The connecting is not waited for. A scan takes seconds, and a window
+        that will not draw until the radios have finished looking is a window
+        that looks broken; devices simply start reporting when they answer.
+        """
+        if not paired_device_ids:
+            return None, None
+        loop = SensorLoop()
+        loop.start()
+        manager = DeviceManager(
+            hub=self.hub, transports=default_transports(), wheel=self.wheel
+        )
+        loop.submit(self._connect_paired(manager, tuple(paired_device_ids)))
+        return manager, loop
+
+    @staticmethod
+    async def _connect_paired(manager: DeviceManager, wanted: tuple[str, ...]) -> None:
+        """Connect whichever paired devices answer. One that does not is absent."""
+        found = await manager.scan()
+        await manager.connect_all(device for device in found if device.id in wanted)
 
     def _build_ground(self) -> NodePath:
         """One big quad under everything, a touch below the track surface."""
@@ -221,9 +261,11 @@ class RideApp(ShowBase):
 
     def _tick(self, task: Task) -> int:
         now = self._clock.getFrameTime()
-        for reading in self.rider_source.sample(now, now):
-            self.hub.submit(reading)
+        if self.rider_source is not None:
+            for reading in self.rider_source.sample(now, now):
+                self.hub.submit(reading)
         self.state = self.session.update(self._clock.getDt(), now=now)
+        self._command_trainer(now)
         self._follow_workout(self._clock.getDt())
         if self.recorder is not None:
             self.recorder.observe(self.state)
@@ -232,6 +274,25 @@ class RideApp(ShowBase):
         self._place_arrow()
         self._update_hud()
         return Task.cont
+
+    def _command_trainer(self, now: float) -> None:
+        """Tell the trainer what to hold, when there is anything new to say."""
+        if self.sensors is None or self.sensor_loop is None:
+            return
+        command = self.director.update(
+            now, gradient=self.state.gradient, target_w=self._target_power_w()
+        )
+        if command is not None:
+            self.sensor_loop.submit(self.sensors.apply(command))
+
+    def _target_power_w(self) -> float | None:
+        if self.workout is None:
+            return None
+        step = self.workout.progress().step
+        if step is None:
+            return None
+        target = step.step.power
+        return target.middle if target is not None else None
 
     def _follow_workout(self, seconds: float) -> None:
         """Move the workout on, and let its target drive the stand-in rider.
@@ -246,7 +307,7 @@ class RideApp(ShowBase):
         self._last_distance_m = self.state.distance_m
         progress = self.workout.update(seconds, covered, self.state.power_w)
         step = progress.step
-        if step is None:
+        if step is None or self.rider_source is None:
             return
         target = step.step.power
         if target is not None:
@@ -348,17 +409,27 @@ class RideApp(ShowBase):
         now = 0.0
         while now < seconds:
             now += step
-            for reading in self.rider_source.sample(now, now):
-                self.hub.submit(reading)
+            if self.rider_source is not None:
+                for reading in self.rider_source.sample(now, now):
+                    self.hub.submit(reading)
             self.state = self.session.update(step, now=now)
         self._place_rider()
         self._place_camera()
         self._place_arrow()
 
     def userExit(self) -> None:  # noqa: N802 - overriding Panda3D's own name
-        """Save the ride on the way out, however the window was closed."""
+        """Save the ride and release the radios, however the window was closed."""
         self.save_ride()
+        self.release_sensors()
         super().userExit()
+
+    def release_sensors(self) -> None:
+        """Disconnect every device and stop the sensor thread."""
+        if self.sensors is not None and self.sensor_loop is not None:
+            self.sensor_loop.run(self.sensors.disconnect_all())
+        if self.sensor_loop is not None:
+            self.sensor_loop.stop()
+        self.sensors, self.sensor_loop = None, None
 
     def save_ride(self) -> str | None:
         """Write the recording into the activity store, if there is one."""

@@ -104,3 +104,27 @@ def test_the_whole_setup_survives_a_round_trip() -> None:
     saved.save()
 
     assert Settings.load() == saved
+
+
+def test_nothing_is_paired_to_begin_with() -> None:
+    assert Settings().paired_device_ids == []
+
+
+def test_the_trainer_is_asked_to_follow_the_course_by_default() -> None:
+    from app.core.control import ControlMode
+
+    assert Settings().trainer_control is ControlMode.SIMULATION
+
+
+def test_an_unknown_control_mode_leaves_the_trainer_alone() -> None:
+    """A settings file from a newer build must not command a trainer at random."""
+    from app.core.control import ControlMode
+
+    assert Settings(control_mode="teleport").trainer_control is ControlMode.OFF
+
+
+def test_paired_devices_survive_a_round_trip() -> None:
+    saved = Settings(paired_device_ids=["ble:AA", "ant:11:42"], control_mode="erg")
+    saved.save()
+
+    assert Settings.load() == saved

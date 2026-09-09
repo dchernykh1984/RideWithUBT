@@ -5,10 +5,17 @@ overlap: a smart trainer and a power meter both report power, two straps both
 report heart rate. The hub decides which value is current, forgets values whose
 device has gone quiet, and fills in power from wheel speed when there is nothing
 better - marking it estimated when it does.
+
+It is also the one place in the app where two threads meet. Radios deliver on
+their own thread and the renderer reads on the main one, so every touch of the
+stored readings is taken under a lock. It is a cheap one - a handful of
+dictionary operations - and it is the difference between a defined snapshot and
+one taken half way through an update.
 """
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 
 from app.sensors.types import Metric, MetricValue, Reading, RideSnapshot
@@ -28,10 +35,15 @@ class SensorHub:
     estimator: PowerEstimator | None = None
     preferred: dict[Metric, str] = field(default_factory=dict)
     _latest: dict[tuple[Metric, str], Reading] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def submit(self, reading: Reading) -> None:
-        """Take one reading. The newest from a given device replaces the last."""
-        self._latest[(reading.metric, reading.source)] = reading
+        """Take one reading. The newest from a given device replaces the last.
+
+        Called from whichever thread the radio delivers on.
+        """
+        with self._lock:
+            self._latest[(reading.metric, reading.source)] = reading
 
     def prefer(self, metric: Metric, source: str) -> None:
         """Pin a metric to one device, for a rider with two of something."""
@@ -52,11 +64,12 @@ class SensorHub:
 
     def _current(self, metric: Metric, now: float) -> Reading | None:
         """The reading to believe for this metric, or None if nothing is fresh."""
-        fresh = [
-            reading
-            for (reading_metric, _), reading in self._latest.items()
-            if reading_metric == metric and now - reading.at <= self.stale_after_s
-        ]
+        with self._lock:
+            fresh = [
+                reading
+                for (reading_metric, _), reading in self._latest.items()
+                if reading_metric == metric and now - reading.at <= self.stale_after_s
+            ]
         if not fresh:
             return None
         pinned = self.preferred.get(metric)

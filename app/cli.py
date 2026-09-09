@@ -8,10 +8,14 @@ work on a machine with no display and no GPU.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import sys
 from collections.abc import Callable, Sequence
 
 from app import __version__, i18n, paths
+from app.sensors.discovery import default_transports
+from app.sensors.hub import SensorHub
+from app.sensors.manager import DeviceManager
 from app.settings import Settings
 from app.storage import activities as activity_store
 from app.workout import library as workout_library
@@ -23,6 +27,7 @@ from app.world.navigation import lap_length_m
 # until a window is actually wanted.
 DEFAULT_WORLD = "sokol"
 DEFAULT_POWER_W = 200.0
+DEFAULT_SCAN_SECONDS = 6.0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -79,6 +84,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ride without keeping the recording.",
     )
     parser.add_argument(
+        "--scan",
+        nargs="?",
+        type=float,
+        const=DEFAULT_SCAN_SECONDS,
+        metavar="SECONDS",
+        help="Look for sensors on every radio, list what answered, and exit.",
+    )
+    parser.add_argument(
+        "--pair",
+        metavar="DEVICE_ID",
+        help="Remember a device, so it is connected at the start of every ride.",
+    )
+    parser.add_argument(
+        "--unpair",
+        metavar="DEVICE_ID",
+        help="Forget a paired device.",
+    )
+    parser.add_argument(
+        "--devices",
+        action="store_true",
+        help="List the paired devices, and exit.",
+    )
+    parser.add_argument(
         "--workout",
         metavar="NAME_OR_PATH",
         help="Ride a structured workout: a name from the library, or a file.",
@@ -118,6 +146,42 @@ def print_languages(active: str) -> None:
         print(f"{marker} {code}  {i18n.locale_name(code)}")
 
 
+def scan_for_devices(seconds: float) -> None:
+    found = asyncio.run(
+        DeviceManager(hub=SensorHub(), transports=default_transports()).scan(seconds)
+    )
+    for device in found:
+        metrics = ", ".join(sorted(device.metrics))
+        control = " (controllable)" if device.controllable else ""
+        print(f"{device.id}\n    {device.label}{control}\n    {metrics}")
+    if not found:
+        print("nothing answered - check the sensors are awake and in range")
+
+
+def pair_device(device_id: str) -> None:
+    settings = Settings.load()
+    if device_id not in settings.paired_device_ids:
+        settings.paired_device_ids.append(device_id)
+        settings.save()
+    print(f"paired {device_id}")
+
+
+def unpair_device(device_id: str) -> None:
+    settings = Settings.load()
+    if device_id in settings.paired_device_ids:
+        settings.paired_device_ids.remove(device_id)
+        settings.save()
+    print(f"unpaired {device_id}")
+
+
+def print_paired_devices() -> None:
+    paired = Settings.load().paired_device_ids
+    for device_id in paired:
+        print(device_id)
+    if not paired:
+        print("no devices paired yet - run --scan to find them")
+
+
 def print_rides() -> None:
     recorded = activity_store.rides()
     for path in recorded:
@@ -155,6 +219,10 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
     """
     asked = (
         (args.languages, lambda: print_languages(language)),
+        (args.scan is not None, lambda: scan_for_devices(args.scan)),
+        (args.pair, lambda: pair_device(args.pair)),
+        (args.unpair, lambda: unpair_device(args.unpair)),
+        (args.devices, print_paired_devices),
         (args.rides, print_rides),
         (args.workouts, print_workouts),
         (args.worlds, print_worlds),
@@ -192,6 +260,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
         print(f"wrote {args.screenshot}")
         return 0
 
+    settings = Settings.load()
     RideApp(
         translate,
         world_id=args.world,
@@ -199,6 +268,8 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
         power_w=args.power,
         record=not args.no_record,
         workout=workout_library.find(args.workout) if args.workout else None,
+        paired_device_ids=settings.paired_device_ids,
+        control_mode=settings.trainer_control,
     ).run()
     return 0
 
