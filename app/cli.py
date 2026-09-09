@@ -14,6 +14,7 @@ from collections.abc import Callable, Sequence
 from datetime import date, timedelta
 
 from app import __version__, i18n, paths, selfcheck, setup_commands
+from app.core.companions import DEFAULT_PARTNER_WATTS, parse_partners
 from app.core.control import ControlMode
 from app.sensors.discovery import default_transports
 from app.sensors.hub import SensorHub
@@ -102,6 +103,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.0,
         metavar="SECONDS",
         help="With --screenshot, how far into the lap to ride before the picture.",
+    )
+    parser.add_argument(
+        "--partners",
+        nargs="?",
+        const=",".join(f"{watts:.0f}" for watts in DEFAULT_PARTNER_WATTS),
+        metavar="WATTS",
+        help="Put pace partners on the circuit, for example: --partners 150,220,290",
     )
     parser.add_argument(
         "--capture-trainer",
@@ -585,6 +593,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
             paired_device_ids=tuple(settings.paired_device_ids),
             control_mode=settings.trainer_control,
             capture_trainer=args.capture_trainer or settings.record_trainer_data,
+            partner_watts=parse_partners(args.partners) if args.partners else (),
         ),
     ).run()
     return 0
@@ -612,8 +621,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         # A typed world or workout name is a thing a person gets wrong, not a
         # thing that has gone wrong. A stack trace tells them nothing they can
         # act on and hides the one line that does.
+        #
+        # Before the general clause below: both of these are ValueErrors, and a
+        # handler that came first would swallow them and lose the hint.
         print(error)
         print(WHERE_TO_LOOK[type(error)])
+        return 2
+    except ValueError as error:
+        # Something else the rider wrote that could not be read - a pace nobody
+        # holds, say. Same reasoning, without a listing to point at.
+        print(error)
         return 2
 
 

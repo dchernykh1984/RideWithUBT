@@ -710,3 +710,35 @@ def test_importing_a_plan_with_nothing_in_it(
     assert cli.main(["--import-schedule", "--garmin-user", "me@example.com"]) == 0
 
     assert "nothing scheduled in the next 28 days" in capsys.readouterr().out
+
+
+def test_pace_partners_reach_the_ride(renderer: FakeRenderer) -> None:
+    assert cli.main(["--partners", "150,290"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.partner_watts == (150.0, 290.0)
+
+
+def test_asking_for_partners_without_saying_which(renderer: FakeRenderer) -> None:
+    """A default group, so it is one flag rather than a decision."""
+    assert cli.main(["--partners"]) == 0
+
+    (app,) = renderer.apps
+    assert len(app.setup.partner_watts) == 3
+
+
+def test_riding_alone_is_still_the_default(renderer: FakeRenderer) -> None:
+    assert cli.main([]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.partner_watts == ()
+
+
+def test_a_pace_nobody_holds_is_a_message_not_a_traceback(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["--partners", "3000"]) == 2
+
+    out = capsys.readouterr().out
+    assert "not a pace anyone holds" in out
+    assert "Traceback" not in out

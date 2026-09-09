@@ -100,8 +100,10 @@ without one, `--worlds`, `--setup` and the other listing commands still work.
   as ridden indoors.
 - **Speak three languages**: Russian, English and Kazakh.
 
-Riding with other people is a later, opt-in feature. The app is built to stay
-fully usable with it switched off.
+Riding with other people over a network is a later feature, and the shape it
+needs is already here: `--partners` puts riders on the circuit who ride the same
+physics on the same ground, and a network source would be another way of saying
+where riders are. The app stays fully usable with nobody else on the road.
 
 ## Running from source
 
@@ -115,6 +117,7 @@ uv run ridewithubt --worlds               # list the worlds and their laps
 uv run ridewithubt --plan plan.png        # draw the world from above
 uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the lap
 uv run ridewithubt --power 240            # what the stand-in rider pushes
+uv run ridewithubt --partners 150,220,290 # put pace partners on the circuit
 uv run ridewithubt --no-record            # ride without keeping the recording
 uv run ridewithubt --rides                # list the rides already recorded
 uv run ridewithubt --upload               # send what has not gone up yet

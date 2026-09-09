@@ -418,13 +418,22 @@ a ride, and not recording at all would make two rides on the service out of one
 file. The log is keyed by file name and service, deliberately not by anything
 inside the file: a re-recorded ride is a new file and should go up again.
 
-## Multiplayer
+## Riding with other people
 
-Out of scope for now, designed for anyway. The ride session already treats other
-riders as a list of remote entities with position, speed, cadence and power, so a
-network source can be added beside the local one later. When it arrives, it will
-be opt-in per ride, it will carry only that telemetry, and the app will stay
-fully functional with it switched off.
+Over a network, out of scope for now - but the shape it needs exists and is used,
+which is the difference between groundwork and a paragraph. A ride holds
+companions; a `CompanionSource` says where they are; the renderer draws whoever
+is there without asking where they came from.
+
+The source that exists needs no network at all: **pace partners**, riders holding
+a steady power round the same circuit on the same physics and the same ground.
+They are useful on their own - one to sit in with, one to work at, one to chase -
+and they prove the machinery, which a protocol with no implementation would not.
+
+A network source implements the same protocol and nothing above it changes. When
+it arrives it will be opt-in per ride, it will carry only position, speed,
+cadence and power, and the application will stay exactly as usable with the cable
+pulled: with no companions there is simply nobody else on the road.
 
 ## Localisation
 
