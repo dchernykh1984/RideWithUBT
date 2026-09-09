@@ -568,3 +568,145 @@ def test_a_measured_rollout_can_be_set_from_the_command_line(
 
     assert "2088 mm" in capsys.readouterr().out
     assert Settings.load().measured_rollout_mm == 2088.0
+
+
+def test_the_schedule_says_when_there_is_none(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["--schedule"]) == 0
+
+    assert "--import-schedule" in capsys.readouterr().out
+
+
+def test_the_schedule_marks_today(capsys: pytest.CaptureFixture[str]) -> None:
+    from datetime import date, timedelta
+
+    from app.workout.schedule import Schedule, ScheduledRide
+
+    Schedule.of(
+        [
+            ScheduledRide(on=date.today(), workout_name="Threshold"),
+            ScheduledRide(on=date.today() + timedelta(days=2), workout_name="Recovery"),
+        ]
+    ).save()
+
+    assert cli.main(["--schedule"]) == 0
+
+    out = capsys.readouterr().out
+    assert "today        Threshold" in out
+    assert "Recovery" in out
+
+
+def test_riding_today_takes_the_workout_the_plan_names(
+    renderer: FakeRenderer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import shutil
+    from datetime import date
+
+    from app import paths
+    from app.workout.schedule import Schedule, ScheduledRide
+
+    paths.ensure_data_tree()
+    shutil.copy(
+        Path(__file__).parent / "data" / "cycling_intervals.json",
+        paths.workouts_dir() / "intervals.json",
+    )
+    Schedule.of(
+        [ScheduledRide(on=date.today(), workout_name="3x8 Cycling Intervals")]
+    ).save()
+
+    assert cli.main(["--today"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.workout is not None
+    assert app.setup.workout.name == "3x8 Cycling Intervals"
+    assert "today: 3x8 Cycling Intervals" in capsys.readouterr().out
+
+
+def test_riding_today_with_nothing_scheduled_says_so(
+    renderer: FakeRenderer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--today"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.workout is None
+    assert "nothing scheduled for today" in capsys.readouterr().out
+
+
+def test_a_named_workout_wins_over_the_plan(renderer: FakeRenderer) -> None:
+    """Asking for something specific is asking for it, plan or no plan."""
+    import shutil
+    from datetime import date
+
+    from app import paths
+    from app.workout.schedule import Schedule, ScheduledRide
+
+    paths.ensure_data_tree()
+    shutil.copy(
+        Path(__file__).parent / "data" / "cycling_intervals.json",
+        paths.workouts_dir() / "intervals.json",
+    )
+    Schedule.of([ScheduledRide(on=date.today(), workout_name="Something else")]).save()
+
+    assert cli.main(["--today", "--workout", "3x8 Cycling Intervals"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.workout.name == "3x8 Cycling Intervals"
+
+
+def test_importing_a_schedule_without_an_account(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["--import-schedule"]) == 0
+
+    assert "--garmin-user" in capsys.readouterr().out
+
+
+def test_importing_a_schedule_stores_it_and_its_workouts(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from datetime import date
+
+    from app.services.garmin import GarminWorkouts
+    from app.workout import library
+    from app.workout.schedule import Schedule
+    from tests.test_garmin_format import step, workout
+    from tests.test_garmin_service import FakeGarmin
+
+    plan_day = date.today().isoformat()
+    client = FakeGarmin(
+        {"a": workout(step(seconds=600.0), name="Threshold")},
+        scheduled=[
+            {
+                "calendarDate": plan_day,
+                "workout": {"workoutName": "Threshold", "workoutId": "a"},
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        cli, "connect_to_garmin", lambda username: GarminWorkouts(client=client)
+    )
+
+    assert cli.main(["--import-schedule", "7", "--garmin-user", "me@example.com"]) == 0
+
+    out = capsys.readouterr().out
+    assert "1 rides scheduled" in out
+    assert "Threshold -> threshold.json" in out
+    assert len(Schedule.load()) == 1
+    assert library.load_library().named("Threshold").total_time_s == 600.0
+
+
+def test_importing_a_plan_with_nothing_in_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.services.garmin import GarminWorkouts
+    from tests.test_garmin_service import FakeGarmin
+
+    client = FakeGarmin({})
+    monkeypatch.setattr(
+        cli, "connect_to_garmin", lambda username: GarminWorkouts(client=client)
+    )
+
+    assert cli.main(["--import-schedule", "--garmin-user", "me@example.com"]) == 0
+
+    assert "nothing scheduled in the next 28 days" in capsys.readouterr().out

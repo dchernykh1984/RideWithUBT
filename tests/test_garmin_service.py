@@ -14,9 +14,17 @@ from tests.test_garmin_format import step, workout
 class FakeGarmin:
     """The two calls this needs, and a record of how they were made."""
 
-    def __init__(self, workouts: dict[str, dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        workouts: dict[str, dict[str, Any]],
+        scheduled: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.workouts = workouts
+        self.scheduled = scheduled or []
         self.listed: list[tuple[int, int]] = []
+
+    def get_scheduled_workouts(self, start: str, end: str) -> list[dict[str, Any]]:
+        return self.scheduled
 
     def get_workouts(self, start: int, end: int) -> list[dict[str, Any]]:
         self.listed.append((start, end))
@@ -36,7 +44,7 @@ def account(**workouts: dict[str, Any]) -> GarminWorkouts:
 def test_listing_asks_for_the_number_wanted() -> None:
     service = account(a=workout(step(), name="Threshold"))
 
-    listed = service.list(limit=7)
+    listed = service.summaries(limit=7)
 
     assert listed == [WorkoutSummary(id="a", name="Threshold")]
     assert service.client.listed == [(0, 7)]  # type: ignore[attr-defined]
@@ -49,7 +57,7 @@ def test_a_workout_without_an_id_is_skipped() -> None:
         {"workoutName": "Nameless"}
     ]
 
-    assert service.list() == []
+    assert service.summaries() == []
 
 
 def test_fetching_gives_something_rideable() -> None:
@@ -69,7 +77,7 @@ def test_one_unreadable_workout_does_not_stop_the_import() -> None:
         bad=workout(step(kind="swim.drill"), name="Bad"),
     )
 
-    results = list(service.download(service.list()))
+    results = list(service.download(service.summaries()))
 
     readable = [(summary.name, problem) for summary, got, problem in results if got]
     skipped = [(summary.name, problem) for summary, got, problem in results if not got]
@@ -81,7 +89,7 @@ def test_one_unreadable_workout_does_not_stop_the_import() -> None:
 def test_an_imported_workout_lands_in_the_library(tmp_path: Path) -> None:
     """Whatever it came from, it is stored in the one format the library reads."""
     service = account(a=workout(step(seconds=600.0), name="3x8 Threshold"))
-    _, fetched, _ = next(iter(service.download(service.list())))
+    _, fetched, _ = next(iter(service.download(service.summaries())))
     assert fetched is not None
 
     path = library.save(fetched, tmp_path)

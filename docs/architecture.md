@@ -212,7 +212,8 @@ pull request that cannot conflict with anyone else's.
 
 Two sources, one internal model:
 
-- **Garmin Connect** - workouts pulled directly from the rider's own account,
+- **Garmin Connect** - workouts, and the training plan's calendar, pulled
+  directly from the rider's own account,
   using their credentials, with nothing in between. Two of Garmin's names do not
   say what they mean and are read rather than trusted: an open step's end
   condition is `lap.button`, and a power target's type is `power.zone` whether
@@ -223,6 +224,16 @@ Two sources, one internal model:
 
 Both are parsed into one workout model, so the interval engine, the HUD and the
 recorder do not care where a session came from.
+
+A **plan** is a calendar, not a workout: dates with workouts on them. The app does
+not run the plan - it has no opinion about periodisation and no business having
+one - it only knows which workout today's ride is meant to be, so `--today` rides
+it without the rider looking it up on their phone first. Garmin has moved the
+fields of a scheduled entry around between versions of its own API, so the
+reading looks for each in the places it has been, and an entry that gives up
+neither a date nor a name is **skipped and named** rather than guessed at: a plan
+that half-loads is worse than one that says which days it could not read, because
+the rider would ride the wrong thing and never know.
 
 The plan format has one trap worth naming: its `duration_seconds` field holds
 metres when the step beside it says `"duration_type": "distance"`, and nothing at
