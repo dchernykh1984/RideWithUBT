@@ -49,6 +49,23 @@ This matters more than it would on a map. The gradient goes into the power model
 and out to the rider's legs through a smart trainer, so a fake slope is
 resistance somebody actually pushes against.
 
+## The surfaces
+
+The asphalt and the ground the circuit sits on are generated, not photographed:
+
+```bash
+uv run python scripts/make_textures.py
+```
+
+A texture taken from somewhere is somebody's, and this project does not use
+anybody's work without saying so - the same reason its geometry comes from open
+data. Generated also fits better: an image that comes out of a seed is small in
+the repository, reproducible from the code that made it, and adjustable by
+changing a number rather than by finding another picture.
+
+The results go in `app/data/textures/` and are tracked. A test regenerates them
+and compares, so nobody can quietly drop a photograph in.
+
 ## Refreshing an extract
 
 ```bash

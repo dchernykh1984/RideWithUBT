@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from pathlib import Path
 
 from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBase import ShowBase
@@ -26,6 +27,8 @@ from panda3d.core import (
     NodePath,
     OrthographicLens,
     TextNode,
+    Texture,
+    TextureStage,
     WindowProperties,
     loadPrcFileData,
 )
@@ -55,6 +58,8 @@ CAMERA_FAR_M = 6000.0
 ARROW_HEIGHT_M = 5.0
 ARROW_SCALE = 2.5
 SKY = (0.53, 0.71, 0.87, 1.0)
+#: Where the generated surfaces live, inside the package so they travel with it.
+TEXTURES = Path(__file__).parent.parent / "data" / "textures"
 ASPHALT = (0.24, 0.24, 0.26, 1.0)
 ARROW_COLOUR = (1.0, 0.78, 0.13, 1.0)
 RIDER_COLOUR = (0.85, 0.16, 0.20, 1.0)
@@ -128,13 +133,37 @@ class RideApp(ShowBase):
         is not modelled - just something for the track to sit on."""
         mesh = ground_plane(self.network, GROUND_SIZE_M, GROUND_DROP_M)
         node = self.render.attachNewNode(geom_node(mesh, "ground"))
-        node.setColor(*GROUND_COLOUR)
+        self._dress(node, "ground.png", GROUND_COLOUR, repeat=GROUND_SIZE_M / 40.0)
         return node
 
     def _build_track(self) -> NodePath:
         node = self.render.attachNewNode(geom_node(network_mesh(self.network), "track"))
-        node.setColor(*ASPHALT)
+        self._dress(node, "track.png", ASPHALT)
         return node
+
+    def _dress(
+        self,
+        node: NodePath,
+        surface: str,
+        fallback: tuple[float, ...],
+        repeat: float = 1.0,
+    ) -> None:
+        """Put a generated surface on a node, or its flat colour if it is missing.
+
+        A texture that failed to travel into a frozen build must not stop the
+        ride: a grey road is worse to look at and perfectly rideable.
+        """
+        texture = self.loader.loadTexture(
+            Filename.fromOsSpecific(str(TEXTURES / surface))
+        )
+        if texture is None:
+            node.setColor(*fallback)
+            return
+        texture.setWrapU(Texture.WMRepeat)
+        texture.setWrapV(Texture.WMRepeat)
+        node.setTexture(texture)
+        if repeat != 1.0:
+            node.setTexScale(TextureStage.getDefault(), repeat, repeat)
 
     def _build_rider(self) -> NodePath:
         """A marker, not a model: something to follow while the world is built."""
