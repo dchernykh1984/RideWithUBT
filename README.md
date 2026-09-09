@@ -7,8 +7,67 @@ recording. Everything runs on your own machine: there is no account to create
 and no server that has to be up for you to ride. Uploads go straight from the
 app to Garmin Connect or Strava, never through a RideWithUBT server.
 
-**Status: early. Nothing is released yet** - the roadmap is in
+**Status: early, but it runs.** The roadmap is in
 [docs/architecture.md](docs/architecture.md).
+
+## Download a ready-made app
+
+Every release ships portable builds, so there is nothing to install and no
+Python, uv or git needed. Pick the file for your platform from the
+[latest release](https://github.com/dchernykh1984/RideWithUBT/releases/latest):
+
+| Platform | File |
+| --- | --- |
+| Windows (Intel/AMD) | `ridewithubt-windows-x64.exe` |
+| macOS (Apple Silicon) | `ridewithubt-macos-arm64.zip` |
+| Linux (Intel/AMD) | `ridewithubt-linux-x86_64` |
+| Linux (ARM64) | `ridewithubt-linux-aarch64` |
+
+There is no Windows ARM build: Panda3D publishes no wheel for it.
+
+The builds are not code-signed, so every system needs a one-off nudge before the
+first launch. Each step below is done once per download, not on every start.
+
+### macOS
+
+Only Apple Silicon (M1 and newer) is supported - there is no Intel build.
+
+Unpack the archive, then clear the quarantine flag that macOS puts on downloaded
+files:
+
+```bash
+xattr -dr com.apple.quarantine "/path/to/RideWithUBT.app"
+```
+
+After that the app opens with a normal double-click. Without it macOS refuses to
+start the app, because it is unsigned.
+
+The flag stays cleared. Copying or moving the app on the same Mac keeps it clear,
+so there is no need to repeat this for every copy. It only comes back when the
+app arrives from outside again: a fresh download, AirDrop, or unpacking a newly
+downloaded archive.
+
+Rather not use a terminal? Ctrl-click the app, choose **Open**, then **Open**
+again in the dialog. macOS 15 Sequoia dropped that shortcut - there, go to System
+Settings -> Privacy & Security, scroll down to the notice about the blocked app
+and press **Open Anyway**.
+
+### Windows
+
+Run the `.exe` directly. SmartScreen warns that the publisher is unknown: choose
+**More info**, then **Run anyway**.
+
+### Linux
+
+Make the file executable and run it:
+
+```bash
+chmod +x ridewithubt-linux-x86_64
+./ridewithubt-linux-x86_64
+```
+
+This is a graphical application, so it needs a desktop session. On a machine
+without one, `--worlds`, `--setup` and the other listing commands still work.
 
 ## What it is meant to do
 
