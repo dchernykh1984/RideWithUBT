@@ -44,5 +44,6 @@
     "exit_node": 10057052139,
     "offset_m": 14.0,
     "width_m": 8.0
-  }
+  },
+  "elevation_window_m": 400.0
 }

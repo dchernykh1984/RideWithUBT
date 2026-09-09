@@ -27,7 +27,11 @@ def main(argv: list[str]) -> int:
         return 2
     world_id = argv[0]
     directory = BUILD_DATA / world_id
-    network = build_from_files(directory / "recipe.json", directory / "overpass.json")
+    network = build_from_files(
+        directory / "recipe.json",
+        directory / "overpass.json",
+        directory / "elevation.json",
+    )
     output = world_path(world_id)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(describe(network), indent=1) + "\n", encoding="utf-8")

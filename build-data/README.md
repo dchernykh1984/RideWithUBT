@@ -13,6 +13,7 @@ Each world is a directory holding three files:
 | --- | --- |
 | `overpass.ql` | The Overpass query that produced the extract. Keep it, so the extract can be refreshed. |
 | `overpass.json` | The extract itself: the raceway ways of one circuit, with geometry. |
+| `elevation.json` | The ground height at every node, sampled from an elevation model. |
 | `recipe.json` | Which way is the circuit proper, which are its alternative sections, and the named configurations built from them. |
 
 Rebuild with:
@@ -23,6 +24,30 @@ uv run python scripts/build_world.py sokol
 
 That writes `app/data/worlds/<id>.json`. Commit the result: the application reads
 the built file and never runs a generator or touches the network.
+
+## The ground
+
+OpenStreetMap has no heights, so they are sampled separately:
+
+```bash
+uv run python scripts/fetch_elevation.py sokol
+```
+
+That asks the public Open Topo Data service for SRTM's 30 m dataset, paces itself
+to the service's rate limit, and writes `elevation.json`.
+
+**The raw sample is not rideable.** SRTM samples every 30 m and rounds to the
+metre, while a circuit's points are about 10 m apart, so the difference between
+neighbours is mostly rounding - Sokol, which rises and falls six metres in four
+and a half kilometres, contains a 22% wall in the raw data. The generator
+therefore averages the profile along the track, over a window set by
+`elevation_window_m` in the recipe. That window is a property of the elevation
+model, not of the terrain: a coarse model needs a wide one, a better model needs
+less. Sokol's is 400 m, which brings its steepest gradient to 1.2%.
+
+This matters more than it would on a map. The gradient goes into the power model
+and out to the rider's legs through a smart trainer, so a fake slope is
+resistance somebody actually pushes against.
 
 ## Refreshing an extract
 
