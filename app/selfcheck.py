@@ -12,7 +12,8 @@ crashed" into "the build failed".
 
 from __future__ import annotations
 
-import importlib
+import importlib.util
+import sys
 
 #: Everything imported lazily, or only on a path a user might not take for weeks.
 LATE_IMPORTS = (
@@ -38,7 +39,11 @@ LATE_IMPORTS = (
     "app.workout.library",
 )
 #: Third-party packages that are only reached when a rider actually uses them.
-LATE_DEPENDENCIES = ("bleak", "fitparse", "garminconnect", "keyring", "openant")
+LATE_DEPENDENCIES = ("bleak", "garminconnect", "keyring", "openant", "stravalib")
+#: Tools that belong to the tests and must not travel into a build. `fitparse`
+#: reads the FIT files this app writes, which is a thing to check with, not to
+#: ship - it was in the list above once, and the frozen build said so.
+DEV_ONLY = ("fitparse", "pytest", "ruff")
 
 
 def missing(modules: tuple[str, ...] = LATE_IMPORTS) -> list[str]:
@@ -53,15 +58,24 @@ def missing(modules: tuple[str, ...] = LATE_IMPORTS) -> list[str]:
 
 
 def missing_dependencies() -> list[str]:
-    """The same for the packages a frozen build might have left behind.
+    """The same for the packages a frozen build might have left behind."""
+    return [name for name in LATE_DEPENDENCIES if not _present(name)]
 
-    `fitparse` is deliberately not in this list's own dependencies: it is a
-    testing tool. It is checked because a build that somehow ships it is not
-    wrong, only heavier - and because leaving it out of the check would hide a
-    packaging change that swept it in.
+
+def stowaway_dev_tools() -> list[str]:
+    """Test-only tools that ended up in a build, which only a build can have.
+
+    Running from a checkout they are all present and all welcome, so this asks
+    only of a frozen application - where they mean the packaging swept up the
+    test suite.
     """
-    return [
-        name
-        for name in LATE_DEPENDENCIES
-        if importlib.util.find_spec(name) is None  # type: ignore[attr-defined]
-    ]
+    if not getattr(sys, "frozen", False):
+        return []
+    return [name for name in DEV_ONLY if _present(name)]
+
+
+def _present(name: str) -> bool:
+    try:
+        return importlib.util.find_spec(name) is not None
+    except ImportError, ValueError:  # pragma: no cover - a broken installation
+        return False

@@ -375,9 +375,17 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     from app.render.app import RideApp, plan_view, screenshot, selftest
 
     if args.selftest:
-        problems = selfcheck.missing() + [
-            f"{name}: not in this build" for name in selfcheck.missing_dependencies()
-        ]
+        problems = (
+            selfcheck.missing()
+            + [
+                f"{name}: not in this build"
+                for name in selfcheck.missing_dependencies()
+            ]
+            + [
+                f"{name}: a test tool that should not ship"
+                for name in selfcheck.stowaway_dev_tools()
+            ]
+        )
         if problems:
             for problem in problems:
                 print(f"missing from this build: {problem}")

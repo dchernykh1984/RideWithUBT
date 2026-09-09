@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
+
 from app import selfcheck
 
 
@@ -17,6 +19,29 @@ def test_everything_late_is_actually_importable() -> None:
 
 def test_the_dependencies_that_only_get_used_sometimes_are_here() -> None:
     assert selfcheck.missing_dependencies() == []
+
+
+def test_the_test_tools_are_not_in_the_list_of_things_to_ship() -> None:
+    """`fitparse` was, once, and the frozen build failed saying so.
+
+    It reads the FIT files this app writes, which is a thing to check with, not
+    to ship.
+    """
+    assert set(selfcheck.LATE_DEPENDENCIES) & set(selfcheck.DEV_ONLY) == set()
+    assert "fitparse" in selfcheck.DEV_ONLY
+
+
+def test_a_checkout_is_allowed_its_test_tools() -> None:
+    """They are all present here and all welcome; only a build may not have them."""
+    assert selfcheck.stowaway_dev_tools() == []
+
+
+def test_a_build_that_swept_up_the_test_suite_is_reported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(selfcheck.sys, "frozen", True, raising=False)
+
+    assert "pytest" in selfcheck.stowaway_dev_tools()
 
 
 def test_a_module_that_is_not_there_is_reported() -> None:
