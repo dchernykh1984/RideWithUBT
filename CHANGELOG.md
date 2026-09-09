@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/dchernykh1984/RideWithUBT/compare/v0.3.0...v0.3.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* **render:** open the window in a packaged build ([43cd98a](https://github.com/dchernykh1984/RideWithUBT/commit/43cd98a2bd5e59e24fac5b186e46f530b0880578))
+
 ## [0.3.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.2.0...v0.3.0) (2026-09-09)
 
 
