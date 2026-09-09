@@ -491,6 +491,22 @@ failure lands on a user's machine the first time they try to upload a ride. So
 `--selftest` imports every part a rider reaches only sometimes, and the frozen
 binary is the thing CI runs it on. `app/selfcheck.py` holds that list.
 
+**Being packaged is not the same as being reachable**, which cost a release.
+Panda3D finds its display modules - the code that opens a window - through a
+`plugin-path` defaulting to `<auto>`: deduce it from where my own libraries
+are. In a frozen bundle that deduction fails, and so does the matching one for
+the `.prc` files that say to open a window in the first place. The library was
+in the build, loadable, and never looked at. Every test passed, the self-test
+passed on the frozen binary on all four platforms, and the application died a
+second after being double-clicked - with no traceback anywhere a user would
+see it, because a double-clicked app has nowhere to print one.
+
+`app/frozen.py` finds those files by looking rather than deducing, and
+`--selftest` now asks Panda3D what it can actually draw with and fails the
+build when the answer is nothing. That check is the point: a self-test that
+runs with no window can never need a display module, so it could pass forever
+while the application would not start.
+
 The full matrix can also be run on demand (`build.yml`, workflow dispatch),
 because a release attaches its assets *after* the release exists: a build that
 only fails on Windows would otherwise leave a published release missing a file.

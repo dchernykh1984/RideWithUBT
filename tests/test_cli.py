@@ -47,6 +47,8 @@ class FakeRenderer:
     selftests: list[dict[str, Any]] = field(default_factory=list)
     screenshots: list[dict[str, Any]] = field(default_factory=list)
     plans: list[dict[str, Any]] = field(default_factory=list)
+    #: The display modules this pretend build can open a window with.
+    pipes: tuple[str, ...] = ("CocoaGraphicsPipe",)
 
     def build_app(
         self, translate: Translate, setup: Any = None, **options: Any
@@ -57,6 +59,10 @@ class FakeRenderer:
 
     def selftest(self, translate: Translate, **options: Any) -> None:
         self.selftests.append(options)
+
+    def display_modules_available(self) -> tuple[str, ...]:
+        """What a working build reports. The empty case has its own test."""
+        return self.pipes
 
     def screenshot(self, translate: Translate, path: str, **options: Any) -> None:
         self.screenshots.append({"path": path, **options})
@@ -70,6 +76,7 @@ class FakeRenderer:
         module: Any = types.ModuleType("app.render.app")
         module.RideApp = self.build_app
         module.selftest = self.selftest
+        module.display_modules_available = self.display_modules_available
         module.screenshot = self.screenshot
         module.plan_view = self.plan_view
         return module
@@ -122,7 +129,26 @@ def test_selftest_runs_the_engine_and_reports(
     assert len(renderer.selftests) == 1
     assert renderer.selftests[0]["world_id"] == "sokol"
     assert not renderer.apps
-    assert "selftest ok" in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert "selftest ok" in printed
+    assert "CocoaGraphicsPipe" in printed, "it says what it can draw with"
+
+
+def test_a_build_that_cannot_open_a_window_fails_the_selftest(
+    renderer: FakeRenderer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The check that was missing when a release shipped and would not start.
+
+    Everything else about that build was fine - it imported, it read its
+    world, it passed the self-test - and it still died a second after being
+    double-clicked, because a self-test with no window never needs one.
+    """
+    renderer.pipes = ()
+
+    assert cli.main(["--selftest"]) == 1
+
+    assert "cannot open a window" in capsys.readouterr().out
+    assert not renderer.selftests, "there is no point running the rest"
 
 
 def test_default_run_opens_a_localised_window(renderer: FakeRenderer) -> None:

@@ -23,6 +23,7 @@ from panda3d.core import (
     ClockObject,
     DirectionalLight,
     Filename,
+    GraphicsPipeSelection,
     LVector3,
     NodePath,
     OrthographicLens,
@@ -30,6 +31,7 @@ from panda3d.core import (
     Texture,
     TextureStage,
     WindowProperties,
+    loadPrcFile,
     loadPrcFileData,
 )
 
@@ -37,6 +39,7 @@ from app.core.companions import departed
 from app.core.preferences import SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
 from app.core.session import RideState
+from app.frozen import panda_config_dir, panda_plugin_dir
 from app.render.geometry import arrow_node, geom_node
 from app.workout.model import DurationKind
 from app.world.mesh import ground_plane, network_mesh
@@ -94,6 +97,7 @@ class RideApp(ShowBase):
         offscreen: bool = False,
         ride: Ride | None = None,
     ):
+        point_panda_at_its_own_files()
         if headless:
             # No graphics pipe at all: the frozen-app smoke test in CI runs on a
             # machine with no display, and an offscreen buffer would still need
@@ -524,6 +528,50 @@ def plan_view(
         app.win.saveScreenshot(Filename.fromOsSpecific(path))
     finally:
         app.destroy()
+
+
+def point_panda_at_its_own_files() -> str | None:
+    """Tell a frozen Panda3D where its own files went.
+
+    Two separate things are lost in a frozen build, and the first hides the
+    second: the `.prc` files that say a window should be opened with `pandagl`,
+    and the directory that module is actually in. Fixing only the path leaves
+    an application that has been told nothing to load; fixing only the config
+    leaves one that cannot find what it was told to load. Both, in that order.
+
+    Running from source there is nothing to fix, and this does nothing.
+    """
+    configuration = panda_config_dir()
+    if configuration is not None:
+        # Confauto.prc before Config.prc, which is the order Panda3D reads them
+        # in and the order they override one another in.
+        for prc in sorted(configuration.glob("*.prc")):
+            loadPrcFile(Filename.fromOsSpecific(str(prc)))
+    directory = panda_plugin_dir()
+    if directory is None:
+        return None
+    # After the files above, so that a `plugin-path` in one of them cannot put
+    # the deduction we are working around back. Panda3D also has its own idea
+    # of what a path looks like, which is not the operating system's on Windows.
+    path = Filename.fromOsSpecific(str(directory)).getFullpath()
+    loadPrcFileData("frozen", f"plugin-path {path}")
+    return path
+
+
+def display_modules_available() -> tuple[str, ...]:
+    """The kinds of window this build can actually open.
+
+    Empty means the application will not start, however well everything else
+    was packaged - so the smoke test asks, rather than trusting that a build
+    which imports cleanly can also draw.
+    """
+    point_panda_at_its_own_files()
+    selection = GraphicsPipeSelection.getGlobalPtr()
+    selection.loadAuxModules()
+    return tuple(
+        selection.getPipeType(index).getName()
+        for index in range(selection.getNumPipeTypes())
+    )
 
 
 def selftest(translate: Callable[[str], str], world_id: str = DEFAULT_WORLD) -> None:
