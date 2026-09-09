@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from app import __version__, cli, i18n
+from app.services.company import DEFAULT_PORT
 from app.settings import Settings
 
 Translate = Callable[[str], str]
@@ -18,9 +19,19 @@ Translate = Callable[[str], str]
 class FakeRideApp:
     """Stand-in for the Panda3D window, which needs a GPU the test runner lacks."""
 
-    def __init__(self, translate: Translate, setup: Any = None, **options: Any) -> None:
+    def __init__(
+        self,
+        translate: Translate,
+        setup: Any = None,
+        *,
+        ride: Any = None,
+        **options: Any,
+    ) -> None:
         self.translate = translate
-        self.setup = setup
+        self.ride = ride
+        # The CLI hands the window a whole ride; what these tests are about is
+        # the setup inside it, so it is reachable either way.
+        self.setup: Any = setup if setup is not None else getattr(ride, "setup", None)
         self.options = options
         self.ran = False
 
@@ -40,7 +51,7 @@ class FakeRenderer:
     def build_app(
         self, translate: Translate, setup: Any = None, **options: Any
     ) -> FakeRideApp:
-        app = FakeRideApp(translate, setup, **options)
+        app = FakeRideApp(translate, setup, **options)  # ride= arrives in options
         self.apps.append(app)
         return app
 
@@ -742,3 +753,96 @@ def test_a_pace_nobody_holds_is_a_message_not_a_traceback(
     out = capsys.readouterr().out
     assert "not a pace anyone holds" in out
     assert "Traceback" not in out
+
+
+# Riding with other people.
+
+
+def test_riding_alone_needs_no_identity(renderer: FakeRenderer) -> None:
+    """A rider who never joins a room has no id in their settings, ever."""
+    assert cli.main([]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.rider_id == ""
+    assert Settings.load().rider_id == ""
+
+
+def test_joining_a_room_mints_a_name_and_an_id(
+    renderer: FakeRenderer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--ride-with", "127.0.0.1:9"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.rider_id != ""
+    assert app.setup.rider_name.startswith("rider-")
+    assert app.ride.others is not None
+    assert "riding with whoever is at 127.0.0.1:9" in capsys.readouterr().out
+
+
+def test_the_identity_is_kept_for_next_time(renderer: FakeRenderer) -> None:
+    assert cli.main(["--ride-with", "127.0.0.1:9"]) == 0
+    first = Settings.load().rider_id
+
+    assert cli.main(["--ride-with", "127.0.0.1:9"]) == 0
+
+    assert Settings.load().rider_id == first
+    assert first != ""
+
+
+def test_a_rider_can_say_what_to_call_them(renderer: FakeRenderer) -> None:
+    assert cli.main(["--name", "Askar", "--ride-with", "127.0.0.1:9"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.rider_name == "Askar"
+    assert Settings.load().rider_name == "Askar"
+
+
+def test_a_name_can_be_set_without_joining_anything(renderer: FakeRenderer) -> None:
+    assert cli.main(["--name", "Dana"]) == 0
+
+    assert Settings.load().rider_name == "Dana"
+    (app,) = renderer.apps
+    assert app.ride.others is None, "naming yourself is not joining a room"
+
+
+def test_a_host_that_is_not_one_is_a_message_not_a_traceback(
+    renderer: FakeRenderer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--ride-with", "laptop:port"]) == 2
+
+    assert "not a port number" in capsys.readouterr().out
+
+
+def test_hosting_a_room_opens_no_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    served: list[int] = []
+    import app.services.room as room_module
+
+    monkeypatch.setattr(
+        room_module, "serve", lambda **kwargs: served.append(kwargs["port"])
+    )
+
+    assert cli.main(["--host-room", "9999"]) == 0
+
+    assert served == [9999]
+
+
+def test_hosting_a_room_has_a_port_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    served: list[int] = []
+    import app.services.room as room_module
+
+    monkeypatch.setattr(
+        room_module, "serve", lambda **kwargs: served.append(kwargs["port"])
+    )
+
+    assert cli.main(["--host-room"]) == 0
+
+    assert served == [DEFAULT_PORT]
+
+
+@pytest.mark.parametrize("port", ["zero", "0", "70000"])
+def test_a_room_on_a_port_that_is_not_one_says_so(
+    port: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--host-room", port]) == 2
+
+    assert "not a port number" in capsys.readouterr().out

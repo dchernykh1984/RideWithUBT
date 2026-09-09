@@ -19,7 +19,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:  # presence imports Companion from here; the arrow goes one way
+    from app.core.presence import RiderState
 
 from app.core.physics import STANDARD_AIR, Air, Bike, step_speed_ms
 from app.world.navigation import Navigator
@@ -48,12 +51,21 @@ class Companion:
 
 
 class CompanionSource(Protocol):
-    """Where other riders come from. A network client would be one of these."""
+    """Where other riders come from. A network client is one of these."""
 
     def companions(self) -> Sequence[Companion]: ...
 
     def advance(self, seconds: float) -> None:
         """Move them on by one step of the ride."""
+        ...
+
+    def report(self, me: RiderState) -> None:
+        """Take where *we* are, for sources that have somewhere to send it.
+
+        A source that invents its riders locally has nowhere to send this and
+        ignores it. A network client needs it, and asking every source for it
+        is what keeps the ride from having to know which kind it is holding.
+        """
         ...
 
 
@@ -130,6 +142,34 @@ class PacePartners:
             for number, rider in enumerate(self.riders)
         )
 
+    def report(self, me: RiderState) -> None:
+        """Nobody to tell: these riders are made up here and stay here."""
+        return
+
+
+@dataclass
+class Peloton:
+    """Several sources at once, because a road holds more than one kind of rider.
+
+    A club ride with a pace partner to chase is two sources and one road, and
+    everything above here should go on seeing one list of people.
+    """
+
+    sources: tuple[CompanionSource, ...] = ()
+
+    def advance(self, seconds: float) -> None:
+        for source in self.sources:
+            source.advance(seconds)
+
+    def report(self, me: RiderState) -> None:
+        for source in self.sources:
+            source.report(me)
+
+    def companions(self) -> Sequence[Companion]:
+        return tuple(
+            companion for source in self.sources for companion in source.companions()
+        )
+
 
 @dataclass
 class NoCompany:
@@ -140,6 +180,9 @@ class NoCompany:
 
     def companions(self) -> Sequence[Companion]:
         return ()
+
+    def report(self, me: RiderState) -> None:
+        return
 
 
 def parse_partners(text: str) -> tuple[float, ...]:

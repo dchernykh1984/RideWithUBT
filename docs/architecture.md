@@ -432,20 +432,37 @@ inside the file: a re-recorded ride is a new file and should go up again.
 
 ## Riding with other people
 
-Over a network, out of scope for now - but the shape it needs exists and is used,
-which is the difference between groundwork and a paragraph. A ride holds
-companions; a `CompanionSource` says where they are; the renderer draws whoever
-is there without asking where they came from.
+A ride holds companions; a `CompanionSource` says where they are; the renderer
+draws whoever is there without asking where they came from. There are two kinds
+of source and the code above them cannot tell which it is holding.
 
-The source that exists needs no network at all: **pace partners**, riders holding
-a steady power round the same circuit on the same physics and the same ground.
-They are useful on their own - one to sit in with, one to work at, one to chase -
-and they prove the machinery, which a protocol with no implementation would not.
+**Pace partners** need no network at all: riders holding a steady power round the
+same circuit, on the same physics and the same ground. One to sit in with, one to
+work at, one to chase.
 
-A network source implements the same protocol and nothing above it changes. When
-it arrives it will be opt-in per ride, it will carry only position, speed,
-cadence and power, and the application will stay exactly as usable with the cable
-pulled: with no companions there is simply nobody else on the road.
+**A room** is real people. `NetworkCompany` (`app/services/company.py`) sends one
+datagram five times a second to an address the rider typed and draws whoever
+answers. `app/services/room.py` is the relay that copies those datagrams between
+riders - about a hundred lines, run by whoever is organising the ride. Both
+compose through `Peloton`, because a club ride with a partner to chase is two
+sources and one road.
+
+**There is no RideWithUBT server, and adding one would be a change to what this
+application is.** A room is a host the rider named. Nothing about the ride
+travels through anything belonging to this project, which is the same promise the
+upload path makes, kept the same way.
+
+The split follows the offline rule: the *format* is `app/core/presence.py`, pure
+and exhaustively tested - including every way a stranger's datagram can be
+malformed, which is the part that matters, because all of it arrives from
+machines this application has never met. The *socket* is in `app/services`,
+where `tests/test_offline.py` names it and says why.
+
+What goes on the wire is position, heading, speed, distance, cadence, power and
+a name the rider chose. Not a heart rate, not a workout, not an account. A rider
+who never joins a room never even has an id. `docs/protocol.md` is the whole
+contract, written so somebody else can implement a relay without reading this
+code.
 
 ## Localisation
 
@@ -486,11 +503,13 @@ Windows on ARM is not built: Panda3D publishes no wheel for it.
 4. Ride physics and the ride session; recording to FIT in the activity store.
    *(done)*
 5. World description and the track network: segments, junctions, both Sokol
-   rings and the pit lane, built from open data. *(done, except elevation)*
+   rings and the pit lane, built from open data. *(done)*
 6. The renderer draws the track and moves a rider along it, with the junction
    arrow and its keyboard control. *(done)*
 7. Workout model, Garmin and `training_plan_generator` import, interval engine
-   with ERG control for smart trainers. *(model, plan import and engine done;
-   Garmin import and ERG still to come)*
+   with ERG control for smart trainers. *(done)*
 8. Trainer profile capture mode and the pull-request flow for contributing one.
-9. Garmin and Strava upload.
+   *(done)*
+9. Garmin and Strava upload. *(done)*
+10. Riding with other people: the presence format, a relay anyone can run, and
+    the client that joins one. *(done)*

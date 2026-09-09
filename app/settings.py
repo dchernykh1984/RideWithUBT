@@ -38,6 +38,10 @@ class Settings:
     #: The Garmin Connect account to import from. Only the name is kept here;
     #: the password lives in the operating system's credential store.
     garmin_username: str = ""
+    #: Shown to other riders in a room, and only ever sent to a relay the rider
+    #: asked to join. Empty until they do.
+    rider_name: str = ""
+    rider_id: str = ""
 
     @property
     def effective_language(self) -> str:

@@ -83,14 +83,52 @@ def test_the_radios_are_not_caught_by_this() -> None:
     assert not ble & NETWORKING
 
 
+#: What may reach a network at all, and what for. Two of these talk to a service
+#: the rider has an account with; two speak to a relay the rider named, on a host
+#: this project does not run. Nothing else in the application opens anything.
+ALLOWED_REACH = {
+    "garmin.py": {"garminconnect", "urllib"},
+    "garmin_session.py": {"garminconnect", "urllib"},
+    "strava_session.py": {"stravalib", "urllib"},
+    "upload.py": {"garminconnect", "stravalib", "urllib"},
+    # Riding with other people. A datagram goes to an address the rider typed
+    # and comes back from the same one - a laptop on their network, a box a club
+    # hosts. There is no RideWithUBT server for it to be pointed at.
+    "company.py": {"socket"},
+    "room.py": {"socket"},
+}
+
+
 def test_nothing_in_the_app_phones_home() -> None:
     """No telemetry, no update check, no analytics - not even in the services.
 
-    Those may talk to Garmin and Strava, and to nowhere else.
+    Each module that can reach a network is named above with what it may reach.
+    Anything else, anywhere, fails here - including a new module in this very
+    directory, which is the case this is really guarding against.
     """
-    allowed = {"garminconnect", "stravalib", "urllib"}
     for module in SERVICES_DIR.rglob("*.py"):
         reaching = imported_roots(module.read_text(encoding="utf-8")) & NETWORKING
+        allowed = ALLOWED_REACH.get(module.name, set())
         assert reaching <= allowed, (
-            f"{module.name} reaches {sorted(reaching - allowed)}"
+            f"{module.name} reaches {sorted(reaching - allowed)}; "
+            "if that is deliberate, say so in ALLOWED_REACH and say why"
         )
+
+
+def test_the_list_of_what_may_reach_out_is_not_stale() -> None:
+    """An entry left behind after a module goes would quietly widen the rule."""
+    present = {module.name for module in SERVICES_DIR.rglob("*.py")}
+
+    assert set(ALLOWED_REACH) <= present, sorted(set(ALLOWED_REACH) - present)
+
+
+def test_riding_together_needs_no_account_and_no_service() -> None:
+    """The one network feature that is not an upload keeps the promise too.
+
+    A relay is a host the rider named. Nothing in the code that speaks to one
+    knows about a login, a token, or an address this project chose.
+    """
+    for name in ("company.py", "room.py"):
+        source = (SERVICES_DIR / name).read_text(encoding="utf-8")
+        assert "credentials" not in source
+        assert "http" not in source.replace("https://", "")
