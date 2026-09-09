@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.2.0...v0.3.0) (2026-09-09)
+
+
+### Features
+
+* **render:** choose your bike without leaving the ride ([c9c22ee](https://github.com/dchernykh1984/RideWithUBT/commit/c9c22ee33174c312cfa4d39b98a2620464653e37))
+* **services:** ride with other people through a relay you run ([8b3bade](https://github.com/dchernykh1984/RideWithUBT/commit/8b3bade42f66288aba5a29572f902f838d326195))
+
+
+### Bug Fixes
+
+* **render:** take a rider's marker away when they leave ([4c19bae](https://github.com/dchernykh1984/RideWithUBT/commit/4c19baea287f36b52fb39784effe5cb886fa7a4c))
+
+
+### Documentation
+
+* say that riding together is here, not later ([82b5985](https://github.com/dchernykh1984/RideWithUBT/commit/82b598553ac8c761fdeebb4d9beea5798822c307))
+
 ## [0.2.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.1.0...v0.2.0) (2026-09-09)
 
 
