@@ -32,9 +32,11 @@ from app.services.uploads import UploadLog
 from app.settings import Settings
 from app.storage import activities as activity_store
 from app.workout import library as workout_library
+from app.workout.model import WorkoutError
 from app.world.description import available_worlds
 from app.world.description import load as load_world
 from app.world.navigation import lap_length_m
+from app.world.network import NetworkError
 
 # Repeated here rather than imported from app.render, which must not be imported
 # until a window is actually wanted.
@@ -372,6 +374,12 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
 
 def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     """Everything that needs the engine, and therefore imports it."""
+    # Checked before the engine is even imported, so a mistyped name is a line of
+    # text rather than a window that opens and immediately falls over.
+    world = load_world(args.world)
+    if args.route:
+        world.route(args.route)
+
     from app.render.app import RideApp, plan_view, screenshot, selftest
 
     if args.selftest:
@@ -416,15 +424,31 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     return 0
 
 
+#: Where to look when someone asked for something that is not there. The message
+#: already says what is missing; this says how to find out what is not.
+WHERE_TO_LOOK = {
+    NetworkError: "--worlds lists the worlds and what each one offers",
+    WorkoutError: "--workouts lists the workouts in your library",
+}
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     language = resolve_language(args.lang)
     translate = i18n.load(language)
 
-    answered = listings(args, language)
-    if answered is not None:
-        return answered
-    return render(args, translate)
+    try:
+        answered = listings(args, language)
+        if answered is not None:
+            return answered
+        return render(args, translate)
+    except (NetworkError, WorkoutError) as error:
+        # A typed world or workout name is a thing a person gets wrong, not a
+        # thing that has gone wrong. A stack trace tells them nothing they can
+        # act on and hides the one line that does.
+        print(error)
+        print(WHERE_TO_LOOK[type(error)])
+        return 2
 
 
 if __name__ == "__main__":

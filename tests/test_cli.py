@@ -486,3 +486,38 @@ def test_a_build_missing_a_late_import_fails_the_self_test(
     assert cli.main(["--selftest"]) == 1
 
     assert "missing from this build" in capsys.readouterr().out
+
+
+def test_a_world_that_does_not_exist_is_a_message_not_a_traceback(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A typed name is a thing a person gets wrong, not a thing that went wrong."""
+    assert cli.main(["--world", "nowhere", "--worlds"]) == 0  # listing still works
+    capsys.readouterr()
+
+    assert cli.main(["--world", "nowhere", "--selftest"]) == 2
+
+    out = capsys.readouterr().out
+    assert "no world 'nowhere'" in out
+    assert "--worlds lists" in out
+    assert "Traceback" not in out
+
+
+def test_a_route_that_does_not_exist_points_at_the_listing(
+    renderer: FakeRenderer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--route", "nonesuch"]) == 2
+
+    out = capsys.readouterr().out
+    assert "unknown route 'nonesuch'" in out
+    assert "--worlds lists" in out
+
+
+def test_a_workout_that_does_not_exist_points_at_its_own_listing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["--workout", "nonesuch"]) == 2
+
+    out = capsys.readouterr().out
+    assert "no workout named 'nonesuch'" in out
+    assert "--workouts lists" in out
