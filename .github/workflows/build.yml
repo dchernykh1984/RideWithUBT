@@ -79,6 +79,25 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Drop Panda3D modules that have no arm64 (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Panda3D's macOS wheel is universal2 except for a module or two that
+          # only carry x86_64 - `rocket`, its old libRocket GUI binding, which
+          # nothing here uses. PyInstaller refuses to put an x86_64 extension in
+          # an arm64 application, and it is right to: the result would not load.
+          set -euo pipefail
+          shopt -s nullglob
+          for module in .venv/lib/python*/site-packages/panda3d/*.so; do
+            archs=$(lipo -archs "$module" 2>/dev/null || echo "")
+            case "$archs" in
+              *arm64*) ;;
+              *) echo "dropping $(basename "$module") (has: ${archs:-unknown})"
+                 rm "$module" ;;
+            esac
+          done
+
       - name: Build portable app
         shell: bash
         env:
@@ -129,8 +148,7 @@ jobs:
         shell: bash
         run: test -s "$ASSET"
 
-      - name: Smoke-launch the frozen app (Linux)
-        if: runner.os == 'Linux'
+      - name: Smoke-launch the frozen app
         shell: bash
         run: |
           # --selftest boots the real Panda3D engine with an offscreen window,
@@ -138,9 +156,18 @@ jobs:
           # sometimes - the radios, the services, the credential store. Anything
           # PyInstaller failed to notice fails here rather than the first time
           # somebody tries to upload a ride.
-          "$ASSET" --selftest
-          "$ASSET" --worlds
-          "$ASSET" --devices
+          #
+          # Every platform, not just Linux: the one that broke first was macOS,
+          # and it broke in a way only that platform could show.
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            app="dist/${APP_BUNDLE_NAME}.app/Contents/MacOS/${APP_BUNDLE_NAME}"
+          else
+            app="$ASSET"
+          fi
+          "$app" --selftest
+          "$app" --worlds
+          "$app" --devices
 
       - uses: actions/upload-artifact@v7
         with:
