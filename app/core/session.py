@@ -35,6 +35,9 @@ class RideState:
     cadence_rpm: float | None = None
     heart_rate_bpm: float | None = None
     upcoming: UpcomingJunction | None = None
+    #: Where the rider is on the globe, when the world says where it is.
+    latitude: float | None = None
+    longitude: float | None = None
 
     @property
     def speed_kmh(self) -> float:
@@ -82,13 +85,17 @@ class RideSession:
 
         cadence = snapshot.cadence
         heart_rate = snapshot.heart_rate
+        point = self.navigator.point
+        coordinate = self.navigator.network.coordinate(point)
         return RideState(
             elapsed_s=self.elapsed_s,
             distance_m=self.distance_m,
             speed_ms=self.speed_ms,
             gradient=gradient,
-            point=self.navigator.point,
+            point=point,
             heading_rad=self.navigator.heading_rad,
+            latitude=coordinate[0] if coordinate else None,
+            longitude=coordinate[1] if coordinate else None,
             power_w=watts,
             power_estimated=power.estimated if power is not None else False,
             cadence_rpm=cadence.value if cadence is not None else None,

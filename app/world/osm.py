@@ -308,6 +308,7 @@ def build(recipe: Recipe, ways: dict[int, Way]) -> TrackNetwork:
         segments=tuple(segments),
         junctions=tuple(junctions),
         routes=tuple(routes),
+        origin=origin,
     )
 
 

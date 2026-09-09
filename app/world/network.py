@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from itertools import pairwise
 
+from app.world.geo import Origin
+
 
 class NetworkError(ValueError):
     """A network that does not describe a track anyone could ride."""
@@ -149,13 +151,20 @@ class Route:
 
 @dataclass(frozen=True)
 class TrackNetwork:
-    """Every segment of a world, and how they join."""
+    """Every segment of a world, and how they join.
+
+    ``origin`` is where the world's (0, 0) sits on the globe. It is what lets a
+    position in the world be written back out as a coordinate - into a ride
+    recording, most of all - so a world without one records no positions rather
+    than recording wrong ones.
+    """
 
     id: str
     name: str
     segments: tuple[Segment, ...]
     junctions: tuple[Junction, ...] = ()
     routes: tuple[Route, ...] = ()
+    origin: Origin | None = None
 
     def __post_init__(self) -> None:
         self._check()
@@ -193,6 +202,12 @@ class TrackNetwork:
         for segment in self.segments:
             exits.setdefault(segment.start_node, []).append(segment.id)
         return {node: tuple(leaving) for node, leaving in exits.items()}
+
+    def coordinate(self, point: Point) -> tuple[float, float] | None:
+        """Where a point in this world is on the globe, if the world says."""
+        if self.origin is None:
+            return None
+        return self.origin.to_global(point.x, point.y)
 
     def segment(self, segment_id: str) -> Segment:
         try:

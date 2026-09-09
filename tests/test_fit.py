@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fitparse import FitFile
@@ -15,6 +16,9 @@ from app.storage.activity import EmptyRideError, RideSample, encode_activity
 from app.storage.fit import FIT_EPOCH, crc16, semicircles, timestamp
 
 START = datetime(2026, 9, 9, 6, 30, tzinfo=UTC)
+# The start line of the Sokol circuit, which is where these rides happen.
+SOKOL_LAT = 43.5814425
+SOKOL_LON = 76.5651263
 
 
 def ride(
@@ -33,6 +37,8 @@ def ride(
             power_w=power_w,
             cadence_rpm=cadence_rpm,
             heart_rate_bpm=heart_rate_bpm,
+            latitude=SOKOL_LAT,
+            longitude=SOKOL_LON,
         )
         for second in range(seconds)
     ]
@@ -45,8 +51,15 @@ def decode(data: bytes) -> FitFile:
     return fit
 
 
-def messages(fit: FitFile, name: str) -> list[dict[str, object]]:
+def messages(fit: FitFile, name: str) -> list[dict[str, Any]]:
+    """Decoded messages. Typed loosely: what a FIT field holds is not known
+    until the file says so."""
     return [message.get_values() for message in fit.get_messages(name)]
+
+
+def degrees(semicircles_value: float) -> float:
+    """FIT stores coordinates as semicircles, and so reports them back."""
+    return semicircles_value * 180 / 2**31
 
 
 def test_the_file_parses_and_its_checksums_hold() -> None:
@@ -68,14 +81,39 @@ def test_a_ride_is_marked_as_a_virtual_one() -> None:
     assert session["sub_sport"] == "virtual_activity"
 
 
-def test_no_coordinates_are_written() -> None:
-    """A virtual ride must not put times on the real segments it was traced from."""
+def test_the_ride_is_written_where_it_happened() -> None:
+    """A virtual lap of a real place should sit on the map of that place."""
     records = messages(decode(encode_activity(ride())), "record")
 
     assert records
     for record in records:
+        assert degrees(record["position_lat"]) == pytest.approx(SOKOL_LAT, abs=1e-6)
+        assert degrees(record["position_long"]) == pytest.approx(SOKOL_LON, abs=1e-6)
+
+
+def test_a_world_that_is_not_anywhere_records_no_position() -> None:
+    """Better a ride with no positions than one with made-up ones."""
+    nowhere = [
+        RideSample(at=sample.at, distance_m=sample.distance_m, speed_ms=sample.speed_ms)
+        for sample in ride(seconds=5)
+    ]
+
+    records = messages(decode(encode_activity(nowhere)), "record")
+
+    assert len(records) == 5
+    for record in records:
         assert record.get("position_lat") is None
         assert record.get("position_long") is None
+
+
+def test_a_ride_is_both_here_and_indoors() -> None:
+    """The two facts are not in tension and both are written."""
+    fit = decode(encode_activity(ride()))
+
+    (session,) = messages(fit, "session")
+    first = messages(fit, "record")[0]
+    assert session["sub_sport"] == "virtual_activity"
+    assert first["position_lat"] is not None
 
 
 def test_every_second_of_the_ride_comes_back() -> None:

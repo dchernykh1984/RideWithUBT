@@ -1,15 +1,18 @@
 """A recorded ride, as a FIT activity file.
 
-## No coordinates, on purpose
+## Positions, and how they are labelled
 
-A ride in a virtual world is not a ride at the place the world was traced from.
-Writing Sokol's real coordinates into an indoor recording would upload something
-that looks like an outdoor ride at Sokol - and would put times on the real
-segments there, against people who actually rode them. So a recording carries
-distance, speed, power, cadence, heart rate and altitude, and no position at all.
+A ride carries where it happened: the rider's position in the world, written out
+as the coordinate it corresponds to. That is what puts the ride on a map, and
+what lets a virtual lap be compared with the real ones ridden at the same place.
 
-The activity is also marked as a virtual one in the file itself, which is what
-Garmin Connect and Strava read to show it as such rather than as a ride outdoors.
+It is also marked in the file as a **virtual activity**, which is what Garmin
+Connect and Strava read to show it as one rather than as a ride outdoors. Both
+things are true at once and both are stated: this happened here, and it happened
+indoors.
+
+A world with no origin - one that is not anywhere - records no positions rather
+than made-up ones.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from app.storage.fit import (
     ALTITUDE_OFFSET,
     ALTITUDE_SCALE,
     BASE_ENUM,
+    BASE_SINT32,
     BASE_UINT8,
     BASE_UINT16,
     BASE_UINT32,
@@ -46,6 +50,7 @@ from app.storage.fit import (
     Definition,
     Field,
     FitWriter,
+    semicircles,
     timestamp,
 )
 
@@ -72,6 +77,8 @@ class RideSample:
     power_w: float | None = None
     cadence_rpm: float | None = None
     heart_rate_bpm: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 FILE_ID_FIELDS = (
@@ -83,6 +90,8 @@ FILE_ID_FIELDS = (
 )
 RECORD_FIELDS = (
     Field(253, BASE_UINT32),  # timestamp
+    Field(0, BASE_SINT32),  # position latitude, in semicircles
+    Field(1, BASE_SINT32),  # position longitude
     Field(2, BASE_UINT16),  # altitude
     Field(3, BASE_UINT8),  # heart rate
     Field(4, BASE_UINT8),  # cadence
@@ -216,6 +225,8 @@ def encode_activity(samples: Sequence[RideSample]) -> bytes:
 def _record(sample: RideSample) -> dict[int, int | None]:
     return {
         253: timestamp(sample.at),
+        0: semicircles(sample.latitude) if sample.latitude is not None else None,
+        1: semicircles(sample.longitude) if sample.longitude is not None else None,
         2: round(sample.altitude_m * ALTITUDE_SCALE + ALTITUDE_OFFSET * ALTITUDE_SCALE),
         3: round(sample.heart_rate_bpm) if sample.heart_rate_bpm else None,
         4: round(sample.cadence_rpm) if sample.cadence_rpm is not None else None,
