@@ -329,3 +329,64 @@ def test_a_scan_lists_what_answered(
     assert "ble:AA" in out
     assert "controllable" in out
     assert "power" in out
+
+
+def test_importing_without_an_account_says_what_is_missing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["--import-garmin"]) == 0
+
+    assert "--garmin-user" in capsys.readouterr().out
+
+
+def test_a_failed_sign_in_is_reported_not_raised(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A wrong password is an everyday thing, not a stack trace."""
+
+    def refuse(username: str) -> object:
+        raise cli.GarminLoginError(f"could not sign in to Garmin as {username}")
+
+    monkeypatch.setattr(cli, "connect_to_garmin", refuse)
+
+    assert cli.main(["--import-garmin", "--garmin-user", "rider@example.com"]) == 0
+
+    assert "could not sign in" in capsys.readouterr().out
+
+
+def test_importing_writes_the_workouts_and_remembers_the_account(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.services.garmin import GarminWorkouts
+    from app.settings import Settings
+    from app.workout import library
+    from tests.test_garmin_format import step, workout
+    from tests.test_garmin_service import FakeGarmin
+
+    client = FakeGarmin({"a": workout(step(seconds=600.0), name="Threshold")})
+    monkeypatch.setattr(
+        cli, "connect_to_garmin", lambda username: GarminWorkouts(client=client)
+    )
+
+    assert cli.main(["--import-garmin", "3", "--garmin-user", "rider@example.com"]) == 0
+
+    assert "Threshold -> threshold.json" in capsys.readouterr().out
+    assert Settings.load().garmin_username == "rider@example.com"
+    assert library.load_library().named("Threshold").total_time_s == 600.0
+
+
+def test_importing_from_an_account_with_nothing_in_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.services.garmin import GarminWorkouts
+    from tests.test_garmin_service import FakeGarmin
+
+    monkeypatch.setattr(
+        cli,
+        "connect_to_garmin",
+        lambda username: GarminWorkouts(client=FakeGarmin({})),
+    )
+
+    assert cli.main(["--import-garmin", "--garmin-user", "rider@example.com"]) == 0
+
+    assert "no workouts to import" in capsys.readouterr().out

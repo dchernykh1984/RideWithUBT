@@ -26,9 +26,11 @@ app to Garmin Connect or Strava, never through a RideWithUBT server.
   own a power meter, you can measure your own trainer's curve and contribute the
   profile back as a pull request - see [docs/trainers.md](docs/trainers.md),
   which is also how you add a trainer that is not in the catalogue yet.
-- **Run structured workouts** written by `training_plan_generator`, with Garmin
-  Connect import to follow. Drop the JSON into the `workouts` folder of the data
-  directory and it appears in the list.
+- **Run structured workouts** written by `training_plan_generator`, or imported
+  from your own Garmin Connect account. Whatever they came from, they are stored
+  in one format in the `workouts` folder of the data directory. Your Garmin
+  password goes in the operating system's credential store, never into a file
+  here.
 - **Keep everything in one place** - one static data directory holds the
   settings, the generated worlds and every recorded ride as a FIT file. A ride
   is recorded where it happened, and marked as a virtual activity: both are true
@@ -57,6 +59,7 @@ uv run ridewithubt --scan                 # look for sensors on every radio
 uv run ridewithubt --pair ble:AA:BB:CC    # remember one, for every ride
 uv run ridewithubt --devices              # list the paired devices
 uv run ridewithubt --capture-trainer      # measure this trainer's curve as you ride
+uv run ridewithubt --import-garmin --garmin-user you@example.com   # import workouts
 uv run ridewithubt --workouts             # list the workouts in the library
 uv run ridewithubt --workout "3x8 Cycling Intervals"   # ride one
 uv run ridewithubt --languages            # list the available languages
