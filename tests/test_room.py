@@ -426,3 +426,83 @@ def test_junk_on_the_socket_is_ignored_rather_than_drawn() -> None:
     company.advance(0.05)
 
     assert [companion.name for companion in company.companions()] == ["dana"]
+
+
+# The whole way through: a ride, a relay, and somebody else on the road.
+
+
+def test_a_ride_joined_to_a_room_sees_who_is_there() -> None:
+    """Every piece at once, because each of them working is not the same thing.
+
+    The ride builds its own state, turns it into a datagram, sends it to a real
+    relay, reads back what the relay copied, and hands the result to whatever
+    draws it. Nothing here is a stand-in but the world's other rider.
+    """
+    from app.core.ride import Ride, RideSetup
+
+    with Room() as room:
+        joining = NetworkCompany(
+            address=("127.0.0.1", room.port),
+            me=rider("me", world="sokol"),
+        )
+        theirs = NetworkCompany(
+            address=("127.0.0.1", room.port),
+            me=rider("dana", world="sokol", distance_m=2000.0),
+        )
+        the_ride = Ride(
+            RideSetup(rider_id="me", rider_name="Askar", record=False),
+            others=joining,
+        )
+        try:
+            deadline = time.monotonic() + 15.0
+            while time.monotonic() < deadline:
+                the_ride.advance(0.05, now=time.monotonic())
+                theirs.advance(0.05)
+                if the_ride.companions:
+                    break
+                time.sleep(0.02)
+            seen = list(the_ride.companions)
+        finally:
+            joining.close()
+            theirs.close()
+
+    assert [companion.name for companion in seen] == ["dana"]
+    assert seen[0].distance_m == pytest.approx(2000.0)
+
+
+def test_the_ride_tells_the_room_where_it_actually_is() -> None:
+    """What goes out is the ride's own position, not the placeholder it started
+    with - a rider frozen at the start line would be the easy bug here."""
+    from app.core.ride import Ride, RideSetup
+
+    sent: list[RiderState] = []
+
+    class Listening:
+        def advance(self, seconds: float) -> None:
+            return
+
+        def report(self, me: RiderState) -> None:
+            sent.append(me)
+
+        def companions(self) -> tuple[()]:
+            return ()
+
+    the_ride = Ride(
+        RideSetup(rider_id="me", rider_name="Askar", record=False, power_w=250.0),
+        others=Listening(),
+    )
+    for tick in range(1, 40):
+        the_ride.advance(0.5, now=tick * 0.5)
+
+    assert sent, "the ride never said where it was"
+    assert sent[-1].id == "me"
+    assert sent[-1].name == "Askar"
+    assert sent[-1].world_id == "sokol"
+    assert sent[-1].distance_m > 100.0, "the rider moved and said so"
+    assert sent[-1].speed_ms == pytest.approx(the_ride.state.speed_ms)
+    # What goes out is what the ride knows, which is the hub's reading rather
+    # than the number the stand-in rider was asked for: it is still settling.
+    reported = sent[-1].power_w
+    assert reported is not None
+    assert reported == pytest.approx(the_ride.state.power_w)
+    assert reported > 0.0
