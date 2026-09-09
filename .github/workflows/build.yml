@@ -15,6 +15,16 @@ on:
         description: "Release tag to attach assets to; empty => Linux-only smoke build, no upload."
         type: string
         default: ""
+  # Run the whole platform matrix without releasing anything. A release attaches
+  # its assets after the release itself exists, so a build that only fails on
+  # Windows would leave a published release missing a file. This is how to find
+  # that out first.
+  workflow_dispatch:
+    inputs:
+      all_platforms:
+        description: "Build every platform (no upload)."
+        type: boolean
+        default: true
 
 env:
   # File name: the artifacts and the frozen executable. Kept ASCII and
@@ -40,7 +50,7 @@ jobs:
         run: |
           full='{"include":[{"os":"ubuntu-22.04","name":"linux-x86_64"},{"os":"ubuntu-24.04-arm","name":"linux-aarch64"},{"os":"windows-latest","name":"windows-x64"},{"os":"macos-14","name":"macos-arm64"}]}'
           smoke='{"include":[{"os":"ubuntu-22.04","name":"linux-x86_64"}]}'
-          if [ -n "${{ inputs.release_tag }}" ]; then
+          if [ -n "${{ inputs.release_tag }}" ] || [ "${{ inputs.all_platforms }}" = "true" ]; then
             echo "matrix=$full" >> "$GITHUB_OUTPUT"
           else
             echo "matrix=$smoke" >> "$GITHUB_OUTPUT"
@@ -123,10 +133,14 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          # --selftest boots the real Panda3D engine with an offscreen window and
-          # steps a few frames, so a renderer that failed to freeze fails here
-          # rather than on a user's machine.
+          # --selftest boots the real Panda3D engine with an offscreen window,
+          # steps a few frames, and imports every part a rider reaches only
+          # sometimes - the radios, the services, the credential store. Anything
+          # PyInstaller failed to notice fails here rather than the first time
+          # somebody tries to upload a ride.
           "$ASSET" --selftest
+          "$ASSET" --worlds
+          "$ASSET" --devices
 
       - uses: actions/upload-artifact@v7
         with:

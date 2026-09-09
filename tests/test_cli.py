@@ -108,7 +108,7 @@ def test_selftest_runs_the_engine_and_reports(
     assert len(renderer.selftests) == 1
     assert renderer.selftests[0]["world_id"] == "sokol"
     assert not renderer.apps
-    assert capsys.readouterr().out.strip() == "selftest ok"
+    assert "selftest ok" in capsys.readouterr().out
 
 
 def test_default_run_opens_a_localised_window(renderer: FakeRenderer) -> None:
@@ -473,3 +473,16 @@ def test_finishing_strava_setup(
     assert cli.main(["--strava-code", "abc"]) == 0
 
     assert "Strava connected" in capsys.readouterr().out
+
+
+def test_a_build_missing_a_late_import_fails_the_self_test(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The whole point: a packaging mistake fails the build, not a rider's upload."""
+    monkeypatch.setattr(
+        cli.selfcheck, "missing", lambda *args: ["app.services.upload: no module"]
+    )
+
+    assert cli.main(["--selftest"]) == 1
+
+    assert "missing from this build" in capsys.readouterr().out

@@ -12,7 +12,7 @@ import asyncio
 import sys
 from collections.abc import Callable, Sequence
 
-from app import __version__, i18n, paths
+from app import __version__, i18n, paths, selfcheck
 from app.sensors.discovery import default_transports
 from app.sensors.hub import SensorHub
 from app.sensors.manager import DeviceManager
@@ -375,8 +375,13 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     from app.render.app import RideApp, plan_view, screenshot, selftest
 
     if args.selftest:
+        problems = selfcheck.missing()
+        if problems:
+            for problem in problems:
+                print(f"missing from this build: {problem}")
+            return 1
         selftest(translate, world_id=args.world)
-        print("selftest ok")
+        print(f"selftest ok - {len(selfcheck.LATE_IMPORTS)} late imports present")
         return 0
 
     if args.plan:
