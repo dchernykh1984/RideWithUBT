@@ -1,0 +1,236 @@
+"""A ride, with nothing that draws it.
+
+Everything the renderer used to do between frames lives here: connecting the
+rider's devices, moving the world under them, following a workout, telling a
+smart trainer what to hold, keeping the recording, measuring a trainer's curve.
+None of it needs a window, and all of it decides something - which is exactly the
+wrong combination for code living inside the module that owns the graphics, where
+it cannot be tested.
+
+What is left in `app/render` is the scene: build it, and once a frame ask a ride
+where the rider is and draw them there.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from app import paths
+from app.core.control import ControlMode, TrainerDirector
+from app.core.recorder import RideRecorder
+from app.core.session import RideSession, RideState
+from app.sensors.hub import SensorHub
+from app.sensors.loop import Loop, SensorLoop
+from app.sensors.manager import DeviceManager, DeviceTransport
+from app.sensors.simulated import SimulatedSensors, steady
+from app.settings import Settings
+from app.trainer.capture import TrainerCapture
+from app.workout.engine import WorkoutEngine, WorkoutProgress
+from app.workout.model import Workout
+from app.world.description import load as load_world
+from app.world.navigation import Navigator, Steer
+
+DEFAULT_WORLD = "sokol"
+#: What the stand-in rider pushes until real sensors are connected.
+DEFAULT_POWER_W = 200.0
+
+
+@dataclass(frozen=True)
+class RideSetup:
+    """What to ride, and how. Everything the rider chose before starting."""
+
+    world_id: str = DEFAULT_WORLD
+    route_id: str | None = None
+    power_w: float = DEFAULT_POWER_W
+    record: bool = False
+    workout: Workout | None = None
+    paired_device_ids: Sequence[str] = ()
+    control_mode: ControlMode = ControlMode.OFF
+    capture_trainer: bool = False
+
+
+@dataclass(frozen=True)
+class RideOutcome:
+    """What a finished ride left behind, if anything."""
+
+    ride_path: Path | None = None
+    profile_path: Path | None = None
+
+
+@dataclass
+class Ride:
+    """One ride in progress: the world, the rider, and everything they brought."""
+
+    setup: RideSetup = field(default_factory=RideSetup)
+    settings: Settings | None = None
+    transports: Sequence[DeviceTransport] | None = None
+    sensor_loop: Loop | None = None
+    hub: SensorHub = field(default_factory=SensorHub)
+
+    def __post_init__(self) -> None:
+        # Read once: two reads could see different files and set the ride up with
+        # one rider's wheel and another's trainer.
+        self.settings = self.settings or Settings.load()
+        self.network = load_world(self.setup.world_id)
+        route = self.network.route(self.setup.route_id) if self.setup.route_id else None
+        self.navigator = Navigator(self.network, route=route)
+        self.session = RideSession(self.navigator, hub=self.hub)
+        self.director = TrainerDirector(mode=self.setup.control_mode)
+        self.workout = WorkoutEngine(self.setup.workout) if self.setup.workout else None
+        # A picture of the world or a smoke test is not a ride, so neither leaves
+        # a file behind in the rider's activity store.
+        self.recorder = RideRecorder() if self.setup.record else None
+        self.capture = self._prepare_capture()
+        self.sensors = self._prepare_sensors()
+        # Real sensors and the stand-in rider report to the same hub, and only
+        # one is used: a rider with paired devices gets their own watts, one with
+        # none gets a steady stand-in so the world can still be ridden. Nothing
+        # downstream can tell which it is looking at.
+        self.rider_source = (
+            None
+            if self.sensors
+            else SimulatedSensors(steady(power_w=self.setup.power_w))
+        )
+        self._last_distance_m = 0.0
+        self.state: RideState = self.session.update(0.0, now=0.0)
+
+    # Setting up.
+
+    def _prepare_capture(self) -> TrainerCapture | None:
+        """Measure this trainer's curve during the ride, if asked and possible.
+
+        It needs a trainer to attribute the curve to and a wheel to turn a speed
+        sensor's revolutions into a speed; without either there is nothing a
+        profile could be recorded against.
+        """
+        if not self.setup.capture_trainer or self.settings is None:
+            return None
+        trainer, wheel = self.settings.trainer, self.settings.wheel
+        if trainer is None or wheel is None:
+            return None
+        return TrainerCapture(trainer=trainer, wheel=wheel)
+
+    def _prepare_sensors(self) -> DeviceManager | None:
+        """Connect the rider's own devices, on a thread of their own.
+
+        The connecting is not waited for. A scan takes seconds, and a window that
+        will not draw until the radios have finished looking is a window that
+        looks broken; devices simply start reporting when they answer.
+        """
+        if not self.setup.paired_device_ids:
+            return None
+        if self.transports is None:
+            from app.sensors.discovery import default_transports
+
+            self.transports = default_transports()
+        loop = self.sensor_loop or SensorLoop()
+        loop.start()
+        self.sensor_loop = loop
+        wheel = self.settings.wheel if self.settings else None
+        manager = DeviceManager(hub=self.hub, transports=self.transports, wheel=wheel)
+        loop.submit(connect_paired(manager, tuple(self.setup.paired_device_ids)))
+        return manager
+
+    # Riding.
+
+    def advance(self, seconds: float, now: float) -> RideState:
+        """Move the ride on by one step, and report where it got to."""
+        if self.rider_source is not None:
+            for reading in self.rider_source.sample(now, now):
+                self.hub.submit(reading)
+        self.state = self.session.update(seconds, now=now)
+        self._follow_workout(seconds)
+        self._command_trainer(now)
+        if self.capture is not None:
+            self.capture.observe(self.hub.snapshot(now))
+        if self.recorder is not None:
+            self.recorder.observe(self.state)
+        return self.state
+
+    def steer(self, direction: Steer) -> str | None:
+        return self.navigator.steer(direction)
+
+    def end_open_step(self) -> None:
+        """What a rider does when a step runs until they say so."""
+        if self.workout is not None:
+            self.workout.advance()
+
+    @property
+    def workout_progress(self) -> WorkoutProgress | None:
+        return self.workout.progress() if self.workout else None
+
+    def _follow_workout(self, seconds: float) -> None:
+        """Move the workout on, and let its target drive the stand-in rider.
+
+        A real rider is told the target and decides whether to hold it; the
+        stand-in simply holds it, which is what makes a workout visible before
+        any sensor is connected.
+        """
+        if self.workout is None:
+            return
+        covered = self.state.distance_m - self._last_distance_m
+        self._last_distance_m = self.state.distance_m
+        progress = self.workout.update(seconds, covered, self.state.power_w)
+        step = progress.step
+        if step is None or self.rider_source is None:
+            return
+        target = step.step.power
+        if target is not None:
+            self.rider_source.profile = steady(power_w=target.middle)
+
+    def _command_trainer(self, now: float) -> None:
+        """Tell the trainer what to hold, when there is anything new to say."""
+        if self.sensors is None or self.sensor_loop is None:
+            return
+        command = self.director.update(
+            now, gradient=self.state.gradient, target_w=self.target_power_w
+        )
+        if command is not None:
+            self.sensor_loop.submit(self.sensors.apply(command))
+
+    @property
+    def target_power_w(self) -> float | None:
+        """What the workout is asking for right now, if it is asking for watts."""
+        progress = self.workout_progress
+        if progress is None or progress.step is None:
+            return None
+        target = progress.step.step.power
+        return target.middle if target is not None else None
+
+    # Finishing.
+
+    def save(self) -> RideOutcome:
+        """Write out whatever this ride produced. Safe to call more than once."""
+        return RideOutcome(
+            ride_path=self._save_ride(), profile_path=self._save_profile()
+        )
+
+    def _save_ride(self) -> Path | None:
+        if self.recorder is None or self.recorder.is_empty:
+            return None
+        path = self.recorder.save()
+        self.recorder = None  # a ride is saved once
+        return path
+
+    def _save_profile(self) -> Path | None:
+        if self.capture is None or not self.capture.report().publishable:
+            return None
+        path = self.capture.write_contribution(paths.contributions_dir())
+        self.capture = None
+        return path
+
+    def release(self) -> None:
+        """Disconnect every device and stop the sensor thread."""
+        if self.sensors is not None and self.sensor_loop is not None:
+            self.sensor_loop.run(self.sensors.disconnect_all())
+        if self.sensor_loop is not None:
+            self.sensor_loop.stop()
+        self.sensors, self.sensor_loop = None, None
+
+
+async def connect_paired(manager: DeviceManager, wanted: tuple[str, ...]) -> None:
+    """Connect whichever paired devices answer. One that does not is absent."""
+    found = await manager.scan()
+    await manager.connect_all(device for device in found if device.id in wanted)

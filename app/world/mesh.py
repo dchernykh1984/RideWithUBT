@@ -95,6 +95,32 @@ def ribbon(
     )
 
 
+def ground_plane(network: TrackNetwork, size_m: float, drop_m: float) -> Mesh:
+    """A backdrop under a world, a touch below its lowest point.
+
+    Below the *track*, not below zero. A circuit sits at whatever height its
+    ground really is - Sokol is 645 m up - and a backdrop pinned to sea level
+    would leave the track floating in the sky above it, which is what happened
+    the day the circuit stopped being flat.
+    """
+    half = size_m / 2.0
+    lowest = min(
+        (point.z for segment in network.segments for point in segment.points),
+        default=0.0,
+    )
+    height = lowest - drop_m
+    return Mesh(
+        vertices=(
+            (-half, -half, height),
+            (half, -half, height),
+            (half, half, height),
+            (-half, half, height),
+        ),
+        tex_coords=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
+        triangles=((0, 1, 2), (0, 2, 3)),
+    )
+
+
 def network_mesh(
     network: TrackNetwork, texture_length_m: float = DEFAULT_TEXTURE_LENGTH_M
 ) -> Mesh:

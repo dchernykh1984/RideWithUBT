@@ -84,10 +84,19 @@ window.** Everything else has to run headless. That is what keeps the physics,
 the sensors and the workout engine testable in CI without a GPU, and what would
 let a second frontend be added later without touching them.
 
-The rule is what makes the renderer thin enough to trust without tests. The shape
-of the track is worked out in `app/world/mesh.py`, which has no graphics in it
-and is tested; `app/render` copies those numbers into vertex buffers and reads
-the navigator once a frame. Nothing in it decides anything.
+The rule is what makes the renderer thin enough to trust without tests, and it
+took a second pass to hold: the window had quietly grown a device manager, a
+workout, a recorder and a trainer director - two hundred lines of code that
+decided things, sitting in the one module excluded from coverage.
+
+That is now a `Ride` (`app/core/ride.py`): the world, the rider and everything
+they brought, with nothing that draws. `RideApp` builds the scene and, once a
+frame, asks a ride where the rider is and draws them there. The shape of the
+track is worked out in `app/world/mesh.py`, which has no graphics in it either.
+
+The test for the rule is not "does it import Panda3D" but "could this be tested".
+Anything in `app/render` that answers no to the second while passing the first is
+in the wrong file.
 
 ## Sensors
 

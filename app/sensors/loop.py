@@ -16,10 +16,27 @@ import asyncio
 import threading
 from collections.abc import Coroutine
 from concurrent.futures import Future
-from typing import Any
+from typing import Any, Protocol
 
 # How long to give the loop to stop before giving up on it and moving on.
 SHUTDOWN_TIMEOUT_S = 5.0
+
+
+class Loop(Protocol):
+    """What a ride needs from the thread its radios run on.
+
+    A protocol rather than the class, so a test can hand a ride something that
+    runs the work at once and on this thread - which is what makes the ride's own
+    behaviour testable without a radio or a second thread to reason about.
+    """
+
+    def start(self) -> None: ...
+
+    def submit(self, work: Coroutine[Any, Any, Any]) -> Future[Any] | None: ...
+
+    def run(self, work: Coroutine[Any, Any, Any], timeout: float = 10.0) -> Any: ...
+
+    def stop(self) -> None: ...
 
 
 class SensorLoop:
