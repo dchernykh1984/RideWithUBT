@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import socket
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from app.core.companions import Companion
@@ -92,7 +92,7 @@ class NetworkCompany:
     roster: Roster = field(default_factory=Roster)
     interval_s: float = UPDATE_INTERVAL_S
     sock: socket.socket | None = None
-    clock: object = time.monotonic
+    clock: Callable[[], float] = time.monotonic
     #: Set once the socket has failed. The ride goes on; it just goes on alone.
     lost: str = ""
     _next_send: float = 0.0
@@ -123,7 +123,7 @@ class NetworkCompany:
 
     def advance(self, seconds: float) -> None:
         """One step: tell them where we are, hear where they are."""
-        now = float(self.clock())  # type: ignore[operator]
+        now = self.clock()
         self._send(now)
         self._receive(now)
         self.roster.forget_quiet(now)
