@@ -12,12 +12,16 @@ hands the recording to Garmin Connect or Strava.
 It is **offline-first in the strong sense**: the application is fully usable with
 the network cable pulled. There is no account, no login and no server that has to
 be up for you to ride. The only network traffic is what you ask for - fetching a
-workout from Garmin Connect, uploading a finished ride - and it goes **directly**
-from your machine to that service. RideWithUBT operates no server that ride data
-passes through, and adding one is explicitly out of scope.
+workout from Garmin Connect, uploading a finished ride, joining a group ride you
+were given the address of - and each goes **directly** from your machine to the
+other end. RideWithUBT operates no server that ride data passes through, and
+adding one is explicitly out of scope.
 
-Riding with other people is a later, opt-in feature (see *Multiplayer*), designed
-for now so it can be added without turning the app inside out.
+That last one is the case to watch, because it is the one that could quietly
+stop the sentence above being true. Riding with other people is opt-in per ride
+and points at a host the rider named - a laptop on their network, a box a club
+runs. See *Riding with other people*, and `docs/protocol.md` for what a relay
+does and what it is told.
 
 ## Language and stack
 
