@@ -290,6 +290,15 @@ measures within a couple of percent of the published length. The shortfall is
 expected and one-sided: OpenStreetMap traces the centre of the track, while a
 circuit is measured along its racing line.
 
+**A ride begins where a session does: halfway down the pit lane.** That is a
+different thing from where a lap is measured from, and the two are kept apart -
+`TrackNetwork.start` places the rider, `Route.start_segment` measures the lap.
+Conflating them would either stand the rider on the track when they should be
+rolling out of a box, or count the pit lane as part of a circuit that does not
+include it. The recipe says it the way a person would ("on the pit lane,
+halfway") and the build turns that into a segment and a distance, because the
+length of the lane is something the build works out.
+
 The pit lane is not in the extract either, so it is built rather than traced: the
 generator offsets the circuit's own points between two of its nodes, which makes
 the lane exactly parallel to the track and puts its entry and rejoin on real

@@ -131,7 +131,10 @@ def test_riding_it_comes_back_round(sokol: TrackNetwork) -> None:
     those are the same point on the track.
     """
     route = sokol.route("big-ring")
-    navigator = Navigator(sokol, route=route)
+    # From the lap's own start, not from the pits: these are about the shape
+    # of the circuit, and a session beginning in the pit lane is a different
+    # question with its own tests.
+    navigator = Navigator(sokol, start_segment=route.start_segment, route=route)
     start = navigator.point
     lap = lap_m(sokol, route)
 
@@ -145,7 +148,10 @@ def test_riding_past_the_line_carries_on_into_the_next_lap(
     sokol: TrackNetwork,
 ) -> None:
     route = sokol.route("big-ring")
-    navigator = Navigator(sokol, route=route)
+    # From the lap's own start, not from the pits: these are about the shape
+    # of the circuit, and a session beginning in the pit lane is a different
+    # question with its own tests.
+    navigator = Navigator(sokol, start_segment=route.start_segment, route=route)
     lap = lap_m(sokol, route)
 
     navigator.advance(lap + 100.0)
@@ -296,7 +302,10 @@ def test_the_ground_is_gentle_enough_to_be_real(sokol: TrackNetwork) -> None:
 
 def test_a_lap_climbs_something_but_not_much(sokol: TrackNetwork) -> None:
     route = sokol.route("big-ring")
-    navigator = Navigator(sokol, route=route)
+    # From the lap's own start, not from the pits: these are about the shape
+    # of the circuit, and a session beginning in the pit lane is a different
+    # question with its own tests.
+    navigator = Navigator(sokol, start_segment=route.start_segment, route=route)
     climb, last = 0.0, navigator.point.z
     for _ in range(int(lap_m(sokol, route) / 5)):
         navigator.advance(5.0)

@@ -75,12 +75,14 @@ class Navigator:
     ) -> None:
         self.network = network
         self.route = route
-        segment_id = start_segment or (
-            route.start_segment if route else _first_segment(network)
-        )
+        # A world says where a ride begins - in the pits, at an autodrome. A
+        # route says where a lap is measured from, which is not the same place,
+        # and an explicit `start_segment` beats both because a caller asking for
+        # one segment in particular means it.
+        segment_id, offset_m = _begin_at(network, start_segment, route)
         network.segment(segment_id)
         self._segment_id = segment_id
-        self._distance_m = 0.0
+        self._distance_m = offset_m
         self.travelled_m = 0.0
         self._chosen_exit: str | None = None
         self._arm_junction()
@@ -204,6 +206,18 @@ class Navigator:
         self._chosen_exit = (
             preferred if preferred in junction.exits else junction.default_exit
         )
+
+
+def _begin_at(
+    network: TrackNetwork, start_segment: str | None, route: Route | None
+) -> tuple[str, float]:
+    if start_segment is not None:
+        return start_segment, 0.0
+    if network.start is not None:
+        return network.start.segment_id, network.start.offset_m
+    if route is not None:
+        return route.start_segment, 0.0
+    return _first_segment(network), 0.0
 
 
 def _first_segment(network: TrackNetwork) -> str:

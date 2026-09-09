@@ -154,6 +154,9 @@ uv run ridewithubt --ride-with 192.168.1.20   # ride with whoever is in that roo
 uv run ridewithubt --name Askar           # what they see above your rider
 ```
 
+A ride starts halfway down the pit lane, the way a session at the autodrome
+does: roll out, join the circuit, and lap it.
+
 Left and right arrows choose which way to go at a junction, space ends a workout
 step that runs until you say so, and escape quits.
 

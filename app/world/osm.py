@@ -35,6 +35,7 @@ from app.world.network import (
     Point,
     Route,
     Segment,
+    Start,
     TrackNetwork,
 )
 from app.world.offset import offset_polyline
@@ -93,6 +94,18 @@ class PitLane:
 
 
 @dataclass(frozen=True)
+class StartOn:
+    """Where a ride begins, as a person would say it: on the pit lane, halfway.
+
+    A fraction rather than a distance, because the length of a lane is a thing
+    the build works out and a person writing this file should not have to.
+    """
+
+    key: str
+    fraction: float = 0.0
+
+
+@dataclass(frozen=True)
 class Recipe:
     """How to turn one extract into one world."""
 
@@ -110,6 +123,10 @@ class Recipe:
     elevation_window_m: float = elevation.DEFAULT_WINDOW_M
     start_node: int | None = None
     pit_lane: PitLane | None = None
+    #: Where a ride begins: a named group of segments, and how far along it. At
+    #: an autodrome that is the pit lane, because that is where a session
+    #: starts - not the first node the survey happened to record.
+    start_on: StartOn | None = None
 
     @property
     def ways(self) -> dict[str, int]:
@@ -163,6 +180,16 @@ def load_recipe(path: Path) -> Recipe:
         ),
         start_node=int(raw["start_node"]) if "start_node" in raw else None,
         pit_lane=_parse_pit_lane(raw.get("pit_lane")),
+        start_on=_parse_start_on(raw.get("start_on")),
+    )
+
+
+def _parse_start_on(raw: dict[str, Any] | None) -> StartOn | None:
+    if raw is None:
+        return None
+    return StartOn(
+        key=str(raw["key"]),
+        fraction=float(raw.get("fraction", 0.0)),
     )
 
 
@@ -404,7 +431,33 @@ def build(
         junctions=tuple(junctions),
         routes=tuple(routes),
         origin=origin,
+        start=_start(recipe.start_on, by_key),
     )
+
+
+def _start(start_on: StartOn | None, by_key: dict[str, list[Segment]]) -> Start | None:
+    """Turn "halfway along the pit lane" into a segment and a distance.
+
+    A named group can be several segments once the splitting is done, so the
+    fraction is of the whole group's length and lands on whichever segment
+    holds it.
+    """
+    if start_on is None:
+        return None
+    group = by_key.get(start_on.key)
+    if not group:
+        raise NetworkError(
+            f"a ride is meant to start on {start_on.key!r}, which this world "
+            "has no segments for"
+        )
+    total = sum(segment.length_m for segment in group)
+    wanted = total * min(max(start_on.fraction, 0.0), 1.0)
+    for segment in group:
+        if wanted <= segment.length_m:
+            return Start(segment_id=segment.id, offset_m=wanted)
+        wanted -= segment.length_m
+    last = group[-1]
+    return Start(segment_id=last.id, offset_m=last.length_m)
 
 
 def _select(recipe: Recipe, ways: dict[int, Way]) -> dict[str, Way]:

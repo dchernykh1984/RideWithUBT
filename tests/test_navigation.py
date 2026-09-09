@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import pytest
 
-from app.world.navigation import Navigator, Steer, normalise_angle
-from app.world.network import NetworkError, Point
+from app.world.description import load
+from app.world.navigation import (
+    Navigator,
+    Steer,
+    lap_length_m,
+    lap_segments,
+    normalise_angle,
+)
+from app.world.network import NetworkError, Point, Start
 from tests.worlds import climbing_network, forked_network, loop_network
 
 
@@ -251,3 +259,105 @@ def test_with_no_route_or_start_the_rider_begins_on_the_first_segment() -> None:
     navigator = Navigator(loop_network())
 
     assert navigator.position.segment_id == "north"
+
+
+# Where a ride begins.
+
+
+def test_a_world_says_where_a_ride_begins() -> None:
+    """A session at an autodrome starts in the pits, not wherever the survey
+    data happened to begin."""
+    network = loop_network()
+    with_start = replace(
+        network, start=Start(segment_id=network.segments[1].id, offset_m=25.0)
+    )
+
+    navigator = Navigator(with_start)
+
+    assert navigator.position.segment_id == network.segments[1].id
+    assert navigator.position.distance_m == pytest.approx(25.0)
+
+
+def test_the_start_does_not_move_the_finish() -> None:
+    """Starting somewhere is not the same as measuring a lap from there."""
+    network = loop_network()
+    with_start = replace(
+        network, start=Start(segment_id=network.segments[1].id, offset_m=25.0)
+    )
+
+    navigator = Navigator(with_start)
+
+    assert navigator.travelled_m == 0.0, "a ride has gone nowhere when it begins"
+
+
+def test_a_caller_naming_a_segment_means_it() -> None:
+    """Pace partners and pictures ask for a particular segment; that wins."""
+    network = loop_network()
+    with_start = replace(
+        network, start=Start(segment_id=network.segments[1].id, offset_m=25.0)
+    )
+
+    navigator = Navigator(with_start, start_segment=network.segments[0].id)
+
+    assert navigator.position.segment_id == network.segments[0].id
+    assert navigator.position.distance_m == 0.0
+
+
+def test_a_world_with_nothing_to_say_starts_where_it_always_did() -> None:
+    network = loop_network()
+
+    navigator = Navigator(network)
+
+    assert navigator.position.segment_id == network.segments[0].id
+    assert navigator.position.distance_m == 0.0
+
+
+def test_a_start_on_a_segment_that_is_not_there_is_refused() -> None:
+    network = loop_network()
+
+    with pytest.raises(NetworkError, match="not a segment"):
+        replace(network, start=Start(segment_id="nowhere"))
+
+
+def test_a_start_past_the_end_of_its_segment_is_refused() -> None:
+    """It would put the rider off the end of the road, silently."""
+    network = loop_network()
+    length = network.segments[0].length_m
+
+    with pytest.raises(NetworkError, match="which is"):
+        replace(
+            network,
+            start=Start(segment_id=network.segments[0].id, offset_m=length + 1.0),
+        )
+
+
+def test_sokol_starts_halfway_down_the_pit_lane() -> None:
+    """Where a session at the autodrome actually begins."""
+    network = load("sokol")
+    pit = network.segment("pit-lane-0")
+
+    assert network.start is not None
+    assert network.start.segment_id == "pit-lane-0"
+    assert network.start.offset_m == pytest.approx(pit.length_m / 2, rel=1e-6)
+
+
+def test_leaving_the_pits_puts_you_on_the_circuit() -> None:
+    """The point of starting there: roll out, and the track is what follows."""
+    network = load("sokol")
+    navigator = Navigator(network, route=network.route("big-ring"))
+    assert navigator.position.segment_id == "pit-lane-0"
+
+    navigator.advance(400.0)
+
+    assert not navigator.position.segment_id.startswith("pit-lane")
+    assert navigator.position.segment_id.startswith("main")
+
+
+def test_a_lap_is_still_the_circuit_and_not_the_pit_lane() -> None:
+    """The pit lane is how a ride begins, never part of the lap it measures."""
+    network = load("sokol")
+
+    for route in network.routes:
+        segments = lap_segments(network, route)
+        assert not any(name.startswith("pit-lane") for name in segments), route.id
+    assert round(lap_length_m(network, network.route("big-ring"))) == 4425
