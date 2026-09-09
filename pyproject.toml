@@ -1,6 +1,6 @@
 [project]
 name = "ridewithubt"
-version = "0.2.0"
+version = "0.3.0"
 description = "Offline-first virtual world for indoor cycling training"
 authors = [{ name = "Denis Chernykh", email = "education03@mail.ru" }]
 requires-python = ">=3.14,<4"
