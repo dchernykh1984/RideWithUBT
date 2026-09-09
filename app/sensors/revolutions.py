@@ -77,19 +77,22 @@ class RevolutionCounter:
             self._last = Sample(revolutions, event_time, now)
             return None
 
+        elapsed_ticks = (event_time - last.event_time) % TIME_MODULUS
+        if elapsed_ticks == 0:
+            # The same event, sent again: the wheel has not turned since. There
+            # is nothing ambiguous about that however long it goes on, so a
+            # standing wheel keeps reading zero instead of blinking out once a
+            # minute when the ambiguity window below would otherwise expire.
+            if now - last.at >= self._stop_after_s:
+                self._rate = 0.0
+            return self._rate
+
         if now - last.at > self._max_gap_s:
             # The event clock has had time to wrap all the way round, so the
             # difference no longer means anything. Start again from here.
             self._last = Sample(revolutions, event_time, now)
             self._rate = None
             return None
-
-        elapsed_ticks = (event_time - last.event_time) % TIME_MODULUS
-        if elapsed_ticks == 0:
-            # The same event, sent again: the wheel has not turned since.
-            if now - last.at >= self._stop_after_s:
-                self._rate = 0.0
-            return self._rate
 
         turned = (revolutions - last.revolutions) % self._modulus
         self._last = Sample(revolutions, event_time, now)

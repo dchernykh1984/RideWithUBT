@@ -200,3 +200,27 @@ def test_one_failure_does_not_stop_the_others(tmp_path: Path) -> None:
 
     assert [result.ok for result in results] == [False, True]
     assert log.services_for("two.fit") == ["garmin"]
+
+
+def test_a_log_from_a_newer_version_still_loads() -> None:
+    """A rider who upgraded and went back must still be able to send a ride."""
+    paths.ensure_data_tree()
+    (paths.data_root() / "uploads.json").write_text(
+        json.dumps(
+            [
+                {
+                    "ride": "a.fit",
+                    "service": "strava",
+                    "at": "2026-09-09T06:30:00+00:00",
+                    "reference": "1",
+                    "attempt": 2,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    log = UploadLog.load()
+
+    assert log.sent("a.fit", "strava")
+    assert log.records[0].reference == "1"

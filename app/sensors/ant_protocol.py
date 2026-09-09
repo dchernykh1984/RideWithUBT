@@ -36,8 +36,12 @@ PAGE_STANDARD_POWER = 0x10
 PAGE_GENERAL_FE = 0x10
 PAGE_SPECIFIC_TRAINER = 0x19
 
-# Every ANT+ event timestamp is in 1/1024 of a second, in a 16-bit field.
+# Every ANT+ event timestamp is in 1/1024 of a second, in a 16-bit field - and so
+# is every cumulative revolution count. Bluetooth's wheel counter is 32 bits and
+# ANT+'s is not, so a rate computed with the wrong width turns one wrap of the
+# counter into billions of metres per second.
 TICKS_PER_SECOND = 1024
+COUNTER_BITS = 16
 # Speed on the general FE page is in 1/1000 of a metre per second.
 FE_SPEED_UNIT_MS = 0.001
 # Elapsed time on the general FE page counts quarter-seconds.

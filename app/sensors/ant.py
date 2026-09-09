@@ -122,8 +122,11 @@ class AntSensor:
         self._radio = radio
         self._clock = clock
         self._subscribed = False
-        self._cadence = Cadence()
-        self._wheel_speed = WheelSpeed(rollout_mm=wheel.rollout_mm if wheel else 0.0)
+        self._cadence = Cadence(revolution_bits=pages.COUNTER_BITS)
+        self._wheel_speed = WheelSpeed(
+            rollout_mm=wheel.rollout_mm if wheel else 0.0,
+            revolution_bits=pages.COUNTER_BITS,
+        )
 
     @property
     def device(self) -> DeviceInfo:

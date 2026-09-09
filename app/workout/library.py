@@ -26,7 +26,7 @@ def load_library(directory: Path | None = None) -> WorkoutLibrary:
     for path in sorted(folder.glob(f"*{SUFFIX}")):
         try:
             workouts.append(load_workout(path))
-        except WorkoutError, ValueError:
+        except WorkoutError, ValueError, OSError:
             continue
     return WorkoutLibrary(tuple(workouts))
 
@@ -40,7 +40,7 @@ def unreadable(directory: Path | None = None) -> list[Path]:
     for path in sorted(folder.glob(f"*{SUFFIX}")):
         try:
             load_workout(path)
-        except WorkoutError, ValueError:
+        except WorkoutError, ValueError, OSError:
             broken.append(path)
     return broken
 
