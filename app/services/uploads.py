@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -51,7 +51,7 @@ class UploadLog:
             return cls()
         if not isinstance(raw, list):
             return cls()
-        return cls([UploadRecord(**item) for item in raw if _usable(item)])
+        return cls([_record(item) for item in raw if _usable(item)])
 
     def save(self, directory: Path | None = None) -> Path:
         path = _log_path(directory)
@@ -94,3 +94,14 @@ def _log_path(directory: Path | None) -> Path:
 
 def _usable(item: object) -> bool:
     return isinstance(item, dict) and {"ride", "service", "at"} <= set(item)
+
+
+def _record(item: dict[str, str]) -> UploadRecord:
+    """Build a record, ignoring anything a newer version wrote beside it.
+
+    A log this version cannot fully understand must not stop it from uploading -
+    the alternative is a rider who upgraded, went back, and can no longer send a
+    ride anywhere.
+    """
+    known = {field.name for field in fields(UploadRecord)}
+    return UploadRecord(**{key: value for key, value in item.items() if key in known})

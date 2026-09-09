@@ -115,7 +115,10 @@ class RideApp(ShowBase):
         self.translate = translate
         self._clock = ClockObject.getGlobalClock()
         self.network: TrackNetwork = load_world(world_id)
-        self.wheel = Settings.load().wheel
+        # Read once: two reads could see different files and set the ride up
+        # with one rider's wheel and another's trainer.
+        self.settings = Settings.load()
+        self.wheel = self.settings.wheel
         route = self.network.route(route_id) if route_id else None
         self.navigator = Navigator(self.network, route=route)
 
@@ -162,8 +165,7 @@ class RideApp(ShowBase):
         """
         if not wanted:
             return None
-        settings = Settings.load()
-        trainer, wheel = settings.trainer, settings.wheel
+        trainer, wheel = self.settings.trainer, self.settings.wheel
         if trainer is None or wheel is None:
             return None
         return TrainerCapture(trainer=trainer, wheel=wheel)

@@ -74,3 +74,21 @@ def test_the_workouts_directory_is_part_of_the_one_data_tree() -> None:
 
     assert paths.workouts_dir().is_dir()
     assert paths.workouts_dir().parent == paths.data_root()
+
+
+def test_a_file_that_cannot_be_read_is_skipped_like_a_broken_one(
+    tmp_path: Path,
+) -> None:
+    """A permission error should cost one workout, not the whole library."""
+    put(tmp_path, "good", example_raw())
+    unreadable = put(tmp_path, "locked", example_raw())
+    unreadable.chmod(0o000)
+
+    try:
+        loaded = library.load_library(tmp_path)
+        named = [path.name for path in library.unreadable(tmp_path)]
+    finally:
+        unreadable.chmod(0o600)
+
+    assert len(loaded) == 1
+    assert named == ["locked.json"]

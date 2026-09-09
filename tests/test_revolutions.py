@@ -158,3 +158,35 @@ def test_the_ambiguity_window_shrinks_with_a_finer_clock() -> None:
     counter.update(15, 2048, now=2.0)
 
     assert counter.update(20, 4096, now=2.0 + 40.0) is None
+
+
+def test_a_wheel_that_stands_still_keeps_reading_zero() -> None:
+    """A stationary sensor repeats its last event forever, which is not ambiguous.
+
+    Treating that like a gap in the data would blank the reading for a few
+    seconds every time the event clock could have wrapped - once a minute, to a
+    rider who is simply standing over the bike.
+    """
+    counter = RevolutionCounter(stop_after_s=3.0)
+    counter.update(10, ticks(0.0), now=0.0)
+    counter.update(15, ticks(1.0), now=1.0)
+
+    standing = [
+        counter.update(15, ticks(1.0), now=1.0 + second) for second in range(1, 200)
+    ]
+
+    assert all(rate == 0.0 for rate in standing[3:]), "never blinks out"
+    assert counter.rate == 0.0
+
+
+def test_a_wheel_that_starts_again_after_a_long_stop_recovers() -> None:
+    counter = RevolutionCounter(stop_after_s=3.0)
+    counter.update(10, ticks(0.0), now=0.0)
+    counter.update(15, ticks(1.0), now=1.0)
+    for second in range(1, 200):
+        counter.update(15, ticks(1.0), now=1.0 + second)
+
+    # Riding again, with an event clock that has wrapped an unknown number of
+    # times: the difference means nothing, so the counter starts over.
+    assert counter.update(20, ticks(5.0), now=250.0) is None
+    assert counter.update(25, ticks(6.0), now=251.0) == pytest.approx(5.0)

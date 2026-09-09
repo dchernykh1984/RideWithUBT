@@ -326,3 +326,32 @@ def test_only_fitness_equipment_gets_a_controller_from_the_transport() -> None:
     assert info is not None
 
     assert transport.control_for(transport.open(info, None)) is None
+
+
+def test_the_wheel_counter_wrapping_does_not_produce_a_spike() -> None:
+    """ANT+ counts revolutions in sixteen bits, Bluetooth in thirty-two.
+
+    Reading an ANT+ counter as if it were the wider one turns one wrap into
+    billions of metres per second, once every 65536 revolutions - about 130 km on
+    a road wheel, so a long ride reaches it.
+    """
+    device, clock = sensor(pages.DEVICE_SPEED)
+    device.handle(page(0, 0, 0, 0, *uint16(0), *uint16(65534)))
+
+    clock.now += 1.0
+    before = device.handle(page(0, 0, 0, 0, *uint16(1024), *uint16(65535)))
+    clock.now += 1.0
+    across = device.handle(page(0, 0, 0, 0, *uint16(2048), *uint16(1)))
+
+    assert before[0].value == pytest.approx(2.0)
+    assert across[0].value == pytest.approx(4.0), "two revolutions across the wrap"
+
+
+def test_the_cadence_counter_wrapping_is_handled_too() -> None:
+    device, clock = sensor(pages.DEVICE_CADENCE)
+    device.handle(page(0, 0, 0, 0, *uint16(0), *uint16(65535)))
+
+    clock.now += 1.0
+    readings = device.handle(page(0, 0, 0, 0, *uint16(1024), *uint16(1)))
+
+    assert readings[0].value == pytest.approx(120.0), "two revolutions a second"
