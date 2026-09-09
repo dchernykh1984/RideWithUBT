@@ -21,8 +21,10 @@ app to Garmin Connect or Strava, never through a RideWithUBT server.
   stand-in rider pushes a steady `--power` so the world can still be ridden.
 - **Drive a smart trainer** over FTMS or Tacx FE-C, so intervals hold their
   target and gradients are felt rather than displayed.
-- **Work without a smart trainer too.** With a plain trainer, a speed sensor and
-  your wheel and tyre size, the app computes power from a trainer curve. If you
+- **Work without a smart trainer too.** Tell it your wheel and tyre size
+  (`--wheels`, `--wheel`) and your trainer (`--trainers`, `--trainer`), and it
+  computes power from that trainer's curve - saying, when you choose, what your
+  watts will be worth at 30 km/h and whether that figure is measured or a guess. If you
   own a power meter, you can measure your own trainer's curve and contribute the
   profile back as a pull request - see [docs/trainers.md](docs/trainers.md),
   which is also how you add a trainer that is not in the catalogue yet.
@@ -60,6 +62,13 @@ uv run ridewithubt --strava-setup ID SECRET   # connect your own Strava app
 uv run ridewithubt --strava-code CODE     # finish connecting it
 uv run ridewithubt --unpair ble:AA:BB:CC  # forget a paired device
 uv run ridewithubt --version
+uv run ridewithubt --setup                # what it knows about your bike
+uv run ridewithubt --wheels               # the wheel sizes and tyre widths
+uv run ridewithubt --wheel 700c 25        # choose yours
+uv run ridewithubt --rollout 2088         # or a rollout you measured yourself
+uv run ridewithubt --trainers             # the trainers to choose from
+uv run ridewithubt --trainer kinetic-road-machine
+uv run ridewithubt --control erg          # off, erg or simulation
 uv run ridewithubt --scan                 # look for sensors on every radio
 uv run ridewithubt --pair ble:AA:BB:CC    # remember one, for every ride
 uv run ridewithubt --devices              # list the paired devices

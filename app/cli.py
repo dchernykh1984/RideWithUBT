@@ -12,7 +12,8 @@ import asyncio
 import sys
 from collections.abc import Callable, Sequence
 
-from app import __version__, i18n, paths, selfcheck
+from app import __version__, i18n, paths, selfcheck, setup_commands
+from app.core.control import ControlMode
 from app.sensors.discovery import default_transports
 from app.sensors.hub import SensorHub
 from app.sensors.manager import DeviceManager
@@ -105,6 +106,43 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-record",
         action="store_true",
         help="Ride without keeping the recording.",
+    )
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Show what this app knows about your bike, and exit.",
+    )
+    parser.add_argument(
+        "--wheels",
+        action="store_true",
+        help="List the wheel sizes and tyre widths to choose from, and exit.",
+    )
+    parser.add_argument(
+        "--wheel",
+        nargs=2,
+        metavar=("SIZE", "WIDTH"),
+        help="Set your wheel, for example: --wheel 700c 25",
+    )
+    parser.add_argument(
+        "--rollout",
+        type=float,
+        metavar="MM",
+        help="Set a rollout you measured yourself, which beats the catalogue.",
+    )
+    parser.add_argument(
+        "--trainers",
+        action="store_true",
+        help="List the trainers to choose from, and exit.",
+    )
+    parser.add_argument(
+        "--trainer",
+        metavar="TRAINER_ID",
+        help="Set your trainer, for example: --trainer kinetic-road-machine",
+    )
+    parser.add_argument(
+        "--control",
+        choices=[mode.value for mode in ControlMode],
+        help="How a smart trainer is driven: off, erg or simulation.",
     )
     parser.add_argument(
         "--scan",
@@ -347,6 +385,25 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
     None of these open a window, so none of them may reach for the renderer -
     which is why they are answered before it is imported.
     """
+    answers = (
+        (args.setup, setup_commands.describe_setup),
+        (args.wheels, setup_commands.list_wheels),
+        (args.wheel, lambda: setup_commands.choose_wheel(*(args.wheel or ("", "")))),
+        (
+            args.rollout is not None,
+            lambda: setup_commands.choose_rollout(args.rollout),
+        ),
+        (args.trainers, setup_commands.list_trainers),
+        (args.trainer, lambda: setup_commands.choose_trainer(args.trainer)),
+        (args.control, lambda: setup_commands.choose_control(args.control)),
+    )
+    for wanted, answer in answers:
+        if wanted:
+            given = answer()
+            for line in given.lines:
+                print(line)
+            return 0 if given.ok else 2
+
     asked = (
         (args.languages, lambda: print_languages(language)),
         (args.scan is not None, lambda: scan_for_devices(args.scan)),
