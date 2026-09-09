@@ -417,6 +417,17 @@ release. Pull requests get a fast Linux-only smoke build that freezes the app an
 then runs `--selftest` against the frozen binary, so a packaging break is caught
 before it ships.
 
+**A frozen application is not the application.** PyInstaller works out what to
+include by reading imports, so anything reached lazily - a Bluetooth backend, a
+credential store, a service client - can be left out without a word, and the
+failure lands on a user's machine the first time they try to upload a ride. So
+`--selftest` imports every part a rider reaches only sometimes, and the frozen
+binary is the thing CI runs it on. `app/selfcheck.py` holds that list.
+
+The full matrix can also be run on demand (`build.yml`, workflow dispatch),
+because a release attaches its assets *after* the release exists: a build that
+only fails on Windows would otherwise leave a published release missing a file.
+
 Windows on ARM is not built: Panda3D publishes no wheel for it.
 
 ## Roadmap
