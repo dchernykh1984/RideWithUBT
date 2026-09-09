@@ -524,3 +524,47 @@ def test_a_workout_that_does_not_exist_points_at_its_own_listing(
     out = capsys.readouterr().out
     assert "no workout named 'nonesuch'" in out
     assert "--workouts lists" in out
+
+
+def test_the_setup_commands_reach_the_settings(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from app.settings import Settings
+
+    assert cli.main(["--wheel", "700c", "25"]) == 0
+    assert cli.main(["--trainer", "kinetic-road-machine"]) == 0
+    assert cli.main(["--control", "erg"]) == 0
+    capsys.readouterr()
+
+    assert cli.main(["--setup"]) == 0
+    out = capsys.readouterr().out
+    assert "Kinetic Road Machine" in out
+    assert "700c x 25" in out
+    assert Settings.load().control_mode == "erg"
+
+
+def test_a_wheel_that_does_not_exist_is_refused_with_a_code(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["--wheel", "unicycle", "25"]) == 2
+
+    assert "--wheels lists" in capsys.readouterr().out
+
+
+def test_the_catalogues_can_be_listed(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["--wheels"]) == 0
+    assert "700c" in capsys.readouterr().out
+
+    assert cli.main(["--trainers"]) == 0
+    assert "wahoo-kickr-core" in capsys.readouterr().out
+
+
+def test_a_measured_rollout_can_be_set_from_the_command_line(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from app.settings import Settings
+
+    assert cli.main(["--rollout", "2088"]) == 0
+
+    assert "2088 mm" in capsys.readouterr().out
+    assert Settings.load().measured_rollout_mm == 2088.0
