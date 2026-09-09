@@ -390,3 +390,86 @@ def test_importing_from_an_account_with_nothing_in_it(
     assert cli.main(["--import-garmin", "--garmin-user", "rider@example.com"]) == 0
 
     assert "no workouts to import" in capsys.readouterr().out
+
+
+def test_uploading_with_no_rides_says_so(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["--upload"]) == 0
+
+    assert "no rides to upload" in capsys.readouterr().out
+
+
+def test_uploading_to_garmin_without_an_account(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from datetime import UTC, datetime
+
+    from app.storage import activities
+
+    activities.save(b"ride", datetime(2026, 9, 9, 6, 30, tzinfo=UTC))
+
+    assert cli.main(["--upload", "garmin"]) == 0
+
+    assert "--garmin-user" in capsys.readouterr().out
+
+
+def test_a_ride_goes_up_once(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from datetime import UTC, datetime
+
+    from app.services.upload import StravaUploader
+    from app.storage import activities
+    from tests.test_uploads import FakeStrava
+
+    activities.save(b"ride", datetime(2026, 9, 9, 6, 30, tzinfo=UTC))
+    client = FakeStrava()
+    monkeypatch.setattr(cli, "connect_to_strava", lambda: StravaUploader(client=client))
+
+    assert cli.main(["--upload", "strava"]) == 0
+    assert "-> strava 999" in capsys.readouterr().out
+
+    assert cli.main(["--upload", "strava"]) == 0
+    assert capsys.readouterr().out == "", "the second run has nothing to send"
+    assert len(client.calls) == 1
+
+
+def test_strava_setup_prints_where_to_go(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    written: dict[str, str] = {}
+    monkeypatch.setattr(
+        cli.StravaKeys,
+        "write",
+        staticmethod(lambda name, value: written.update({name: value})),
+    )
+
+    assert cli.main(["--strava-setup", "12345", "shhh"]) == 0
+
+    out = capsys.readouterr().out
+    assert "strava.com/oauth/authorize" in out
+    assert "client_id=12345" in out
+    assert "--strava-code" in out
+    assert written == {"client_id": "12345", "client_secret": "shhh"}
+
+
+def test_finishing_strava_setup_reports_a_refusal(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def refuse(code: str) -> None:
+        raise cli.StravaSetupError("Strava would not take that code")
+
+    monkeypatch.setattr(cli, "exchange_strava_code", refuse)
+
+    assert cli.main(["--strava-code", "abc"]) == 0
+
+    assert "would not take that code" in capsys.readouterr().out
+
+
+def test_finishing_strava_setup(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "exchange_strava_code", lambda code: None)
+
+    assert cli.main(["--strava-code", "abc"]) == 0
+
+    assert "Strava connected" in capsys.readouterr().out

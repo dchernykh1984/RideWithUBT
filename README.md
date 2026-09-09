@@ -55,6 +55,8 @@ uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the
 uv run ridewithubt --power 240            # what the stand-in rider pushes
 uv run ridewithubt --no-record            # ride without keeping the recording
 uv run ridewithubt --rides                # list the rides already recorded
+uv run ridewithubt --upload               # send what has not gone up yet
+uv run ridewithubt --strava-setup ID SECRET   # connect your own Strava app
 uv run ridewithubt --scan                 # look for sensors on every radio
 uv run ridewithubt --pair ble:AA:BB:CC    # remember one, for every ride
 uv run ridewithubt --devices              # list the paired devices
