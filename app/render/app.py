@@ -30,6 +30,7 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
+from app import paths
 from app.core.control import ControlMode, TrainerDirector
 from app.core.recorder import RideRecorder
 from app.core.session import RideSession, RideState
@@ -40,6 +41,7 @@ from app.sensors.loop import SensorLoop
 from app.sensors.manager import DeviceManager
 from app.sensors.simulated import SimulatedSensors, steady
 from app.settings import Settings
+from app.trainer.capture import TrainerCapture
 from app.workout.engine import WorkoutEngine
 from app.workout.model import DurationKind, Workout
 from app.world.description import load as load_world
@@ -98,6 +100,7 @@ class RideApp(ShowBase):
         workout: Workout | None = None,
         paired_device_ids: Sequence[str] = (),
         control_mode: ControlMode = ControlMode.OFF,
+        capture_trainer: bool = False,
     ):
         if headless:
             # No graphics pipe at all: the frozen-app smoke test in CI runs on a
@@ -134,6 +137,7 @@ class RideApp(ShowBase):
         # those leaves a file behind in the rider's activity store.
         self.recorder = RideRecorder() if record else None
         self.workout = WorkoutEngine(workout) if workout else None
+        self.capture = self._start_capture(capture_trainer)
         self._last_distance_m = 0.0
 
         self.ground = self._build_ground()
@@ -148,6 +152,21 @@ class RideApp(ShowBase):
         self.taskMgr.add(self._tick, "ride")
 
     # Building the scene.
+
+    def _start_capture(self, wanted: bool) -> TrainerCapture | None:
+        """Measure this trainer's curve during the ride, if asked and possible.
+
+        It needs a trainer to attribute the curve to and a wheel to turn the
+        speed sensor's revolutions into a speed; without either there is nothing
+        a profile could be recorded against.
+        """
+        if not wanted:
+            return None
+        settings = Settings.load()
+        trainer, wheel = settings.trainer, settings.wheel
+        if trainer is None or wheel is None:
+            return None
+        return TrainerCapture(trainer=trainer, wheel=wheel)
 
     def _start_sensors(
         self, paired_device_ids: Sequence[str]
@@ -265,6 +284,8 @@ class RideApp(ShowBase):
             for reading in self.rider_source.sample(now, now):
                 self.hub.submit(reading)
         self.state = self.session.update(self._clock.getDt(), now=now)
+        if self.capture is not None:
+            self.capture.observe(self.hub.snapshot(now))
         self._command_trainer(now)
         self._follow_workout(self._clock.getDt())
         if self.recorder is not None:
@@ -420,8 +441,20 @@ class RideApp(ShowBase):
     def userExit(self) -> None:  # noqa: N802 - overriding Panda3D's own name
         """Save the ride and release the radios, however the window was closed."""
         self.save_ride()
+        self.save_trainer_profile()
         self.release_sensors()
         super().userExit()
+
+    def save_trainer_profile(self) -> str | None:
+        """Write the measured profile out, if the ride measured a usable one."""
+        if self.capture is None:
+            return None
+        report = self.capture.report()
+        if not report.publishable:
+            return None
+        path = self.capture.write_contribution(paths.contributions_dir())
+        self.capture = None
+        return str(path)
 
     def release_sensors(self) -> None:
         """Disconnect every device and stop the sensor thread."""

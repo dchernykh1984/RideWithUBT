@@ -42,15 +42,22 @@ A profile is the one part that cannot be filled in from a specification sheet.
 It is recorded, on a real trainer, against a real power meter:
 
 1. Fit a power meter, choose your trainer and wheel in the settings, and turn on
-   **record trainer data**.
+   **record trainer data** - or start one ride with `--capture-trainer`.
 2. Ride the whole usable speed range, from a slow warm-up to a hard effort, at
    one fixed resistance setting. Changing the lever half way through measures two
    trainers and fits neither.
 3. The app fits `power = coefficient * speed ** exponent` to the samples and
    reports how well it fits. Under 25 W RMS it offers the result for
    contribution; above that it asks you to ride again.
-4. It writes the trainer's file with the profile filled in. Open a pull request
-   with that one file.
+4. It writes the trainer's file with the profile filled in, into the
+   `contributions` folder of your data directory. Open a pull request with that
+   one file.
+
+What is fitted is the **wheel's** speed against **measured** power. The speed on
+screen is what the course and the physics say you are doing, and the trainer only
+knows how fast its own roller is turning; and an estimated power came from a
+trainer curve, so fitting it would rediscover the curve it came from. Both are
+refused rather than quietly used.
 
 ```json
 "profile": {

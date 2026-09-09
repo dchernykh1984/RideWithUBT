@@ -79,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="With --screenshot, how far into the lap to ride before the picture.",
     )
     parser.add_argument(
+        "--capture-trainer",
+        action="store_true",
+        help="Measure this trainer's power curve during the ride and write it out.",
+    )
+    parser.add_argument(
         "--no-record",
         action="store_true",
         help="Ride without keeping the recording.",
@@ -270,6 +275,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
         workout=workout_library.find(args.workout) if args.workout else None,
         paired_device_ids=settings.paired_device_ids,
         control_mode=settings.trainer_control,
+        capture_trainer=args.capture_trainer or settings.record_trainer_data,
     ).run()
     return 0
 

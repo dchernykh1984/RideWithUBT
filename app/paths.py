@@ -51,6 +51,11 @@ def workouts_dir() -> Path:
     return data_root() / "workouts"
 
 
+def contributions_dir() -> Path:
+    """Where measured trainer profiles are written, ready to be contributed."""
+    return data_root() / "contributions"
+
+
 def settings_file() -> Path:
     return data_root() / "settings.json"
 

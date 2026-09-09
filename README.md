@@ -56,6 +56,7 @@ uv run ridewithubt --rides                # list the rides already recorded
 uv run ridewithubt --scan                 # look for sensors on every radio
 uv run ridewithubt --pair ble:AA:BB:CC    # remember one, for every ride
 uv run ridewithubt --devices              # list the paired devices
+uv run ridewithubt --capture-trainer      # measure this trainer's curve as you ride
 uv run ridewithubt --workouts             # list the workouts in the library
 uv run ridewithubt --workout "3x8 Cycling Intervals"   # ride one
 uv run ridewithubt --languages            # list the available languages
