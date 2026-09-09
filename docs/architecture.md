@@ -176,6 +176,14 @@ calibrated curve instead of a guess. This is a separate, deliberately entered
 mode with its own screen - it is never on by default and never silently
 collecting.
 
+What gets fitted is the **wheel's** speed against **measured** power, and both
+qualifications carry weight. The speed on screen is what the course and the
+physics say the rider is doing; the trainer only knows how fast its own roller is
+turning, so fitting the ride's speed would produce a curve describing the virtual
+world - and it would look entirely plausible. An estimated power came from a
+trainer curve, so fitting that would rediscover the curve it came from. Both are
+refused rather than quietly used.
+
 Profiles are versioned data, reviewed like code. A profile carries the trainer
 model, the resistance setting it was recorded at, the tyre and pressure, the
 sample count and the fit error, because a curve without those is not reusable.
