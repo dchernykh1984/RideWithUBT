@@ -9,6 +9,8 @@ interpretation is right.
 from __future__ import annotations
 
 import json
+import math
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -176,6 +178,40 @@ def test_the_pit_lane_sits_beside_the_track_not_on_it(sokol: TrackNetwork) -> No
         beside.point_at(beside.length_m / 2)
     )
     assert gap == pytest.approx(14.0, abs=1.0)
+
+
+def test_the_circuit_runs_clockwise(sokol: TrackNetwork) -> None:
+    """Which way round decides which side of the track everything is on.
+
+    A refreshed extract with the way drawn the other way round would reverse the
+    lap, and the pit lane would silently move to the other side of the track.
+    """
+    points = [
+        point
+        for segment in sokol.segments
+        if segment.id.startswith("main-")
+        for point in segment.points
+    ]
+    twice_area = sum(a.x * b.y - b.x * a.y for a, b in pairwise(points))
+
+    assert twice_area < 0, "a clockwise loop encloses a negative signed area"
+
+
+def test_the_pit_lane_is_on_the_left_of_the_track(sokol: TrackNetwork) -> None:
+    """Where the maintainer says it is - and the circuit runs clockwise, so the
+    left is the outside of the loop."""
+    lane = sokol.segment("pit-lane-0")
+    beside = sokol.segment(sokol.exit_from(lane.start_node) or "")
+
+    middle = beside.length_m / 2
+    on_track = beside.point_at(middle)
+    heading = beside.heading_at(middle)
+    towards_lane = lane.point_at(lane.length_m / 2)
+    across = (towards_lane.x - on_track.x, towards_lane.y - on_track.y)
+    # The left of a heading is that heading turned a quarter turn anticlockwise.
+    left = (-math.sin(heading), math.cos(heading))
+
+    assert across[0] * left[0] + across[1] * left[1] > 0
 
 
 def test_the_pit_lane_is_a_choice_and_never_the_default(sokol: TrackNetwork) -> None:

@@ -42,7 +42,7 @@
     "id": "pit-lane",
     "entry_node": 10057052138,
     "exit_node": 10057052139,
-    "offset_m": -14.0,
+    "offset_m": 14.0,
     "width_m": 8.0
   }
 }

@@ -224,8 +224,11 @@ The pit lane is not in the extract either, so it is built rather than traced: th
 generator offsets the circuit's own points between two of its nodes, which makes
 the lane exactly parallel to the track and puts its entry and rejoin on real
 nodes - a junction and a merge like any other. Its shape is therefore real and
-its position is a choice, placed along the longest junction-free straight because
-that is where a pit lane goes. Correcting it is a two-line change to the recipe.
+its position is local knowledge: Sokol's runs along the shorter of the two long
+straights, on the left, and the circuit runs clockwise. A test asserts both,
+because a refreshed extract with the way drawn the other way round would reverse
+the lap and move the lane to the other side of the track without failing
+anything else.
 
 Elevation is not in the extract, so the built circuit is flat for now. The format
 carries it and the physics reads it, so filling it in from a terrain model
