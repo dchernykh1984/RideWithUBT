@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.3.1...v0.4.0) (2026-09-09)
+
+
+### Features
+
+* **world:** start a ride in the pit lane, where a session starts ([d5d6f59](https://github.com/dchernykh1984/RideWithUBT/commit/d5d6f59f5ede51c6bd0082bfacb3eb0435484166))
+
 ## [0.3.1](https://github.com/dchernykh1984/RideWithUBT/compare/v0.3.0...v0.3.1) (2026-09-09)
 
 
