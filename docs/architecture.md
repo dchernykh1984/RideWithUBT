@@ -300,13 +300,17 @@ to encode. The tests decode what the writer produces with `fitparse`, an
 independent implementation - a writer verified against its own reader agrees with
 itself and nothing else.
 
-**A recording carries no coordinates.** A ride in a virtual world is not a ride at
-the place the world was traced from: writing Sokol's real positions into an
-indoor recording would upload something that looks like an outdoor ride there,
-and would put times on the real segments against people who actually rode them.
-So a ride carries distance, speed, power, cadence, heart rate and altitude, and
-is marked in the file as a virtual activity, which is what the services read to
-show it as one.
+**A recording carries where it happened, and says it was virtual.** A world
+records the coordinate its origin sits on, so a position in the world can be
+written back out as a real one; the file also carries the virtual-activity mark
+that Garmin Connect and Strava read. Both facts are true at once and both are
+written: this lap happened at this place, and it happened indoors. That is what
+lets a virtual lap sit on the map of the circuit and be compared with the real
+ones ridden there - which is the point of modelling a real circuit rather than an
+invented one.
+
+A world with no origin - one that is not anywhere - records no positions rather
+than made-up ones.
 
 ## Uploads
 

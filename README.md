@@ -28,10 +28,10 @@ app to Garmin Connect or Strava, never through a RideWithUBT server.
   Connect import to follow. Drop the JSON into the `workouts` folder of the data
   directory and it appears in the list.
 - **Keep everything in one place** - one static data directory holds the
-  settings, the generated worlds and every recorded ride as a FIT file. A
-  recording carries no coordinates: a ride in a virtual world is not a ride at
-  the place the world was traced from, and should not put times on the real
-  segments there.
+  settings, the generated worlds and every recorded ride as a FIT file. A ride
+  is recorded where it happened, and marked as a virtual activity: both are true
+  at once, so the lap sits on the map of the real circuit and is still labelled
+  as ridden indoors.
 - **Speak three languages**: Russian, English and Kazakh.
 
 Riding with other people is a later, opt-in feature. The app is built to stay

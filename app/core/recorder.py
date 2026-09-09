@@ -50,6 +50,8 @@ class RideRecorder:
                 power_w=state.power_w,
                 cadence_rpm=state.cadence_rpm,
                 heart_rate_bpm=state.heart_rate_bpm,
+                latitude=state.latitude,
+                longitude=state.longitude,
             )
         )
 

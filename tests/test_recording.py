@@ -33,6 +33,8 @@ def state(elapsed_s: float, distance_m: float = 0.0, **overrides: float) -> Ride
         "power_estimated": False,
         "cadence_rpm": 90.0,
         "heart_rate_bpm": 145.0,
+        "latitude": None,
+        "longitude": None,
     }
     fields.update(overrides)
     return RideState(**fields)  # type: ignore[arg-type]
@@ -181,3 +183,47 @@ def test_the_store_creates_itself_on_first_use() -> None:
     activities.save(b"ride", START)
 
     assert paths.activities_dir().is_dir()
+
+
+def test_a_recorded_sample_carries_where_the_rider_was() -> None:
+    recorder = RideRecorder(START)
+
+    recorder.observe(state(elapsed_s=0.0, latitude=43.58, longitude=76.57))
+
+    (sample,) = recorder.samples
+    assert sample.latitude == 43.58
+    assert sample.longitude == 76.57
+
+
+def test_a_ride_of_the_real_circuit_is_recorded_at_the_real_circuit(
+    tmp_path: Path,
+) -> None:
+    """End to end: the world's origin reaches the file as a coordinate."""
+    from app.world.description import load
+
+    network = load("sokol")
+    hub = SensorHub()
+    session = RideSession(Navigator(network, route=network.route("big-ring")), hub=hub)
+    recorder = RideRecorder(START)
+
+    now = 0.0
+    for _ in range(60):
+        now += 1.0
+        hub.submit(Reading(Metric.POWER, 220.0, at=now, source="meter"))
+        recorder.observe(session.update(1.0, now=now))
+
+    fit = FitFile(str(recorder.save(tmp_path)), check_crc=True)
+    fit.parse()
+
+    # FIT stores coordinates as semicircles, and fitparse reports them as such.
+    to_degrees = 180 / 2**31
+    positions = [
+        (
+            record.get_value("position_lat") * to_degrees,
+            record.get_value("position_long") * to_degrees,
+        )
+        for record in fit.get_messages("record")
+    ]
+    assert positions
+    assert all(43.5 < lat < 43.7 and 76.5 < lon < 76.7 for lat, lon in positions)
+    assert len(set(positions)) > 1, "the rider moved"

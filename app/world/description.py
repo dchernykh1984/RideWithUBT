@@ -16,6 +16,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from app.world.geo import Origin
 from app.world.network import (
     Junction,
     NetworkError,
@@ -65,6 +66,12 @@ def parse_route(raw: dict[str, Any]) -> Route:
     )
 
 
+def parse_origin(raw: dict[str, Any] | None) -> Origin | None:
+    if raw is None:
+        return None
+    return Origin(lat=float(raw["lat"]), lon=float(raw["lon"]))
+
+
 def parse_world(raw: dict[str, Any]) -> TrackNetwork:
     """Build a network from a parsed description, checking it as it goes."""
     try:
@@ -74,6 +81,7 @@ def parse_world(raw: dict[str, Any]) -> TrackNetwork:
             segments=tuple(parse_segment(item) for item in raw["segments"]),
             junctions=tuple(parse_junction(item) for item in raw.get("junctions", ())),
             routes=tuple(parse_route(item) for item in raw.get("routes", ())),
+            origin=parse_origin(raw.get("origin")),
         )
     except KeyError as error:
         raise NetworkError(f"world description is missing {error.args[0]!r}") from None
@@ -103,7 +111,7 @@ def load(world_id: str, directory: Path = WORLDS_DIR) -> TrackNetwork:
 
 def describe(network: TrackNetwork) -> dict[str, Any]:
     """The inverse of `parse_world`, for the generators to write."""
-    return {
+    document: dict[str, Any] = {
         "id": network.id,
         "name": network.name,
         "segments": [
@@ -139,3 +147,9 @@ def describe(network: TrackNetwork) -> dict[str, Any]:
             for route in network.routes
         ],
     }
+    if network.origin is not None:
+        document["origin"] = {
+            "lat": round(network.origin.lat, 9),
+            "lon": round(network.origin.lon, 9),
+        }
+    return document
