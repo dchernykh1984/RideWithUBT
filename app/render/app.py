@@ -33,6 +33,7 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
+from app.core.companions import departed
 from app.core.preferences import SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
 from app.core.session import RideState
@@ -314,13 +315,17 @@ class RideApp(ShowBase):
         self.menu_text.show()
 
     def _place_companions(self) -> None:
-        """Draw whoever else is on the road, making a marker for anyone new.
+        """Draw whoever else is on the road: make markers, move them, take them
+        away again when their rider is gone.
 
-        Markers are kept by id rather than rebuilt, because a network source will
-        eventually add and drop riders mid-ride and rebuilding the scene graph
-        every frame for that would be the wrong shape to have started with.
+        Markers are kept by id rather than rebuilt, because riders come and go
+        mid-ride over a network and rebuilding the scene graph every frame for
+        that would be the wrong shape to have started with.
         """
-        for companion in self.ride.companions:
+        present = self.ride.companions
+        for rider in departed(self.companions, present):
+            self.companions.pop(rider).removeNode()
+        for companion in present:
             marker = self.companions.get(companion.id)
             if marker is None:
                 marker = self.render.attachNewNode(arrow_node(companion.id))

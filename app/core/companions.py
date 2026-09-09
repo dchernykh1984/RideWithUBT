@@ -17,7 +17,7 @@ pulled: with no companions, there is simply nobody else on the road.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
@@ -183,6 +183,20 @@ class NoCompany:
 
     def report(self, me: RiderState) -> None:
         return
+
+
+def departed(drawn: Iterable[str], present: Sequence[Companion]) -> tuple[str, ...]:
+    """Riders with a marker on the road and nobody behind it any more.
+
+    A source forgets a rider who stops speaking, but a marker already in the
+    scene stays where it was put unless somebody takes it away - so a rider who
+    quits leaves an arrow parked at the corner where they were last seen, which
+    is exactly the ghost the forgetting was meant to prevent. This is the other
+    half of that, and it lives here because deciding what is no longer there is
+    a decision, and decisions are tested.
+    """
+    here = {companion.id for companion in present}
+    return tuple(sorted(rider for rider in drawn if rider not in here))
 
 
 def parse_partners(text: str) -> tuple[float, ...]:

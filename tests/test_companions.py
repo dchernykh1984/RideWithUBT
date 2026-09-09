@@ -7,6 +7,9 @@ application still works with the cable pulled."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+
 import pytest
 
 from app.core.companions import (
@@ -14,12 +17,16 @@ from app.core.companions import (
     Companion,
     NoCompany,
     PacePartners,
+    Peloton,
     air_for,
+    departed,
     parse_partners,
 )
 from app.core.physics import Air, Bike, steady_speed_ms
+from app.core.presence import RiderState
 from app.core.ride import Ride, RideSetup
 from app.world.description import load
+from app.world.network import Point
 from tests.worlds import loop_network
 
 
@@ -160,3 +167,127 @@ def test_partners_move_as_the_ride_moves() -> None:
     assert slow.distance_m < riding.state.distance_m < fast.distance_m, (
         "a rider at 200 W belongs between one at 150 and one at 290"
     )
+
+
+def companion(identifier: str) -> Companion:
+    return Companion(
+        id=identifier,
+        name=identifier,
+        point=Point(0.0, 0.0, 0.0),
+        heading_rad=0.0,
+        distance_m=0.0,
+        speed_ms=0.0,
+    )
+
+
+def test_a_rider_who_leaves_takes_their_marker_with_them() -> None:
+    """Otherwise an arrow stays parked at the corner they were last seen at."""
+    drawn = {"askar", "dana", "partner-0"}
+
+    assert departed(drawn, [companion("askar"), companion("partner-0")]) == ("dana",)
+
+
+def test_nobody_leaving_removes_nothing() -> None:
+    drawn = {"askar", "dana"}
+
+    assert departed(drawn, [companion("askar"), companion("dana")]) == ()
+
+
+def test_an_empty_road_takes_every_marker_away() -> None:
+    assert departed({"askar", "dana"}, []) == ("askar", "dana")
+
+
+def test_a_rider_nobody_has_drawn_yet_is_not_departed() -> None:
+    assert departed(set(), [companion("askar")]) == ()
+
+
+# A road holds more than one kind of rider.
+
+
+@dataclass
+class Fixed:
+    """A source with a fixed cast, counting what the ride asks of it."""
+
+    people: tuple[Companion, ...]
+    advanced: float = 0.0
+    told: list[str] = field(default_factory=list)
+
+    def advance(self, seconds: float) -> None:
+        self.advanced += seconds
+
+    def report(self, me: RiderState) -> None:
+        self.told.append(me.id)
+
+    def companions(self) -> Sequence[Companion]:
+        return self.people
+
+
+def someone(identifier: str) -> RiderState:
+    return RiderState(
+        id=identifier,
+        name=identifier,
+        world_id="sokol",
+        x=0.0,
+        y=0.0,
+        z=0.0,
+        heading_rad=0.0,
+        distance_m=0.0,
+        speed_ms=0.0,
+    )
+
+
+def test_a_peloton_is_everyone_from_everywhere() -> None:
+    """A club ride with a partner to chase is two sources and one road."""
+    partners = Fixed((companion("partner-0"),))
+    people = Fixed((companion("askar"), companion("dana")))
+
+    peloton = Peloton((partners, people))
+
+    assert [rider.id for rider in peloton.companions()] == [
+        "partner-0",
+        "askar",
+        "dana",
+    ]
+
+
+def test_every_source_is_moved_on() -> None:
+    partners, people = Fixed(()), Fixed(())
+
+    Peloton((partners, people)).advance(0.5)
+
+    assert partners.advanced == 0.5
+    assert people.advanced == 0.5
+
+
+def test_every_source_is_told_where_we_are() -> None:
+    partners, people = Fixed(()), Fixed(())
+
+    Peloton((partners, people)).report(someone("me"))
+
+    assert partners.told == ["me"]
+    assert people.told == ["me"]
+
+
+def test_an_empty_peloton_is_an_empty_road() -> None:
+    peloton = Peloton()
+    peloton.advance(1.0)
+    peloton.report(someone("me"))
+
+    assert peloton.companions() == ()
+
+
+def test_the_made_up_riders_have_nowhere_to_send_anything() -> None:
+    """Reporting to a pace partner is a no-op, not an error."""
+    partners = PacePartners.holding(load("sokol"), (200.0,))
+
+    partners.report(someone("me"))  # nothing to assert; it must simply not raise
+
+    assert len(partners.companions()) == 1
+
+
+def test_riding_alone_ignores_us_too() -> None:
+    alone = NoCompany()
+
+    alone.report(someone("me"))
+
+    assert alone.companions() == ()
