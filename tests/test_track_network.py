@@ -177,3 +177,42 @@ def test_a_closed_loop_leaves_every_node_by_exactly_one_way() -> None:
 
     assert all(len(exits) == 1 for exits in network.exits_by_node.values())
     assert network.total_length_m == pytest.approx(400.0)
+
+
+def test_gradient_is_measured_over_a_baseline_not_between_two_points() -> None:
+    """The reason the baseline exists, pinned so it cannot be tuned away.
+
+    Points three metres apart with a metre between them is what an elevation
+    model's rounding looks like. Read as a slope it is a 33% wall; read across
+    twenty metres of track it is what it really is.
+    """
+    stepped = line(
+        "l",
+        "a",
+        "b",
+        [(x, 0.0, 0.0 if x < 30 else 1.0) for x in range(0, 63, 3)],
+    )
+
+    over_the_baseline = stepped.gradient_at(28.5)
+    between_the_points = stepped.gradient_at(28.5, baseline_m=1.0)
+
+    assert abs(between_the_points) > 0.3, "adjacent points really are that steep"
+    assert abs(over_the_baseline) < 0.06, "over twenty metres it is not a wall"
+
+
+def test_a_baseline_wider_than_the_segment_uses_what_there_is() -> None:
+    """A ten metre link cannot be measured across twenty, and must not divide by
+    a length it does not have."""
+    short = line("l", "a", "b", [(0, 0, 0), (10, 0, 1.0)])
+
+    assert short.gradient_at(5.0) == pytest.approx(0.1)
+
+
+def test_the_baseline_is_centred_on_the_rider() -> None:
+    """A ramp has to be felt where it starts, not half a baseline early or late."""
+    ramp = line("l", "a", "b", [(0, 0, 0), (100, 0, 0), (200, 0, 10.0)])
+
+    assert ramp.gradient_at(50.0) == pytest.approx(0.0)
+    assert ramp.gradient_at(150.0) == pytest.approx(0.1)
+    # At the join the baseline straddles both halves, so it reads as half of it.
+    assert ramp.gradient_at(100.0) == pytest.approx(0.05, abs=0.01)
