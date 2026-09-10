@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from app import __version__, cli, i18n
+from app.core.ride import DEFAULT_POWER_W
 from app.services.company import DEFAULT_PORT
 from app.settings import Settings
 
@@ -164,12 +165,13 @@ def test_the_world_route_and_power_reach_the_renderer(
     renderer: FakeRenderer,
 ) -> None:
     assert (
-        cli.main(["--world", "sokol", "--route", "small-ring", "--power", "240"]) == 0
+        cli.main(["--world", "sokol", "--route", "small-ring", "--simulate", "240"])
+        == 0
     )
 
     (app,) = renderer.apps
     assert app.setup.route_id == "small-ring"
-    assert app.setup.power_w == 240.0
+    assert app.setup.simulated_watts == 240.0
 
 
 def test_worlds_lists_every_configuration_with_its_lap(
@@ -872,3 +874,59 @@ def test_a_room_on_a_port_that_is_not_one_says_so(
     assert cli.main(["--host-room", port]) == 2
 
     assert "not a port number" in capsys.readouterr().out
+
+
+# A ride nobody pedalled.
+
+
+def test_nothing_connected_means_nobody_is_pedalling(renderer: FakeRenderer) -> None:
+    """Riding along on invented watts because no sensor answered is not a
+    default; it is how a session got recorded that nobody rode."""
+    assert cli.main([]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.simulated_watts is None
+    assert app.ride.rider_source is None
+
+
+def test_a_stand_in_rider_has_to_be_asked_for_by_name(renderer: FakeRenderer) -> None:
+    assert cli.main(["--simulate", "240"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.simulated_watts == 240.0
+    assert app.ride.rider_source is not None
+
+
+def test_asking_without_saying_how_hard(renderer: FakeRenderer) -> None:
+    assert cli.main(["--simulate"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.simulated_watts == DEFAULT_POWER_W
+
+
+def test_a_simulated_ride_is_never_recorded(renderer: FakeRenderer) -> None:
+    """Invented watts must not reach the activity store, and from there Garmin
+    or Strava, sitting next to the real ones."""
+    assert cli.main(["--simulate", "240"]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.record is True, "recording was not turned off by the rider"
+    assert app.setup.records is False, "but nothing is kept anyway"
+    assert app.ride.recorder is None
+
+
+def test_a_ridden_ride_is_recorded(renderer: FakeRenderer) -> None:
+    assert cli.main([]) == 0
+
+    (app,) = renderer.apps
+    assert app.setup.records is True
+
+
+@pytest.mark.parametrize("given", ["fast", "0", "-100", "5000"])
+def test_a_power_nobody_holds_is_a_message_not_a_traceback(
+    given: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--simulate", given]) == 2
+
+    printed = capsys.readouterr().out
+    assert "watts" in printed or "pace" in printed

@@ -399,7 +399,22 @@ class RideApp(ShowBase):
             )
         lines += self._company_lines()
         lines += self._workout_lines()
+        lines += self._standing_lines()
         self.hud.setText("\n".join(lines))
+
+    def _standing_lines(self) -> list[str]:
+        """Say what this ride is, when it is not a rider on a trainer.
+
+        Both cases are worth a line on the screen. A simulated ride looks
+        exactly like a real one from the saddle, and finding out afterwards
+        that the numbers were invented is worse than being told now. A rider
+        with nothing connected is standing still and needs to know why.
+        """
+        if self.ride.setup.simulated:
+            return ["", self.translate("Simulated ride - not recorded")]
+        if self.ride.rider_source is None and self.ride.sensors is None:
+            return ["", self.translate("No sensors connected")]
+        return []
 
     def _company_lines(self) -> list[str]:
         """Who is up the road and who is behind, in metres."""
@@ -479,7 +494,9 @@ def screenshot(
     """
     app = RideApp(
         translate,
-        RideSetup(world_id=world_id, route_id=route_id, power_w=power_w),
+        # A picture is drawn by riding to the moment it shows, and nobody is
+        # pedalling for it.
+        RideSetup(world_id=world_id, route_id=route_id, simulated_watts=power_w),
         offscreen=True,
     )
     try:

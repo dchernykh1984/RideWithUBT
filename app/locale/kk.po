@@ -29,3 +29,9 @@ msgstr "Дайын болғанда бос пернені басыңыз"
 
 msgid "Press tab to close"
 msgstr "Жабу үшін tab пернесін басыңыз"
+
+msgid "Simulated ride - not recorded"
+msgstr "Симуляциялық жүру - жазылмайды"
+
+msgid "No sensors connected"
+msgstr "Датчиктер қосылмаған"

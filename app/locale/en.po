@@ -32,3 +32,9 @@ msgstr "Press space when ready"
 
 msgid "Press tab to close"
 msgstr "Press tab to close"
+
+msgid "Simulated ride - not recorded"
+msgstr "Simulated ride - not recorded"
+
+msgid "No sensors connected"
+msgstr "No sensors connected"

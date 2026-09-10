@@ -154,7 +154,7 @@ def test_a_ride_without_partners_has_the_road_to_itself() -> None:
 
 
 def test_partners_move_as_the_ride_moves() -> None:
-    riding = Ride(setup=RideSetup(partner_watts=(150.0, 290.0), power_w=200.0))
+    riding = Ride(setup=RideSetup(partner_watts=(150.0, 290.0), simulated_watts=200.0))
 
     now = 0.0
     for _ in range(600):
