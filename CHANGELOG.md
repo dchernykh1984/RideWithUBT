@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.4.0...v0.5.0) (2026-09-10)
+
+
+### Features
+
+* **core:** ride your own weight on the bicycle you chose ([68d726f](https://github.com/dchernykh1984/RideWithUBT/commit/68d726f55bd329154e58de9458f6969ff60c65ff))
+* **render:** set the whole application up from inside it ([50c163f](https://github.com/dchernykh1984/RideWithUBT/commit/50c163f4eee44f0170123dee56c1b4c32243b560))
+* wear the team's logo as the application icon ([b2cd226](https://github.com/dchernykh1984/RideWithUBT/commit/b2cd22639049fa99924988c25a822fd72678357a))
+* **world:** put the circuit's real buildings beside the track ([8ac7081](https://github.com/dchernykh1984/RideWithUBT/commit/8ac7081b4dd339ce9484f7f08cca975fb27b2184))
+
+
+### Bug Fixes
+
+* **core:** stop riding and recording with nobody pedalling ([9bbea14](https://github.com/dchernykh1984/RideWithUBT/commit/9bbea146497f3cc477b6cef74df27e0b6897ffc3))
+* **world:** let the pit lane rejoin the track instead of stopping ([c9cab6e](https://github.com/dchernykh1984/RideWithUBT/commit/c9cab6e3fae69b7b8048df2c783689562c960028))
+* **world:** ride corners as curves instead of a string of flats ([dcf1824](https://github.com/dchernykh1984/RideWithUBT/commit/dcf182453e2f680511c88424611b6fc06425447c))
+
+
+### Documentation
+
+* bring the working context back into step with the code ([4745405](https://github.com/dchernykh1984/RideWithUBT/commit/47454055895d291cc963a9109e31f48229715db9))
+
 ## [0.4.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.3.1...v0.4.0) (2026-09-09)
 
 
