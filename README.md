@@ -162,6 +162,9 @@ uv run ridewithubt --ride-with 192.168.1.20   # ride with whoever is in that roo
 uv run ridewithubt --name Askar           # what they see above your rider
 ```
 
+You are a cyclist on a bicycle, and the legs go round at whatever your cadence
+sensor is reporting - or at a plain average when nothing is measuring it.
+
 A ride starts halfway down the pit lane, the way a session at the autodrome
 does: roll out past the garages, join the circuit, and lap it. The buildings
 beside the track - the pit garages, the grandstand, the race hotel - are where

@@ -38,12 +38,14 @@ from panda3d.core import (
 
 from app import paths
 from app.core.companions import departed
+from app.core.figure import BOTTOM_BRACKET_M, Cranks
 from app.core.preferences import Found, SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
 from app.core.rows import ActionRow, DeviceRow, Layout, ToggleRow
 from app.core.session import RideState
 from app.core.startscreen import StartScreen
 from app.frozen import panda_config_dir, panda_plugin_dir
+from app.render.cyclist import Cyclist
 from app.render.geometry import arrow_node, geom_node
 from app.settings import Settings
 from app.workout.model import DurationKind, Workout
@@ -141,6 +143,7 @@ class RideApp(ShowBase):
         self.ground = self._build_ground()
         self.track = self._build_track()
         self.buildings = self._build_buildings()
+        self.cranks = Cranks()
         self.rider = self._build_rider()
         self.companions: dict[str, NodePath] = {}
         self.arrow = self._build_arrow()
@@ -219,12 +222,14 @@ class RideApp(ShowBase):
         if repeat != 1.0:
             node.setTexScale(TextureStage.getDefault(), repeat, repeat)
 
-    def _build_rider(self) -> NodePath:
-        """A marker, not a model: something to follow while the world is built."""
-        node = self.render.attachNewNode(arrow_node("rider"))
-        node.setColor(*RIDER_COLOUR)
-        node.setScale(1.2)
-        return node
+    def _build_rider(self) -> Cyclist:
+        """A person on a bicycle, with legs that go round.
+
+        A triangle told a rider where they were and nothing else. Legs turning
+        say something no number does: that the pedals are going round, and how
+        fast.
+        """
+        return Cyclist(self.render)
 
     def _build_arrow(self) -> NodePath:
         node = self.render.attachNewNode(arrow_node("junction-arrow"))
@@ -372,8 +377,15 @@ class RideApp(ShowBase):
 
     def _place_rider(self) -> None:
         point = self.state.point
-        self.rider.setPos(point.x, point.y, point.z + 0.4)
-        self.rider.setH(math.degrees(self.state.heading_rad) - 90.0)
+        # Everything about the figure is measured from its bottom bracket, so
+        # that is what sits above the road rather than the road's own height.
+        self.rider.root.setPos(point.x, point.y, point.z + BOTTOM_BRACKET_M)
+        self.rider.root.setH(math.degrees(self.state.heading_rad))
+        # The cadence the sensors are reporting, or a plain average when
+        # nothing is: a figure sitting frozen on a moving bicycle looks broken,
+        # and that is what most riders will see first.
+        self.cranks.advance(self._clock.getDt(), self.state.cadence_rpm)
+        self.rider.pedal_at(self.cranks.angle_rad)
 
     def _left(self) -> None:
         """Left changes a setting while a panel is up, and steers when none is."""

@@ -38,10 +38,17 @@ class Mesh:
     vertices: tuple[Vertex, ...]
     tex_coords: tuple[TexCoord, ...]
     triangles: tuple[Triangle, ...]
+    #: Which way each vertex faces, for anything that is not a flat surface.
+    #: The track and the ground are lit as if facing straight up and look
+    #: right; a person on a bicycle lit that way is a flat cut-out, because
+    #: every face of every box takes the same light.
+    normals: tuple[Vertex, ...] | None = None
 
     def __post_init__(self) -> None:
         if len(self.vertices) != len(self.tex_coords):
             raise ValueError("every vertex needs a texture coordinate")
+        if self.normals is not None and len(self.normals) != len(self.vertices):
+            raise ValueError("every vertex needs a normal, or none of them do")
 
     @property
     def is_empty(self) -> bool:
@@ -55,6 +62,13 @@ class Mesh:
             tex_coords=self.tex_coords + other.tex_coords,
             triangles=self.triangles
             + tuple((a + shift, b + shift, c + shift) for a, b, c in other.triangles),
+            # Normals only survive if both sides have them: half a mesh lit one
+            # way and half the other is worse than all of it lit flat.
+            normals=(
+                self.normals + other.normals
+                if self.normals is not None and other.normals is not None
+                else None
+            ),
         )
 
 
