@@ -100,7 +100,8 @@ without one, `--worlds`, `--setup` and the other listing commands still work.
   is recorded where it happened, and marked as a virtual activity: both are true
   at once, so the lap sits on the map of the real circuit and is still labelled
   as ridden indoors.
-- **Speak three languages**: Russian, English and Kazakh.
+- **Speak three languages**: Russian, English and Kazakh - with a font that
+  has all three alphabets in it.
 
 - **Ride with other people without joining anything.** `--partners` puts riders
   on the circuit who ride the same physics on the same ground. `--ride-with`
@@ -174,6 +175,9 @@ they really are: their footprints come from the same survey as the track.
 
 Left and right arrows choose which way to go at a junction, space ends a workout
 step that runs until you say so, and escape quits.
+
+Click a line to change it: a number opens for typing, a list opens to pick
+from. Arrows still step a row without opening anything.
 
 **The application opens on a front screen**: what to ride, which way round,
 which workout, and go. Arrows or the mouse choose, space or a click starts.

@@ -50,3 +50,108 @@ msgstr "straight on"
 
 msgid "Arrows or mouse to choose, space to ride"
 msgstr "Arrows or mouse to choose, space to ride"
+
+msgid "Type a number, enter to keep it"
+msgstr "Type a number, enter to keep it"
+
+msgid "Enter or click to choose, escape to go back"
+msgstr "Enter or click to choose, escape to go back"
+
+msgid "Click a line to change it, space to ride"
+msgstr "Click a line to change it, space to ride"
+
+msgid "Click a line to change it, tab to close"
+msgstr "Click a line to change it, tab to close"
+
+msgid "Application"
+msgstr "Application"
+
+msgid "Bike weight"
+msgstr "Bike weight"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Quit"
+msgstr "Quit"
+
+msgid "Record trainer data"
+msgstr "Record trainer data"
+
+msgid "Ride without sensors"
+msgstr "Ride without sensors"
+
+msgid "Rider"
+msgstr "Rider"
+
+msgid "Riding"
+msgstr "Riding"
+
+msgid "Route"
+msgstr "Route"
+
+msgid "Scan for sensors"
+msgstr "Scan for sensors"
+
+msgid "Sensors"
+msgstr "Sensors"
+
+msgid "This ride"
+msgstr "This ride"
+
+msgid "Track"
+msgstr "Track"
+
+msgid "Trainer"
+msgstr "Trainer"
+
+msgid "Trainer and wheel"
+msgstr "Trainer and wheel"
+
+msgid "Trainer control"
+msgstr "Trainer control"
+
+msgid "Tyre"
+msgstr "Tyre"
+
+msgid "Wheel"
+msgstr "Wheel"
+
+msgid "Workout"
+msgstr "Workout"
+
+msgid "Your weight"
+msgstr "Your weight"
+
+msgid "start"
+msgstr "start"
+
+msgid "none - just ride"
+msgstr "none - just ride"
+
+msgid "off - your own legs"
+msgstr "off - your own legs"
+
+msgid "trainer, sensors, bike"
+msgstr "trainer, sensors, bike"
+
+msgid "not chosen"
+msgstr "not chosen"
+
+msgid "yes"
+msgstr "yes"
+
+msgid "no"
+msgstr "no"
+
+msgid "paired"
+msgstr "paired"
+
+msgid "not paired"
+msgstr "not paired"
+
+msgid "in use"
+msgstr "in use"
+
+msgid "off"
+msgstr "off"

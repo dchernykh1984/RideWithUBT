@@ -74,6 +74,17 @@ out of step. Change the input, then run the generator:
 | `app/data/textures/*.png` | `app/world/texture.py` | `uv run python scripts/make_textures.py` |
 | `app/app.icns`, `app/app.ico`, `app/data/branding/icon.png` | `build-data/branding/ubt-logo.png` | `uv run python scripts/make_icons.py` |
 
+Two more things are data rather than code and are edited directly, not
+generated: `app/data/figure.json` (every measurement of the rider and the
+bicycle) and `app/data/*.json` catalogues.
+
+## Anything a rider reads
+
+A user-visible string goes through `translate()` and into all three of
+`app/locale/{en,ru,kk}.po` - English included, or the lookup misses. The names
+of real things (a circuit, a route, a trainer) stay as they are: they are what
+those things are called, not words to translate.
+
 ## Releases
 
 release-please opens a release pull request as soon as a `feat` or `fix` lands on

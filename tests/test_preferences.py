@@ -22,7 +22,6 @@ from app.core.preferences import (
     LANGUAGE,
     RIDER_KG,
     SCAN,
-    SIMULATE,
     TRAINER,
     TYRE_WIDTH,
     VIRTUAL_BIKE,
@@ -77,7 +76,6 @@ def test_everything_a_rider_has_to_decide_is_on_the_screen() -> None:
         CONTROL,
         CAPTURE,
         SCAN,
-        SIMULATE,
         LANGUAGE,
     } <= names
 
@@ -107,7 +105,6 @@ def test_a_fresh_install_opens_on_something_sensible() -> None:
 
     assert value(setup, WHEEL_SIZE) == "700c"
     assert value(setup, TYRE_WIDTH) == "25"
-    assert setup.simulated_watts is None, "nobody rides by default"
 
 
 # Moving about.
@@ -218,38 +215,6 @@ def test_the_bicycle_weighs_to_a_tenth() -> None:
     setup.change(1)
 
     assert "." in setup.number(BIKE_KG).reading
-
-
-# The stand-in rider.
-
-
-def test_nobody_pedals_until_the_rider_says_a_number() -> None:
-    setup = menu()
-
-    assert setup.number(SIMULATE).is_off
-    assert "off" in setup.number(SIMULATE).reading
-    assert setup.simulated_watts is None
-
-
-def test_winding_the_stand_in_up_sets_the_watts() -> None:
-    """The power has to be chosen before it starts, not discovered after."""
-    setup = menu()
-    point_at(setup, SIMULATE)
-
-    setup.change(1)
-    setup.change(1)
-
-    assert setup.simulated_watts == 20.0
-
-
-def test_winding_it_back_down_turns_it_off_again() -> None:
-    setup = menu()
-    point_at(setup, SIMULATE)
-    setup.change(5)
-
-    setup.change(-10)
-
-    assert setup.simulated_watts is None
 
 
 # Toggles.
@@ -377,7 +342,7 @@ def test_the_lines_show_where_the_rider_is() -> None:
     lines = setup.lines()
 
     assert sum(1 for line in lines if line.startswith(">")) == 1
-    assert any(line.strip().startswith("RIDER") for line in lines)
+    assert any(line.startswith("Rider") for line in lines)
 
 
 def test_nothing_is_written_until_it_is_saved() -> None:
@@ -487,10 +452,9 @@ def test_a_fresh_install_has_not_chosen_a_trainer() -> None:
     assert setup.save().trainer_id == ""
 
 
-def test_the_language_is_not_filed_under_riding() -> None:
+def test_the_language_is_filed_under_the_application() -> None:
     """It is about the application, not about this ride."""
     setup = menu()
-    headings = [row.name for row in setup.rows if isinstance(row, Heading)]
     language_at = next(
         index for index, row in enumerate(setup.rows) if row.name == LANGUAGE
     )
@@ -501,7 +465,15 @@ def test_the_language_is_not_filed_under_riding() -> None:
     )
 
     assert setup.rows[last_heading].name == "Application"
-    assert "Riding" in headings
+
+
+def test_riding_without_sensors_is_not_hidden_in_the_settings() -> None:
+    """It is a choice about this ride, and a rider looking for it should not
+    have to find it behind Settings - which is where it was, and where it was
+    not found."""
+    from app.core.startscreen import SIMULATE
+
+    assert SIMULATE not in {row.name for row in menu().rows}
 
 
 def test_the_menu_is_two_columns_rather_than_one_padded_block() -> None:
@@ -512,20 +484,21 @@ def test_the_menu_is_two_columns_rather_than_one_padded_block() -> None:
     named = setup.columns()
 
     assert all(len(pair) == 2 for pair in named)
-    assert (" RIDER", "") in [(f" {a}", b) for a, b in named] or any(
-        a == "RIDER" for a, b in named
-    )
     weight = next(reading for name, reading in named if RIDER_KG in name)
     assert weight.endswith("kg")
 
 
 def test_a_heading_has_a_label_and_no_value() -> None:
+    """A heading comes without the marker a row has, which is how the two are
+    told apart when they are drawn - and it is shouted there, not here, so
+    that a renderer can translate it first."""
     setup = menu()
 
-    headings = [pair for pair in setup.columns() if pair[0].isupper()]
+    headings = [pair for pair in setup.columns() if not pair[0].startswith((">", " "))]
 
     assert headings
     assert all(reading == "" for _, reading in headings)
+    assert all(name == name.strip() for name, _ in headings)
 
 
 def test_the_marker_is_on_the_name_not_the_value() -> None:

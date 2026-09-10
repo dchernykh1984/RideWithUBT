@@ -712,9 +712,37 @@ for this. `app/imaging.py` reads the logo back in and averages pixels down to
 each size - a box average rather than nearest-neighbour, because the logo is a
 line drawing and picking one pixel in thirty loses the thin parts of it.
 
+## Fields, and working them with a mouse
+
+The settings started as rows that cycled: an arrow key stepped a weight by half
+a kilo and walked a list of forty trainers one at a time. That is a list to
+scroll, not a form to fill in, and it was neither obvious nor quick.
+
+Clicking a row now opens the field it is: a number for typing into, or the list
+laid out to pick from with the one in use marked. `app/core/rows.py` holds both
+as small state machines - `Typing` takes keystrokes and refuses anything that
+is not a number, `Picking` holds a list and which line it is on - and `Panel`,
+which the front screen and the settings both are, decides which of the two a
+row opens. The arrows still step a row without opening anything, for a rider
+who already knows the list.
+
+The renderer draws the open list *instead of* the rows, which is what makes a
+list of forty trainers readable, and says in its footer what the keys do now.
+
 ## Localisation
 
-Russian, English and Kazakh, first-class from the start. Source strings are
+Russian, English and Kazakh, first-class from the start.
+
+**With a font that has them in it.** Panda3D's own font is Latin only, so
+Russian and Kazakh came out as rows of empty boxes - two of the three languages
+this application claims. `app/data/fonts/DejaVuSans.ttf` covers both, including
+the letters Kazakh needs that Russian does not, and its licence permits
+shipping it inside an application given away.
+
+Every label a rider reads goes through `translate` on its way to the screen.
+The names of real things do not: a circuit is called what it is called, and
+translating "Sokol International Racetrack" would invent a place that does not
+exist. Source strings are
 English because every tracked source file is ASCII; the translations live in
 gettext `.po` catalogues under `app/locale/`, read directly with polib - no
 compile step and no `.mo` binaries in the repository.
