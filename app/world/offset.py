@@ -38,6 +38,28 @@ def _normal(start: Point, end: Point) -> tuple[float, float]:
     return (-dy / length, dx / length)
 
 
+def offset_varying(
+    points: Sequence[Point], reaches: Sequence[float]
+) -> tuple[Point, ...]:
+    """A line beside this one, a stated distance out at each of its points.
+
+    The general case of `offset_polyline`: a pit lane leaving the track has one
+    edge glued to the track's kerb and the other swinging away, and those are
+    two different reaches along the same line.
+    """
+    if len(points) < 2:
+        raise ValueError("a line needs at least two points to be offset")
+    if len(reaches) != len(points):
+        raise ValueError("every point needs a reach of its own")
+    normals = [_normal(start, end) for start, end in pairwise(points)]
+    moved = [_move(points[0], normals[0], reaches[0])]
+    for index in range(1, len(points) - 1):
+        direction, scale = _mitre(normals[index - 1], normals[index])
+        moved.append(_move(points[index], direction, reaches[index] * scale))
+    moved.append(_move(points[-1], normals[-1], reaches[-1]))
+    return tuple(moved)
+
+
 def offset_polyline(
     points: Sequence[Point], offset_m: float, taper_m: float = 0.0
 ) -> tuple[Point, ...]:
@@ -59,18 +81,27 @@ def offset_polyline(
     # sixty metres has nowhere to do it - it would simply lie on the track.
     if taper_m > 0.0:
         points = densify(points, TAPER_STEP_M)
-    normals = [_normal(start, end) for start, end in pairwise(points)]
+    return offset_varying(points, ramps(points, taper_m, offset_m))
+
+
+def ramps(
+    points: Sequence[Point],
+    taper_m: float,
+    from_m: float,
+    to_m: float | None = None,
+) -> tuple[float, ...]:
+    """How far out to reach at each point, easing between two distances.
+
+    `from_m` at both ends and `to_m` through the middle; with only one
+    distance it eases out of nothing, which is a lane leaving the very line it
+    is offset from.
+    """
     along = _distances(points)
     total = along[-1]
-    moved = [_move(points[0], normals[0], offset_m * _ramp(0.0, total, taper_m))]
-    for index in range(1, len(points) - 1):
-        direction, scale = _mitre(normals[index - 1], normals[index])
-        reach = offset_m * scale * _ramp(along[index], total, taper_m)
-        moved.append(_move(points[index], direction, reach))
-    moved.append(
-        _move(points[-1], normals[-1], offset_m * _ramp(total, total, taper_m))
+    near, far = (0.0, from_m) if to_m is None else (from_m, to_m)
+    return tuple(
+        near + (far - near) * _ramp(distance, total, taper_m) for distance in along
     )
-    return tuple(moved)
 
 
 def densify(points: Sequence[Point], spacing_m: float) -> tuple[Point, ...]:

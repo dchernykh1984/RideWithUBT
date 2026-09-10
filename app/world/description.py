@@ -37,6 +37,11 @@ def parse_point(raw: Any) -> Point:
     return Point(float(raw[0]), float(raw[1]), float(raw[2]))
 
 
+def parse_segment_widths(raw: dict[str, Any]) -> tuple[float, ...] | None:
+    profile = raw.get("width_profile")
+    return tuple(float(width) for width in profile) if profile else None
+
+
 def parse_segment(raw: dict[str, Any]) -> Segment:
     return Segment(
         id=str(raw["id"]),
@@ -44,6 +49,7 @@ def parse_segment(raw: dict[str, Any]) -> Segment:
         end_node=str(raw["end_node"]),
         points=tuple(parse_point(point) for point in raw["points"]),
         width_m=float(raw.get("width_m", 10.0)),
+        width_profile=parse_segment_widths(raw),
         surface=str(raw.get("surface", "asphalt")),
     )
 
@@ -142,6 +148,15 @@ def describe(network: TrackNetwork) -> dict[str, Any]:
                 "start_node": segment.start_node,
                 "end_node": segment.end_node,
                 "width_m": segment.width_m,
+                **(
+                    {
+                        "width_profile": [
+                            round(width, 3) for width in segment.width_profile
+                        ]
+                    }
+                    if segment.width_profile is not None
+                    else {}
+                ),
                 "surface": segment.surface,
                 "points": [
                     [round(point.x, 3), round(point.y, 3), round(point.z, 3)]

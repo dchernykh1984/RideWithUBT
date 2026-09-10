@@ -39,7 +39,12 @@ from app.world.network import (
     Start,
     TrackNetwork,
 )
-from app.world.offset import offset_polyline
+from app.world.offset import (
+    TAPER_STEP_M,
+    densify,
+    offset_varying,
+    ramps,
+)
 from app.world.smooth import smooth_polyline
 
 MAIN_WAY_KEY = "main"
@@ -424,25 +429,50 @@ def span(way: Way, from_node: int, to_node: int) -> list[int]:
 
 
 def build_pit_lane(
-    pit: PitLane, main: Way, origin: Origin, heights: dict[int, float] | None = None
+    pit: PitLane,
+    main: Way,
+    origin: Origin,
+    heights: dict[int, float] | None = None,
+    track_width_m: float = 12.0,
 ) -> Segment:
-    """A lane offset from the circuit, between two of its nodes.
+    """A lane beside the circuit, between two of its nodes.
+
+    It leaves the track from its kerb and comes back to it there: the inner
+    edge starts on the edge of the racing surface and swings out, and the outer
+    edge follows it a lane's width further. At the two ends the lane has no
+    width at all, which is what a merge looks like.
+
+    Built from its two edges rather than from a centre line and a width. A lane
+    tapered by moving its centre line runs *across* the track for as long as
+    the two overlap - its own painted edges drawn over the racing surface - and
+    leaves a wedge of grass where the two part company. Both were on screen.
 
     It follows the circuit's own ground, because it runs beside it.
     """
     indices = span(main, pit.entry_node, pit.exit_node)
-    along = [
-        _point(
-            origin, main.coordinates[index], (heights or {}).get(main.nodes[index], 0.0)
-        )
-        for index in indices
-    ]
+    along = densify(
+        [
+            _point(
+                origin,
+                main.coordinates[index],
+                (heights or {}).get(main.nodes[index], 0.0),
+            )
+            for index in indices
+        ],
+        TAPER_STEP_M,
+    )
+    # The lane's centre still reaches the node it is joined to - a rider comes
+    # off it onto the circuit and must not step sideways to do so - but its
+    # width eases from nothing, so at the merge there is no lane to paint
+    # across the racing surface.
+    _ = track_width_m
     return Segment(
         id=f"{pit.id}-0",
         start_node=node_id(pit.entry_node),
         end_node=node_id(pit.exit_node),
-        points=offset_polyline(along, pit.offset_m, pit.taper_m),
+        points=offset_varying(along, ramps(along, pit.taper_m, pit.offset_m)),
         width_m=pit.width_m,
+        width_profile=ramps(along, pit.taper_m, pit.width_m),
         surface=pit.surface,
     )
 
@@ -476,7 +506,13 @@ def build(
     }
     if recipe.pit_lane is not None:
         by_key[recipe.pit_lane.id] = [
-            build_pit_lane(recipe.pit_lane, selected[MAIN_WAY_KEY], origin, heights)
+            build_pit_lane(
+                recipe.pit_lane,
+                selected[MAIN_WAY_KEY],
+                origin,
+                heights,
+                recipe.width_m,
+            )
         ]
     segments = [segment for group in by_key.values() for segment in group]
     junctions = _junctions(segments, by_key[MAIN_WAY_KEY], recipe.announce_m)

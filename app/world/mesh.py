@@ -20,7 +20,7 @@ from itertools import pairwise
 
 from app.world.buildings import Building
 from app.world.network import Segment, TrackNetwork
-from app.world.offset import offset_polyline
+from app.world.offset import offset_polyline, offset_varying
 from app.world.polygon import triangulate
 
 # How many metres of track one repeat of the surface texture covers.
@@ -84,9 +84,15 @@ def ribbon(
     repeats every ``texture_length_m`` however long the segment is - the same
     asphalt looks the same on a two hundred metre straight and a ten metre link.
     """
-    half = segment.width_m / 2.0
-    left = offset_polyline(segment.points, half)
-    right = offset_polyline(segment.points, -half)
+    profile = segment.width_profile
+    if profile is None:
+        half = segment.width_m / 2.0
+        left = offset_polyline(segment.points, half)
+        right = offset_polyline(segment.points, -half)
+    else:
+        halves = [width / 2.0 for width in profile]
+        left = offset_varying(segment.points, halves)
+        right = offset_varying(segment.points, [-half for half in halves])
     along = segment.cumulative_m
 
     vertices: list[Vertex] = []
