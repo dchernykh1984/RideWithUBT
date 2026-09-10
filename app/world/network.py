@@ -114,11 +114,42 @@ class Segment:
         return (after.z - before.z) / run
 
     def heading_at(self, distance_m: float) -> float:
-        """Which way the track is pointing, in radians, for the camera to follow."""
+        """Which way the track is pointing, in radians, for the camera to follow.
+
+        Blended between one edge and the next rather than taken from whichever
+        edge the rider happens to be on. A road is a list of straight pieces
+        however finely it is drawn, and reading the heading off the current
+        piece makes the view sit still and then snap at every join. Between the
+        midpoints of two edges the answer turns steadily from one to the other,
+        which is what riding a corner looks like.
+        """
         clamped = min(max(distance_m, 0.0), self.length_m)
         index = _segment_index(self.cumulative_m, clamped)
-        before, after = self.points[index], self.points[index + 1]
-        return math.atan2(after.y - before.y, after.x - before.x)
+        here = _edge_heading(self.points[index], self.points[index + 1])
+        # Where in this edge we are, measured from its middle: negative in the
+        # first half (blend back towards the edge before), positive in the
+        # second (blend on towards the edge after).
+        start, end = self.cumulative_m[index], self.cumulative_m[index + 1]
+        span = end - start
+        if span <= 0.0:  # pragma: no cover - segments reject repeated points
+            return here
+        position = (clamped - start) / span - 0.5
+        if position < 0.0 and index > 0:
+            before = _edge_heading(self.points[index - 1], self.points[index])
+            return _turn(before, here, position + 1.0)
+        if position > 0.0 and index + 2 < len(self.points):
+            after = _edge_heading(self.points[index + 1], self.points[index + 2])
+            return _turn(here, after, position)
+        return here
+
+
+def _edge_heading(before: Point, after: Point) -> float:
+    return math.atan2(after.y - before.y, after.x - before.x)
+
+
+def _turn(start: float, end: float, weight: float) -> float:
+    """Part of the way from one heading to another, the short way round."""
+    return start + math.remainder(end - start, 2 * math.pi) * weight
 
 
 def _segment_index(marks: Sequence[float], distance_m: float) -> int:

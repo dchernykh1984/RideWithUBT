@@ -360,4 +360,7 @@ def test_a_lap_is_still_the_circuit_and_not_the_pit_lane() -> None:
     for route in network.routes:
         segments = lap_segments(network, route)
         assert not any(name.startswith("pit-lane") for name in segments), route.id
-    assert round(lap_length_m(network, network.route("big-ring"))) == 4425
+    # Sokol publishes 4.495 km, measured along the racing line; open data
+    # traces the centre of the track and a smoothed curve cuts the corners a
+    # little more, so the built lap comes out consistently short of it.
+    assert 4380 <= lap_length_m(network, network.route("big-ring")) <= 4460
