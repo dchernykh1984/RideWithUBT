@@ -163,6 +163,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="List the wheel sizes and tyre widths to choose from, and exit.",
     )
     parser.add_argument(
+        "--bikes",
+        action="store_true",
+        help="List the bicycles you can ride, and what each is worth, and exit.",
+    )
+    parser.add_argument(
+        "--bike",
+        metavar="ID",
+        help="Choose the bicycle you ride in the world, for example: --bike tt",
+    )
+    parser.add_argument(
+        "--weight",
+        nargs="+",
+        type=float,
+        metavar=("RIDER_KG", "BIKE_KG"),
+        help="Say what you and your bicycle weigh, for example: --weight 83 9",
+    )
+    parser.add_argument(
+        "--cda",
+        type=float,
+        metavar="M2",
+        help="Use a drag figure you measured, instead of the one listed.",
+    )
+    parser.add_argument(
         "--wheel",
         nargs=2,
         metavar=("SIZE", "WIDTH"),
@@ -506,6 +529,13 @@ def listings(args: argparse.Namespace, language: str) -> int | None:
             args.rollout is not None,
             lambda: setup_commands.choose_rollout(args.rollout),
         ),
+        (args.bikes, setup_commands.list_bikes),
+        (args.bike, lambda: setup_commands.choose_bike(args.bike or "")),
+        (
+            bool(args.weight),
+            lambda: setup_commands.choose_rider(*(args.weight or [0.0])[:2]),
+        ),
+        (args.cda is not None, lambda: setup_commands.choose_cda(args.cda)),
         (args.trainers, setup_commands.list_trainers),
         (args.trainer, lambda: setup_commands.choose_trainer(args.trainer)),
         (args.control, lambda: setup_commands.choose_control(args.control)),

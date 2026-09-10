@@ -42,16 +42,68 @@ BISECTION_STEPS = 60
 
 
 @dataclass(frozen=True)
+class VirtualBike:
+    """The bicycle the rider is riding in the world, and the drag it costs.
+
+    Weight decides how fast they climb; what they are riding, and how they sit
+    on it, decides how fast they go on the flat - and on a circuit that is
+    nearly all of it. A rider on clip-on bars is not a rider on a time trial
+    bicycle, and neither is one on the hoods: between the ends of this list
+    lies several kilometres an hour at the same effort.
+
+    The figures are for a rider of about eighty kilograms; a larger rider
+    pushes a larger hole, and any of them can be replaced by a number a rider
+    measured for themselves.
+    """
+
+    id: str
+    name: str
+    cda_m2: float
+
+
+#: What there is to ride. `road-aerobars` is measured, not quoted: it is what
+#: came out of a real ride at this circuit - 8.9 km in 866 s at 266 W average,
+#: a rider of 83 kg on a road bicycle with clip-on time trial bars, in air at
+#: 645 m and 27 degrees. Solving that ride's whole energy budget for drag, with
+#: rolling resistance at 0.005, gives 0.267 m2.
+#:
+#: The rest sit around it in the proportions the literature gives. A proper
+#: time trial bicycle is lower again, because the frame and the rider's whole
+#: position are built for it rather than a pair of bars being added to a road
+#: bike - so the measured figure is emphatically not the one to use for it.
+BIKES: tuple[VirtualBike, ...] = (
+    VirtualBike("upright", "Sitting up", 0.40),
+    VirtualBike("road", "Road bicycle, on the hoods", 0.32),
+    VirtualBike("road-drops", "Road bicycle, in the drops", 0.29),
+    VirtualBike("road-aerobars", "Road bicycle with time trial bars", 0.267),
+    VirtualBike("tt", "Time trial bicycle", 0.23),
+)
+DEFAULT_BIKE = "road"
+
+#: What a rider and a bicycle weigh when nobody has said. A road bicycle with
+#: pedals, bottles and a bit of kit is about nine.
+DEFAULT_RIDER_KG = 75.0
+DEFAULT_BIKE_KG = 9.0
+
+
+def virtual_bike(bike_id: str) -> VirtualBike:
+    """The named bicycle, or the default when it is not one of them."""
+    for known in BIKES:
+        if known.id == bike_id:
+            return known
+    return next(known for known in BIKES if known.id == DEFAULT_BIKE)
+
+
+@dataclass(frozen=True)
 class Bike:
     """The rider and their bicycle, as the four numbers that decide their speed.
 
-    ``cda_m2`` is frontal area times drag coefficient: about 0.40 sitting up,
-    0.32 on the hoods, 0.27 in the drops, lower still on a time trial bike.
-    ``crr`` is rolling resistance: about 0.004 for good tyres on smooth asphalt.
+    ``cda_m2`` is frontal area times drag coefficient - see `BIKES`.
+    ``crr`` is rolling resistance: about 0.005 for good tyres on smooth asphalt.
     ``drivetrain_efficiency`` is what survives the chain, which is a few percent.
     """
 
-    total_mass_kg: float = 80.0
+    total_mass_kg: float = DEFAULT_RIDER_KG + DEFAULT_BIKE_KG
     cda_m2: float = 0.32
     crr: float = 0.005
     drivetrain_efficiency: float = 0.975
@@ -61,6 +113,27 @@ class Bike:
             raise ValueError("a rider and bicycle have to weigh something")
         if not 0.0 < self.drivetrain_efficiency <= 1.0:
             raise ValueError("a drivetrain cannot return more than it is given")
+
+    @classmethod
+    def ridden_by(
+        cls,
+        rider_kg: float = DEFAULT_RIDER_KG,
+        bike_kg: float = DEFAULT_BIKE_KG,
+        bike_id: str = DEFAULT_BIKE,
+        cda_m2: float | None = None,
+        crr: float | None = None,
+    ) -> Bike:
+        """The bicycle a particular rider is on, as they described it.
+
+        A measured `cda_m2` wins over the catalogue's figure, the same way a
+        measured wheel rollout wins over the catalogue's: somebody who has been
+        in a wind tunnel or done the maths knows better than a table.
+        """
+        return cls(
+            total_mass_kg=rider_kg + bike_kg,
+            cda_m2=cda_m2 if cda_m2 is not None else virtual_bike(bike_id).cda_m2,
+            crr=crr if crr is not None else 0.005,
+        )
 
 
 @dataclass(frozen=True)

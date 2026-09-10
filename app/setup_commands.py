@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core import physics
 from app.core.control import ControlMode
 from app.settings import Settings
 from app.trainer import catalog, wheels
@@ -56,6 +57,76 @@ def list_trainers() -> Answer:
             marks.append("measured" if trainer.is_calibrated else "estimated")
             lines.append(f"    {trainer.id:38} {trainer.model}  ({', '.join(marks)})")
     return Answer.say(*lines)
+
+
+def list_bikes() -> Answer:
+    """What there is to ride, and what each one is worth on the flat."""
+    settings = Settings.load()
+    air = physics.Air.at_altitude(600.0)
+    lines = ["At 250 W on the flat, for the rider's own weight:"]
+    for bike in physics.BIKES:
+        ridden = physics.Bike.ridden_by(
+            rider_kg=settings.rider_mass_kg,
+            bike_kg=settings.bike_mass_kg,
+            bike_id=bike.id,
+        )
+        speed = physics.steady_speed_ms(250.0, 0.0, ridden, air) * 3.6
+        here = " <-" if bike.id == settings.virtual_bike_id else ""
+        lines.append(
+            f"  {bike.id:16} {bike.name:36} CdA {bike.cda_m2:.3f}"
+            f"  {speed:5.1f} km/h{here}"
+        )
+    return Answer.say(*lines)
+
+
+def choose_bike(bike_id: str) -> Answer:
+    """Pick the bicycle to ride in the world."""
+    known = [bike.id for bike in physics.BIKES]
+    if bike_id not in known:
+        return Answer.refuse(
+            f"{bike_id!r} is not one of the bicycles here.",
+            "--bikes lists them.",
+        )
+    settings = Settings.load()
+    settings.virtual_bike_id = bike_id
+    settings.save()
+    chosen = physics.virtual_bike(bike_id)
+    return Answer.say(f"riding a {chosen.name.lower()} (CdA {chosen.cda_m2:.3f} m2)")
+
+
+def choose_rider(rider_kg: float, bike_kg: float | None = None) -> Answer:
+    """Say what the rider and their bicycle weigh.
+
+    Weight is the one number a power model cannot guess at and cannot do
+    without: it decides every climb, every acceleration and part of the
+    rolling resistance.
+    """
+    if not 30.0 <= rider_kg <= 250.0:
+        return Answer.refuse(f"{rider_kg:.0f} kg is not a weight a rider is.")
+    if bike_kg is not None and not 3.0 <= bike_kg <= 40.0:
+        return Answer.refuse(f"{bike_kg:.0f} kg is not a weight a bicycle is.")
+    settings = Settings.load()
+    settings.rider_mass_kg = rider_kg
+    if bike_kg is not None:
+        settings.bike_mass_kg = bike_kg
+    settings.save()
+    return Answer.say(
+        f"{settings.rider_mass_kg:.0f} kg rider on a "
+        f"{settings.bike_mass_kg:.0f} kg bicycle "
+        f"({settings.rider_mass_kg + settings.bike_mass_kg:.0f} kg all in)"
+    )
+
+
+def choose_cda(cda_m2: float | None) -> Answer:
+    """Use a drag figure the rider measured, instead of the catalogue's."""
+    if cda_m2 is not None and not 0.1 <= cda_m2 <= 0.8:
+        return Answer.refuse(f"{cda_m2} m2 is not a frontal area a rider has.")
+    settings = Settings.load()
+    settings.measured_cda_m2 = cda_m2
+    settings.save()
+    if cda_m2 is None:
+        return Answer.say("using the figure for the bicycle you chose")
+    return Answer.say(f"using your measured CdA of {cda_m2:.3f} m2")
 
 
 def choose_wheel(size_id: str, width_id: str) -> Answer:
@@ -142,8 +213,14 @@ def describe_setup() -> Answer:
     """What the rider has told the app about their bike."""
     settings = Settings.load()
     wheel, trainer = settings.wheel, settings.trainer
+    ridden = settings.bike
     lines = [
         f"language     {settings.effective_language}",
+        f"rider        {settings.rider_mass_kg:.0f} kg on a "
+        f"{settings.bike_mass_kg:.0f} kg bicycle",
+        f"bike         {physics.virtual_bike(settings.virtual_bike_id).name}"
+        f", CdA {ridden.cda_m2:.3f} m2"
+        f"{' (measured)' if settings.measured_cda_m2 is not None else ''}",
         f"trainer      {trainer.name if trainer else 'not set'}",
         f"wheel        {_describe_wheel(wheel)}",
         f"control      {settings.trainer_control.value}",

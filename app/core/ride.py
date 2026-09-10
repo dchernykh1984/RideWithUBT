@@ -111,11 +111,18 @@ class Ride:
     def __post_init__(self) -> None:
         # Read once: two reads could see different files and set the ride up with
         # one rider's wheel and another's trainer.
-        self.settings = self.settings or Settings.load()
+        settings = self.settings = self.settings or Settings.load()
+        #: The rider's own weight and position, not a generic one: on a flat
+        #: circuit those decide what speed a given effort is worth.
+        self.bike = settings.bike
         self.network = load_world(self.setup.world_id)
         route = self.network.route(self.setup.route_id) if self.setup.route_id else None
         self.navigator = Navigator(self.network, route=route)
-        self.session = RideSession(self.navigator, hub=self.hub)
+        # The rider's own weight and position, not a generic one: on a flat
+        # circuit those two decide what speed a given effort is worth, and a
+        # speed that does not match the road is the whole point of getting
+        # right.
+        self.session = RideSession(self.navigator, hub=self.hub, bike=self.bike)
         self.director = TrainerDirector(mode=self.setup.control_mode)
         self.workout = WorkoutEngine(self.setup.workout) if self.setup.workout else None
         # A picture of the world, a smoke test, or a ride nobody pedalled is not
@@ -148,7 +155,15 @@ class Ride:
         sources: list[CompanionSource] = []
         if self.setup.partner_watts:
             sources.append(
-                PacePartners.holding(self.network, self.setup.partner_watts, route)
+                PacePartners.holding(
+                    self.network,
+                    self.setup.partner_watts,
+                    route,
+                    # The same bicycle the rider is on, so a 220 W partner is
+                    # somebody to sit behind rather than a number that happens
+                    # to move at a different speed for no visible reason.
+                    bike=self.bike,
+                )
             )
         if self.others is not None:
             sources.append(self.others)

@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Any
 
 from app import i18n, paths
+from app.core import physics
 from app.core.control import ControlMode
 from app.trainer.catalog import Trainer, UnknownTrainerError
 from app.trainer.catalog import catalogue as trainer_catalogue
@@ -42,6 +43,28 @@ class Settings:
     #: asked to join. Empty until they do.
     rider_name: str = ""
     rider_id: str = ""
+    #: What the rider and their bicycle weigh, and how the rider sits. Weight
+    #: decides how fast they climb; position decides how fast they go on the
+    #: flat, which on a circuit is nearly all of it.
+    rider_mass_kg: float = physics.DEFAULT_RIDER_KG
+    bike_mass_kg: float = physics.DEFAULT_BIKE_KG
+    #: Which virtual bicycle they are riding. A rider on clip-on bars is not a
+    #: rider on a time trial bike, and neither is one on the hoods.
+    virtual_bike_id: str = physics.DEFAULT_BIKE
+    #: A drag figure the rider measured for themselves, which beats the one
+    #: their position is listed at - the same way a measured wheel rollout
+    #: beats the catalogue's.
+    measured_cda_m2: float | None = None
+
+    @property
+    def bike(self) -> physics.Bike:
+        """The bicycle these settings describe, for the physics to ride."""
+        return physics.Bike.ridden_by(
+            rider_kg=self.rider_mass_kg,
+            bike_kg=self.bike_mass_kg,
+            bike_id=self.virtual_bike_id,
+            cda_m2=self.measured_cda_m2,
+        )
 
     @property
     def effective_language(self) -> str:
