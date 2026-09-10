@@ -27,11 +27,15 @@ def geom_node(mesh: Mesh, name: str) -> GeomNode:
     position = GeomVertexWriter(vertex_data, "vertex")
     normal = GeomVertexWriter(vertex_data, "normal")
     texture = GeomVertexWriter(vertex_data, "texcoord")
-    for (x, y, z), (u, v) in zip(mesh.vertices, mesh.tex_coords, strict=True):
+    # A mesh that says which way it faces is lit by that; one that does not is
+    # a surface to ride on, and every normal points up. Sloped track loses a
+    # little shading accuracy that way and gains nothing by not.
+    facing = mesh.normals or ((0.0, 0.0, 1.0),) * len(mesh.vertices)
+    for (x, y, z), (u, v), (nx, ny, nz) in zip(
+        mesh.vertices, mesh.tex_coords, facing, strict=True
+    ):
         position.addData3(x, y, z)
-        # The track is a surface to ride on, so every normal points up. Sloped
-        # sections lose a little shading accuracy and gain nothing by not.
-        normal.addData3(0.0, 0.0, 1.0)
+        normal.addData3(nx, ny, nz)
         texture.addData2(u, v)
 
     triangles = GeomTriangles(Geom.UHStatic)

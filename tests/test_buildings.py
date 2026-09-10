@@ -16,6 +16,7 @@ from collections.abc import Sequence
 
 import pytest
 
+from app.world import solids
 from app.world.buildings import (
     DEFAULT_HEIGHTS,
     Building,
@@ -276,3 +277,93 @@ def test_the_whole_circuit_is_a_reasonable_number_of_triangles() -> None:
     network = load("sokol")
 
     assert len(buildings_mesh(network).triangles) < 5000
+
+
+# The solids everything that is not a road is made of.
+
+
+def test_a_box_is_held_at_one_end() -> None:
+    """Everything made of these is a limb or a frame tube joined to something
+    at one end: a thigh is placed at the hip and pointed at the knee."""
+    solid = solids.box(0.5, 0.1, 0.2)
+
+    xs = [vertex[0] for vertex in solid.vertices]
+
+    assert min(xs) == 0.0
+    assert max(xs) == pytest.approx(0.5)
+
+
+def test_a_box_is_the_size_it_was_asked_for() -> None:
+    solid = solids.box(0.5, 0.1, 0.2)
+
+    ys = [vertex[1] for vertex in solid.vertices]
+    zs = [vertex[2] for vertex in solid.vertices]
+
+    assert max(ys) - min(ys) == pytest.approx(0.1)
+    assert max(zs) - min(zs) == pytest.approx(0.2)
+
+
+def test_a_box_has_six_sides() -> None:
+    assert len(solids.box(1.0, 1.0, 1.0).triangles) == 12
+
+
+def test_every_face_of_a_box_faces_its_own_way() -> None:
+    """A figure lit as if every surface pointed straight up is a flat cut-out."""
+    solid = solids.box(1.0, 1.0, 1.0)
+
+    assert solid.normals is not None
+    assert len({tuple(normal) for normal in solid.normals}) == 6
+
+
+def test_a_tube_is_round_about_its_axis() -> None:
+    solid = solids.tube(0.2, 0.5, sides=24)
+
+    for _, y, z in solid.vertices:
+        assert math.hypot(y, z) == pytest.approx(0.5, abs=1e-9) or math.hypot(
+            y, z
+        ) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_a_tube_points_straight_out_from_its_axis() -> None:
+    """So it shades round instead of in flat strips."""
+    solid = solids.tube(0.2, 0.5, sides=8, hollow=True)
+
+    assert solid.normals is not None
+    for _, y, z in solid.normals:
+        assert math.hypot(y, z) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_a_hollow_tube_has_no_ends() -> None:
+    """A wheel is seen edge-on as often as not, and a capped one is a drum."""
+    hollow = solids.tube(0.05, 0.34, sides=12, hollow=True)
+    capped = solids.tube(0.05, 0.34, sides=12)
+
+    assert len(hollow.triangles) == 24
+    assert len(capped.triangles) == 24 + 24
+
+
+def test_a_solid_carries_a_texture_coordinate_for_every_corner() -> None:
+    for solid in (solids.box(1.0, 1.0, 1.0), solids.tube(1.0, 0.5)):
+        assert len(solid.tex_coords) == len(solid.vertices)
+        assert len(solid.normals or ()) == len(solid.vertices)
+
+
+def test_a_mesh_with_the_wrong_number_of_normals_is_refused() -> None:
+    from app.world.mesh import Mesh
+
+    with pytest.raises(ValueError, match="normal"):
+        Mesh(
+            vertices=((0.0, 0.0, 0.0),),
+            tex_coords=((0.0, 0.0),),
+            triangles=(),
+            normals=((0.0, 0.0, 1.0), (0.0, 0.0, 1.0)),
+        )
+
+
+def test_merging_keeps_normals_only_when_both_sides_have_them() -> None:
+    """Half a mesh lit one way and half the other is worse than all of it flat."""
+    solid = solids.box(1.0, 1.0, 1.0)
+    flat = building_mesh(box())
+
+    assert solid.merged_with(solid).normals is not None
+    assert solid.merged_with(flat).normals is None

@@ -247,6 +247,35 @@ speaks is discovered when it connects; the entries exist so a rider can set up
 before anything is plugged in. One file per trainer, so contributing one is a
 pull request that cannot conflict with anyone else's.
 
+## The rider you can see
+
+A red triangle told a rider where they were and nothing else. A cyclist tells
+them something no number does: whether the pedals are turning, and how fast.
+
+The figure is built rather than loaded - a frozen application carries no model
+file it could fail to find - out of the two shapes in `app/world/solids.py`, a
+box and a tube. `app/core/figure.py` holds the dimensions of a road bicycle and
+the pedal stroke: the pedals go round a circle the size of the cranks, and each
+leg finds its knee by the same two-bone geometry a real one uses, bending
+forwards because the other solution to those two circles is a leg bending the
+wrong way. The renderer places what that produces and decides nothing, so a
+pedal stroke is checked without a window.
+
+The cranks turn at whatever a cadence sensor reports, and at a plain average
+when nothing is measuring: a figure sitting frozen on a moving bicycle looks
+broken, and that is the state most riders will see first. Below five revolutions
+a minute the legs stop, because a sensor reports small numbers as a wheel coasts
+to a halt.
+
+Two things this cost, both worth having:
+
+- **Meshes can carry their own normals now.** The track and the ground are lit
+  as if facing straight up and look right; a person made of boxes lit that way
+  is a flat cut-out, because every face takes the same light.
+- **Everything is measured from the bottom bracket**, which is what puts the
+  bicycle on the tarmac rather than through it - without it the pedals swing
+  seventeen centimetres below the road at the bottom of every stroke.
+
 ## The sign at a junction
 
 The overhead arrow was there from the start and could not be seen. Three things
