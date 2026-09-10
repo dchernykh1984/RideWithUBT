@@ -156,6 +156,7 @@ class RideApp(ShowBase):
         )
         self._light()
         self._bind_keys()
+        self._redraw_panel()
         self.taskMgr.add(self._tick, "ride")
 
     @property
@@ -340,8 +341,8 @@ class RideApp(ShowBase):
         self.accept("space", self._space)
         # Tab opens the settings, and the arrows move about in it while it is up.
         self.accept("tab", self._toggle_menu)
-        for key in ("enter", "mouse1"):
-            self.accept(key, self._menu_enter if key == "enter" else self._click)
+        self.accept("enter", self._menu_enter)
+        self.accept("mouse1", self._click)
         self.accept("wheel_up", self._scroll, [1])
         self.accept("wheel_down", self._scroll, [-1])
 
@@ -360,7 +361,6 @@ class RideApp(ShowBase):
             # yet, and a lap ticking past while a rider picks a circuit would
             # be a lap they did not do.
             self._place_camera()
-            self._draw_start_screen()
             return Task.cont
         self.ride.advance(self._clock.getDt(), now)
         self._place_rider()
@@ -442,10 +442,18 @@ class RideApp(ShowBase):
             or chosen.route_id != (self.ride.setup.route_id or "")
             or workout is not self.ride.setup.workout
         ):
-            self._change_world(chosen, workout)
+            self._change_ride(chosen, workout)
 
-    def _change_world(self, chosen: Settings, workout: Workout | None) -> None:
-        """Build the ride the rider asked for, and the scene that goes with it."""
+    def _change_ride(self, chosen: Settings, workout: Workout | None) -> None:
+        """Build the ride the rider asked for, and the scene that goes with it.
+
+        The ride being replaced is finished first. A rider who does a lap, goes
+        back to the front screen and picks a different route would otherwise
+        have thrown that lap away without being told - the recording lives on
+        the ride, and this is the only place one is discarded.
+        """
+        self.ride.save()
+        self.ride.release()
         world_changed = chosen.world_id != self.ride.setup.world_id
         self.ride = Ride(
             replace(
@@ -471,6 +479,7 @@ class RideApp(ShowBase):
             return
         if self.screen is None:
             self.screen = self._build_start_screen()
+            self._redraw_panel()
             return
         self.userExit()
 
@@ -630,7 +639,15 @@ class RideApp(ShowBase):
         )
 
     def _hide_panel(self) -> None:
+        """Take the panel away - unless there is another one behind it.
+
+        Closing the settings from the front screen leaves the front screen up,
+        and the ride's numbers do not belong over that either.
+        """
         if self.menu_text is None:
+            return
+        if self.screen is not None:
+            self._draw_start_screen()
             return
         for part in self.menu_text:
             part.hide()

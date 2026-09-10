@@ -448,3 +448,24 @@ def test_the_menu_can_ask_the_radios_a_question_and_wait() -> None:
 
 def ride_with_loop(loop: FakeLoop) -> Ride:
     return Ride(setup=RideSetup(), sensor_loop=loop)
+
+
+def test_a_ride_is_finished_before_another_one_replaces_it() -> None:
+    """Picking a different route from the front screen builds a new ride, and
+    the recording lives on the old one. It has to be saved on the way out or a
+    rider loses the lap they just did without being told."""
+    riding = ride(record=True)
+    pedal(riding, seconds=30.0)
+
+    outcome = riding.save()
+
+    assert outcome.ride_path is not None
+    assert outcome.ride_path.exists()
+
+
+def test_a_ride_is_saved_once() -> None:
+    riding = ride(record=True)
+    pedal(riding, seconds=30.0)
+    riding.save()
+
+    assert riding.save().ride_path is None
