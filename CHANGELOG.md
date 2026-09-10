@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.5.1...v0.6.0) (2026-09-10)
+
+
+### Features
+
+* **render:** open on a front screen, and answer to the mouse ([627d060](https://github.com/dchernykh1984/RideWithUBT/commit/627d060502d218dcbdb8d3e3309551dee9fcf344))
+
+
+### Bug Fixes
+
+* **render:** keep the ride when the rider picks a different one ([c9963cb](https://github.com/dchernykh1984/RideWithUBT/commit/c9963cb61c15c74edd683d4ddf026ae067f6c4ab))
+
 ## [0.5.1](https://github.com/dchernykh1984/RideWithUBT/compare/v0.5.0...v0.5.1) (2026-09-10)
 
 
