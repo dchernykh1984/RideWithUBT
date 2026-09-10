@@ -47,3 +47,6 @@ msgstr "right"
 
 msgid "straight on"
 msgstr "straight on"
+
+msgid "Arrows or mouse to choose, space to ride"
+msgstr "Arrows or mouse to choose, space to ride"

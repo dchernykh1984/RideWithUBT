@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 from direct.gui.OnscreenText import OnscreenText
@@ -39,10 +40,13 @@ from app import paths
 from app.core.companions import departed
 from app.core.preferences import Found, SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
+from app.core.rows import ActionRow, DeviceRow, Layout, ToggleRow
 from app.core.session import RideState
+from app.core.startscreen import StartScreen
 from app.frozen import panda_config_dir, panda_plugin_dir
 from app.render.geometry import arrow_node, geom_node
-from app.workout.model import DurationKind
+from app.settings import Settings
+from app.workout.model import DurationKind, Workout
 from app.world.mesh import buildings_mesh, ground_plane, network_mesh
 from app.world.navigation import Steer, UpcomingJunction
 from app.world.network import TrackNetwork
@@ -92,6 +96,8 @@ MENU_LEFT = -1.15
 MENU_TOP = 0.78
 MENU_SCALE = 0.055
 MENU_COLUMN = 0.72
+#: Space between the panel's text and the edge of its background, in ems.
+MENU_PAD = 0.5
 GROUND_SIZE_M = 8000.0
 GROUND_DROP_M = 0.15
 
@@ -143,6 +149,11 @@ class RideApp(ShowBase):
         self.hud = self._build_hud(headless=headless or offscreen)
         self.menu: SetupMenu | None = None
         self.menu_text = self._build_menu_text(headless=headless or offscreen)
+        # A picture of the world and the smoke test are not somebody sitting
+        # down to ride, so neither opens on a front screen.
+        self.screen: StartScreen | None = (
+            None if headless or offscreen else self._build_start_screen()
+        )
         self._light()
         self._bind_keys()
         self.taskMgr.add(self._tick, "ride")
@@ -314,20 +325,43 @@ class RideApp(ShowBase):
         self.render.setLight(sun_path)
 
     def _bind_keys(self) -> None:
-        """Left and right move the junction arrow; nothing else steers."""
+        """Left and right move the junction arrow; nothing else steers.
+
+        While a panel is up the same keys work the panel instead - and so does
+        the mouse, because a menu that only answers to the arrows is a menu
+        somebody reaches for with a mouse and finds does nothing.
+        """
         self.accept("arrow_left", self._left)
         self.accept("arrow_right", self._right)
         self.accept("arrow_up", self._menu_key, [-1, 0])
         self.accept("arrow_down", self._menu_key, [1, 0])
-        self.accept("escape", self.userExit)
+        self.accept("escape", self._show_start_screen)
         # Space ends a step that runs until the rider says so.
-        self.accept("space", self.ride.end_open_step)
+        self.accept("space", self._space)
         # Tab opens the settings, and the arrows move about in it while it is up.
         self.accept("tab", self._toggle_menu)
-        self.accept("enter", self._menu_enter)
+        for key in ("enter", "mouse1"):
+            self.accept(key, self._menu_enter if key == "enter" else self._click)
+        self.accept("wheel_up", self._scroll, [1])
+        self.accept("wheel_down", self._scroll, [-1])
+
+    def _space(self) -> None:
+        """Go, on the front screen; end an open workout step while riding."""
+        if self.screen is not None:
+            self._start_riding()
+        else:
+            self.ride.end_open_step()
 
     def _tick(self, task: Task) -> int:
         now = self._clock.getFrameTime()
+        self._follow_mouse()
+        if self.screen is not None:
+            # The world stands still behind the front screen. Nobody is riding
+            # yet, and a lap ticking past while a rider picks a circuit would
+            # be a lap they did not do.
+            self._place_camera()
+            self._draw_start_screen()
+            return Task.cont
         self.ride.advance(self._clock.getDt(), now)
         self._place_rider()
         self._place_companions()
@@ -342,14 +376,14 @@ class RideApp(ShowBase):
         self.rider.setH(math.degrees(self.state.heading_rad) - 90.0)
 
     def _left(self) -> None:
-        """Left changes a setting while the menu is up, and steers when it is not."""
-        if self.menu is None:
+        """Left changes a setting while a panel is up, and steers when none is."""
+        if self._panel() is None:
             self.ride.steer(Steer.LEFT)
         else:
             self._menu_key(0, -1)
 
     def _right(self) -> None:
-        if self.menu is None:
+        if self._panel() is None:
             self.ride.steer(Steer.RIGHT)
         else:
             self._menu_key(0, 1)
@@ -384,50 +418,224 @@ class RideApp(ShowBase):
         found = self.ride.on_sensor_loop(manager.scan(seconds), seconds + 5.0)
         return [Found(device.id, device.label) for device in found]
 
-    def _menu_enter(self) -> None:
-        if self.menu is None:
+    def _build_start_screen(self) -> StartScreen:
+        """What the application opens on: pick a circuit, and go."""
+        from app.workout import library
+
+        return StartScreen(
+            workouts=library.load_library().workouts,
+            on_ride=self._start_riding,
+            on_settings=self._toggle_menu,
+            on_quit=self.userExit,
+        )
+
+    def _start_riding(self) -> None:
+        """Leave the front screen and begin, on whatever was chosen there."""
+        if self.screen is None:  # pragma: no cover - only reachable from it
             return
-        self.menu.activate()
-        self._update_menu()
+        chosen = self.screen.save()
+        workout = self.screen.chosen_workout
+        self.screen = None
+        self._hide_panel()
+        if (
+            chosen.world_id != self.ride.setup.world_id
+            or chosen.route_id != (self.ride.setup.route_id or "")
+            or workout is not self.ride.setup.workout
+        ):
+            self._change_world(chosen, workout)
+
+    def _change_world(self, chosen: Settings, workout: Workout | None) -> None:
+        """Build the ride the rider asked for, and the scene that goes with it."""
+        world_changed = chosen.world_id != self.ride.setup.world_id
+        self.ride = Ride(
+            replace(
+                self.ride.setup,
+                world_id=chosen.world_id,
+                route_id=chosen.route_id or None,
+                workout=workout,
+            )
+        )
+        if not world_changed:
+            return
+        for node in (self.ground, self.track, self.buildings):
+            if node is not None:
+                node.removeNode()
+        self.ground = self._build_ground()
+        self.track = self._build_track()
+        self.buildings = self._build_buildings()
+
+    def _show_start_screen(self) -> None:
+        """Escape: back to the front screen, or out of the application."""
+        if self.menu is not None:
+            self._toggle_menu()
+            return
+        if self.screen is None:
+            self.screen = self._build_start_screen()
+            return
+        self.userExit()
+
+    # The mouse. A menu that only answers to the arrows is a menu somebody
+    # reaches for with a mouse and finds does nothing.
+
+    def _panel(self) -> StartScreen | SetupMenu | None:
+        return self.menu if self.menu is not None else self.screen
+
+    def _layout(self) -> Layout | None:
+        if self.menu_text is None:
+            return None
+        node = self.menu_text[1].textNode
+        return Layout(
+            top=MENU_TOP,
+            line_height=MENU_SCALE * node.getLineHeight(),
+            #: The title and the blank line under it, which are not rows.
+            header=2,
+        )
+
+    def _row_under_the_mouse(self) -> int | None:
+        panel, layout = self._panel(), self._layout()
+        # There is no mouse without a window, and a picture of the world is
+        # taken without one.
+        watcher = self.mouseWatcherNode
+        if panel is None or layout is None or watcher is None or not watcher.hasMouse():
+            return None
+        # The mouse is reported in render2d, where y runs -1 to 1 up the window;
+        # the panel is laid out in aspect2d, which shares that vertical scale.
+        return layout.row_at(self.mouseWatcherNode.getMouseY(), len(panel.rows))
+
+    def _follow_mouse(self) -> None:
+        """Mark whatever the pointer is over, the way a menu is expected to."""
+        panel = self._panel()
+        index = self._row_under_the_mouse()
+        if panel is None or index is None:
+            return
+        if panel.point_at(index):
+            self._redraw_panel()
+
+    def _click(self) -> None:
+        panel = self._panel()
+        index = self._row_under_the_mouse()
+        if panel is None or index is None:
+            return
+        panel.point_at(index)
+        row = panel.rows[panel.selected]
+        # A click on a row that steps through a list steps it, because that is
+        # what a rider expects of it and there is nothing else it could mean.
+        if isinstance(row, ActionRow | ToggleRow | DeviceRow):
+            panel.activate()
+        else:
+            panel.change(1)
+        self._redraw_panel()
+
+    def _scroll(self, by: int) -> None:
+        panel = self._panel()
+        if panel is None:
+            return
+        index = self._row_under_the_mouse()
+        if index is not None:
+            panel.point_at(index)
+        panel.change(by)
+        self._redraw_panel()
+
+    def _redraw_panel(self) -> None:
+        if self.menu is not None:
+            self._update_menu()
+        elif self.screen is not None:
+            self._draw_start_screen()
+
+    def _menu_enter(self) -> None:
+        panel = self._panel()
+        if panel is None:
+            return
+        panel.activate()
+        self._redraw_panel()
 
     def _menu_key(self, rows: int, values: int) -> None:
-        if self.menu is None:
+        panel = self._panel()
+        if panel is None:
             return
         if rows:
-            self.menu.move(rows)
+            panel.move(rows)
         if values:
-            self.menu.change(values)
-        self._update_menu()
+            panel.change(values)
+        self._redraw_panel()
 
     def _update_menu(self) -> None:
+        if self.menu is None:
+            self._hide_panel()
+            return
+        self._draw_panel(
+            self.menu.columns(),
+            self.translate("Settings"),
+            self.menu.summary,
+            footer=self.translate("Press tab to close"),
+        )
+
+    def _draw_panel(
+        self,
+        rows: list[tuple[str, str]],
+        title: str,
+        summary: str,
+        footer: str = "",
+    ) -> None:
+        """Draw a list of rows as a panel: title, two columns, a line beneath.
+
+        The front screen and the settings are the same panel with different
+        rows in it, so they are drawn by the same code - which is also what
+        makes one layout enough for the mouse to find a row in either.
+        """
         if self.menu_text is None:
             return
         card, labels, readings = self.menu_text
-        if self.menu is None:
-            for part in self.menu_text:
-                part.hide()
-            if self.hud is not None:
-                self.hud.show()
-            return
-        # The ride's numbers are not what a rider is reading while they are in
-        # the settings, and they show through the panel from the same layer.
+        # The ride's numbers are not what a rider is reading while a panel is
+        # up, and they show through it from the same layer.
         if self.hud is not None:
             self.hud.hide()
-        left = [self.translate("Settings"), ""]
+        left = [title, ""]
         right = ["", ""]
-        for name, reading in self.menu.columns():
+        for name, reading in rows:
             left.append(name)
             right.append(reading)
-        left += ["", self.menu.summary, "", self.translate("Press tab to close")]
-        right += ["", "", "", ""]
-        # The card is the same block of text drawn invisibly, so its background
-        # is exactly the size of what is on it however many rows there are -
-        # and a menu that grows a row cannot outgrow its own panel.
-        card.setText("\n".join(f"{line:<64}" for line in left))
+        # Only the lines there is something to say on: a panel with nothing
+        # underneath it should not reserve four rows of empty card for it.
+        for line in (summary, footer):
+            if line:
+                left += ["", line]
+                right += ["", ""]
         labels.setText("\n".join(left))
         readings.setText("\n".join(right))
+        # The card is sized from what the font actually did with the text, not
+        # from a count of characters padded with spaces. The font is
+        # proportional: padding lines nothing up and a long line walks straight
+        # off the edge of its own background, which is what happened.
+        card.setText("\n".join(left))
+        across = max(
+            labels.textNode.getWidth(),
+            MENU_COLUMN / MENU_SCALE + readings.textNode.getWidth(),
+        )
+        # getHeight measures the block from the first line's baseline, so the
+        # last line hangs below it by its own descender.
+        down = card.textNode.getHeight()
+        card.textNode.setCardActual(-MENU_PAD, across + MENU_PAD, -down, 1.0)
         for part in self.menu_text:
             part.show()
+
+    def _draw_start_screen(self) -> None:
+        if self.screen is None:  # pragma: no cover - callers check first
+            return
+        self._draw_panel(
+            self.screen.columns(),
+            self.translate("RideWithUBT"),
+            "",
+            footer=self.translate("Arrows or mouse to choose, space to ride"),
+        )
+
+    def _hide_panel(self) -> None:
+        if self.menu_text is None:
+            return
+        for part in self.menu_text:
+            part.hide()
+        if self.hud is not None:
+            self.hud.show()
 
     def _place_companions(self) -> None:
         """Draw whoever else is on the road: make markers, move them, take them

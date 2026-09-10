@@ -170,13 +170,20 @@ they really are: their footprints come from the same survey as the track.
 Left and right arrows choose which way to go at a junction, space ends a workout
 step that runs until you say so, and escape quits.
 
+**The application opens on a front screen**: what to ride, which way round,
+which workout, and go. Arrows or the mouse choose, space or a click starts.
+What you change every session is there; what you set once - the trainer, the
+sensors, the wheel, your weight - is behind Settings. Escape goes back to it
+from a ride, and closes the application from the front screen.
+
 **Tab opens the settings, without leaving the ride.** Everything is there:
 what you weigh, which bicycle you are riding, the wheel and tyre on the
 trainer, the trainer and how it is controlled, the sensors - including scanning
 for them and pairing them - the language, and a stand-in rider you can wind up
-to a power of your choosing when nobody is pedalling. Arrows move between rows
-and through each row's options, Enter works a row that does something, and the
-line underneath says what the choices are worth: the weight all in, the speed
+to a power of your choosing when nobody is pedalling. Arrows or the mouse move between rows
+and through each row's options, Enter or a click works a row that does
+something, the wheel steps through a list, and the line underneath says what
+the choices are worth: the weight all in, the speed
 250 W buys, the rollout, and the watts a speed will be read as.
 
 Tab again closes it and applies everything at once - a new weight, a newly
