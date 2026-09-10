@@ -78,7 +78,8 @@ without one, `--worlds`, `--setup` and the other listing commands still work.
 - **Read your sensors** over Bluetooth Low Energy or ANT+ (with a USB stick):
   power, speed, cadence, heart rate. Pair them once with `--scan` and `--pair`,
   and they are connected at the start of every ride. With none paired, a
-  stand-in rider pushes a steady `--power` so the world can still be ridden.
+  stand-in rider can be asked for with `--simulate`, for looking at the world
+  without a trainer attached.
 - **Drive a smart trainer** over FTMS or Tacx FE-C, so intervals hold their
   target and gradients are felt rather than displayed.
 - **Work without a smart trainer too.** Tell it your wheel and tyre size
@@ -119,7 +120,7 @@ uv run ridewithubt --route small-ring     # ride one configuration
 uv run ridewithubt --worlds               # list the worlds and their laps
 uv run ridewithubt --plan plan.png        # draw the world from above
 uv run ridewithubt --screenshot shot.png --at 60   # a picture a minute into the lap
-uv run ridewithubt --power 240            # what the stand-in rider pushes
+uv run ridewithubt --simulate 240         # ride with nobody pedalling, at 240 W
 uv run ridewithubt --partners 150,220,290 # put pace partners on the circuit
 uv run ridewithubt --no-record            # ride without keeping the recording
 uv run ridewithubt --rides                # list the rides already recorded
@@ -167,9 +168,11 @@ that speed will be read as. Tab again closes it and saves. Everything on that
 screen can also be set from the command line above; it is the same catalogue and
 the same settings file, in the place where a rider is actually sitting.
 
-Speed is computed from power, weight, gradient and air, not set: until sensors
-are connected a stand-in rider pushes a steady `--power`, and the circuit is
-ridden at whatever speed that is worth.
+Speed is computed from power, weight, gradient and air, not set. With no
+sensors connected the rider does not move, because a ride nobody pedalled is
+not a ride: `--simulate 240` asks for a stand-in rider at a power you choose,
+and such a ride is never recorded - invented watts must not end up in your
+activity store, or from there in Garmin or Strava next to the real ones.
 
 ## Development
 

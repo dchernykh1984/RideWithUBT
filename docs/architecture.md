@@ -377,6 +377,24 @@ Adding a second world later means adding a description and its inputs, not
 touching the engine. That is the only sense in which the map system is
 "extensible" - the extension point is data, not a plugin API.
 
+## A ride nobody pedalled
+
+The application used to ride along by itself. With no sensors connected a
+stand-in rider pushed a steady 200 W, the world went past, and the session was
+written to the activity store like any other - from where it would have gone to
+Garmin or Strava and sat next to the real ones. That is not a fallback, it is a
+fabricated training record.
+
+A stand-in now has to be asked for by name and given a number
+(`--simulate 240`), the screen says so while it is happening, and such a ride
+is never recorded whatever else was asked for - `RideSetup.records` is a
+separate question from `RideSetup.record` for exactly this reason. With nothing
+connected and nothing asked for, the rider does not move, and the screen says
+why.
+
+It stays because it is genuinely useful: looking at a world, taking a picture
+of it, testing a change without a trainer in the room.
+
 ## The ride
 
 Power in, speed out. Every step, the hub says how hard the rider is pushing, the

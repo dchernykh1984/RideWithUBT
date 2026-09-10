@@ -88,10 +88,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Which configuration of the world to ride, by id.",
     )
     parser.add_argument(
-        "--power",
-        type=float,
-        default=DEFAULT_POWER_W,
-        help="Watts the stand-in rider pushes, until sensors are connected.",
+        "--simulate",
+        nargs="?",
+        const=str(DEFAULT_POWER_W),
+        metavar="WATTS",
+        help=(
+            "Ride with nobody pedalling, at these watts. For looking at the "
+            "world without a trainer. Never recorded."
+        ),
     )
     parser.add_argument(
         "--worlds",
@@ -624,7 +628,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
             world_id=args.world,
             route_id=args.route,
             seconds=args.at,
-            power_w=args.power,
+            power_w=simulated_watts(args.simulate) or DEFAULT_POWER_W,
         )
         print(f"wrote {args.screenshot}")
         return 0
@@ -636,7 +640,7 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     setup = RideSetup(
         world_id=args.world,
         route_id=args.route,
-        power_w=args.power,
+        simulated_watts=simulated_watts(args.simulate),
         record=not args.no_record,
         workout=_chosen_workout(args),
         paired_device_ids=tuple(settings.paired_device_ids),
@@ -648,6 +652,23 @@ def render(args: argparse.Namespace, translate: Callable[[str], str]) -> int:
     )
     RideApp(translate, ride=Ride(setup, others=join_room(args.ride_with, setup))).run()
     return 0
+
+
+def simulated_watts(given: str | None) -> float | None:
+    """The watts a stand-in rider should push, if one was asked for.
+
+    Asked for by name, with a number: nobody should find out afterwards that
+    the ride they just did was invented.
+    """
+    if given is None:
+        return None
+    try:
+        watts = float(given)
+    except ValueError:
+        raise ValueError(f"{given!r} is not a number of watts") from None
+    if not 0 < watts <= 2000:
+        raise ValueError(f"{watts:.0f} W is not a pace anyone holds")
+    return watts
 
 
 def host_room(port_text: str) -> int:

@@ -78,7 +78,7 @@ def intervals() -> Workout:
 
 def test_a_ride_with_nothing_connected_still_goes_somewhere() -> None:
     """A rider with no sensors gets a stand-in, so the world can be ridden."""
-    riding = ride(power_w=220.0)
+    riding = ride(simulated_watts=220.0)
 
     pedal(riding, seconds=60.0)
 
@@ -140,7 +140,7 @@ async def test_connecting_takes_only_what_was_asked_for() -> None:
 
 
 def test_the_workout_drives_the_stand_in_rider() -> None:
-    riding = ride(workout=intervals(), power_w=120.0)
+    riding = ride(workout=intervals(), simulated_watts=120.0)
 
     pedal(riding, seconds=10.0)
 

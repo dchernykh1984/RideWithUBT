@@ -488,7 +488,12 @@ def test_the_ride_tells_the_room_where_it_actually_is() -> None:
             return ()
 
     the_ride = Ride(
-        RideSetup(rider_id="me", rider_name="Askar", record=False, power_w=250.0),
+        RideSetup(
+            rider_id="me",
+            rider_name="Askar",
+            record=False,
+            simulated_watts=250.0,
+        ),
         others=Listening(),
     )
     for tick in range(1, 40):

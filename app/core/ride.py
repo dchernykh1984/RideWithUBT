@@ -42,7 +42,7 @@ from app.world.navigation import Navigator, Steer
 from app.world.network import Route
 
 DEFAULT_WORLD = "sokol"
-#: What the stand-in rider pushes until real sensors are connected.
+#: What a stand-in rider pushes when one is asked for without a number.
 DEFAULT_POWER_W = 200.0
 
 
@@ -52,7 +52,11 @@ class RideSetup:
 
     world_id: str = DEFAULT_WORLD
     route_id: str | None = None
-    power_w: float = DEFAULT_POWER_W
+    #: Watts a stand-in rider pushes, with nobody pedalling. None is the normal
+    #: case: the rider's own legs, through their own sensors. This is for
+    #: looking at the world without a trainer attached, and it is never a
+    #: training session - see `records`.
+    simulated_watts: float | None = None
     record: bool = False
     workout: Workout | None = None
     paired_device_ids: Sequence[str] = ()
@@ -65,6 +69,21 @@ class RideSetup:
     #: named, and neither exists until they join one.
     rider_id: str = ""
     rider_name: str = ""
+
+    @property
+    def simulated(self) -> bool:
+        return self.simulated_watts is not None
+
+    @property
+    def records(self) -> bool:
+        """Whether this ride leaves a file behind.
+
+        A ride nobody pedalled is not a ride. Recording one would put invented
+        watts in the rider's activity store and, from there, into Garmin or
+        Strava next to the real ones - so a simulated ride is never kept,
+        whatever else was asked for.
+        """
+        return self.record and not self.simulated
 
 
 @dataclass(frozen=True)
@@ -99,19 +118,20 @@ class Ride:
         self.session = RideSession(self.navigator, hub=self.hub)
         self.director = TrainerDirector(mode=self.setup.control_mode)
         self.workout = WorkoutEngine(self.setup.workout) if self.setup.workout else None
-        # A picture of the world or a smoke test is not a ride, so neither leaves
-        # a file behind in the rider's activity store.
-        self.recorder = RideRecorder() if self.setup.record else None
+        # A picture of the world, a smoke test, or a ride nobody pedalled is not
+        # a ride, so none of them leaves a file behind in the activity store.
+        self.recorder = RideRecorder() if self.setup.records else None
         self.capture = self._prepare_capture()
         self.sensors = self._prepare_sensors()
         # Real sensors and the stand-in rider report to the same hub, and only
-        # one is used: a rider with paired devices gets their own watts, one with
-        # none gets a steady stand-in so the world can still be ridden. Nothing
-        # downstream can tell which it is looking at.
+        # one is ever used. A stand-in has to be asked for: riding along on
+        # invented watts because nothing was connected is not a thing to do by
+        # default, and it is how a session got recorded that nobody pedalled.
+        watts = self.setup.simulated_watts
         self.rider_source = (
-            None
-            if self.sensors
-            else SimulatedSensors(steady(power_w=self.setup.power_w))
+            SimulatedSensors(steady(power_w=watts))
+            if watts is not None and not self.sensors
+            else None
         )
         self.company: CompanionSource = self._prepare_company(route)
         self._last_distance_m = 0.0

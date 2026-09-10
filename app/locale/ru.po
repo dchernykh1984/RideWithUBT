@@ -29,3 +29,9 @@ msgstr "Нажмите пробел, когда будете готовы"
 
 msgid "Press tab to close"
 msgstr "Нажмите tab, чтобы закрыть"
+
+msgid "Simulated ride - not recorded"
+msgstr "Симулированный заезд - не записывается"
+
+msgid "No sensors connected"
+msgstr "Датчики не подключены"
