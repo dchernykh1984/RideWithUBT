@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.6.0...v0.7.0) (2026-09-10)
+
+
+### Features
+
+* **render:** put a cyclist on the bicycle, pedalling at your cadence ([c12c026](https://github.com/dchernykh1984/RideWithUBT/commit/c12c0265819d0f86d391a22fcdc50e931720d523))
+* **render:** sit the rider the way each bicycle is ridden ([5f73dcf](https://github.com/dchernykh1984/RideWithUBT/commit/5f73dcf94bd3bf8fa8475190120c702061fcbf5c))
+
 ## [0.6.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.5.1...v0.6.0) (2026-09-10)
 
 
