@@ -49,5 +49,12 @@
   "start_on": {
     "key": "pit-lane",
     "fraction": 0.5
+  },
+  "building_heights": {
+    "grandstand": 14.0,
+    "garage": 7.5,
+    "hotel": 15.0,
+    "tower": 18.0,
+    "building": 6.0
   }
 }

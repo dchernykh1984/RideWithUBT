@@ -22,12 +22,13 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
 from app.world import elevation, smooth
+from app.world.buildings import Building, height_for, kind_of
 from app.world.geo import Origin
 from app.world.network import (
     Junction,
@@ -129,6 +130,9 @@ class Recipe:
     pit_lane: PitLane | None = None
     #: How finely the road is rebuilt as a curve through the surveyed points.
     curve_spacing_m: float = smooth.DEFAULT_SPACING_M
+    #: How tall each kind of building stands in this world. Open data has the
+    #: footprints and hardly ever the heights, so they are stated here.
+    building_heights: dict[str, float] = field(default_factory=dict)
     #: Where a ride begins: a named group of segments, and how far along it. At
     #: an autodrome that is the pit lane, because that is where a session
     #: starts - not the first node the survey happened to record.
@@ -137,6 +141,40 @@ class Recipe:
     @property
     def ways(self) -> dict[str, int]:
         return {MAIN_WAY_KEY: self.main_way, **self.links}
+
+
+def load_buildings(
+    path: Path,
+    origin: Origin,
+    heights: dict[str, float] | None = None,
+    ground_m: float = 0.0,
+) -> tuple[Building, ...]:
+    """Read surveyed footprints into buildings standing on the ground.
+
+    Height is the one thing open data almost never has, so it comes from the
+    recipe by kind. Everything else - where it stands, what shape it is - is
+    the survey's, which is the whole point of using it rather than inventing
+    scenery.
+    """
+    document = json.loads(path.read_text(encoding="utf-8"))
+    built = []
+    for element in document.get("elements", ()):
+        geometry = element.get("geometry") or ()
+        if len(geometry) < 3:
+            continue  # a line or a point is not a building
+        kind = kind_of(element.get("tags", {}))
+        built.append(
+            Building(
+                id=str(element["id"]),
+                kind=kind,
+                footprint=tuple(
+                    _point(origin, (node["lat"], node["lon"]), ground_m)
+                    for node in geometry
+                ),
+                height_m=height_for(kind, heights),
+            )
+        )
+    return tuple(built)
 
 
 def load_heights(path: Path) -> dict[int, float]:
@@ -185,6 +223,10 @@ def load_recipe(path: Path) -> Recipe:
             raw.get("elevation_window_m", elevation.DEFAULT_WINDOW_M)
         ),
         curve_spacing_m=float(raw.get("curve_spacing_m", smooth.DEFAULT_SPACING_M)),
+        building_heights={
+            str(kind): float(height)
+            for kind, height in raw.get("building_heights", {}).items()
+        },
         start_node=int(raw["start_node"]) if "start_node" in raw else None,
         pit_lane=_parse_pit_lane(raw.get("pit_lane")),
         start_on=_parse_start_on(raw.get("start_on")),
@@ -549,13 +591,44 @@ def _routes(
 
 
 def build_from_files(
-    recipe_path: Path, extract_path: Path, elevation_path: Path | None = None
+    recipe_path: Path,
+    extract_path: Path,
+    elevation_path: Path | None = None,
+    buildings_path: Path | None = None,
 ) -> TrackNetwork:
-    """Build a world from its tracked inputs. Elevation is optional: a world
-    without it is flat, which is wrong but not misleading."""
+    """Build a world from its tracked inputs.
+
+    Elevation is optional: a world without it is flat, which is wrong but not
+    misleading. So are the buildings: a world without them is an empty field,
+    which is what this looked like.
+    """
     heights = (
         load_heights(elevation_path)
         if elevation_path is not None and elevation_path.is_file()
         else None
     )
-    return build(load_recipe(recipe_path), load_extract(extract_path), heights)
+    recipe = load_recipe(recipe_path)
+    network = build(recipe, load_extract(extract_path), heights)
+    if buildings_path is None or not buildings_path.is_file():
+        return network
+    if network.origin is None:  # pragma: no cover - every built world has one
+        return network
+    return replace(
+        network,
+        buildings=load_buildings(
+            buildings_path,
+            network.origin,
+            recipe.building_heights,
+            ground_m=_ground_of(network),
+        ),
+    )
+
+
+def _ground_of(network: TrackNetwork) -> float:
+    """The height buildings stand at: the same ground the track sits on.
+
+    Open data has no ground height for a building's corners, and a building
+    floating above or sunk into the field is worse than one a metre out.
+    """
+    heights = [point.z for segment in network.segments for point in segment.points]
+    return min(heights) if heights else 0.0

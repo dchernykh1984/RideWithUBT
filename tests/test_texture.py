@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import struct
 import zlib
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from app.world.texture import (
     encode_png,
     ground_cover,
     track_surface,
+    wall,
 )
 
 TEXTURES = Path(__file__).resolve().parent.parent / "app" / "data" / "textures"
@@ -147,3 +149,49 @@ def test_the_shipped_textures_are_what_the_code_makes() -> None:
     """Nobody can drop a photograph in: the images have to come from the seed."""
     assert (TEXTURES / "track.png").read_bytes() == encode_png(track_surface())
     assert (TEXTURES / "ground.png").read_bytes() == encode_png(ground_cover())
+
+
+# The side of a building.
+
+
+def test_a_wall_is_concrete_with_a_band_of_windows() -> None:
+    """It is what makes a building read as a building rather than a grey box."""
+    image = wall(size=64)
+
+    top = _colour_at(image, x=32, y=4)
+    middle = _colour_at(image, x=8, y=32)
+
+    assert _brightness(top) > _brightness(middle), "windows are darker than concrete"
+
+
+def test_the_windows_are_in_panes_rather_than_one_long_strip() -> None:
+    image = wall(size=128)
+    row = [_colour_at(image, x=x, y=64) for x in range(128)]
+
+    dark = [_brightness(colour) < 120 for colour in row]
+    runs = sum(1 for before, after in pairwise(dark) if before != after)
+
+    assert runs >= 6, "four panes have eight edges between them"
+
+
+def test_a_wall_has_ground_and_sky_ends_that_are_not_glazed() -> None:
+    image = wall(size=64)
+
+    assert _brightness(_colour_at(image, x=32, y=1)) > 120
+    assert _brightness(_colour_at(image, x=32, y=62)) > 120
+
+
+def test_a_wall_is_not_flat_colour() -> None:
+    image = wall(size=32)
+    shades = {_colour_at(image, x=x, y=2) for x in range(32)}
+
+    assert len(shades) > 4, "concrete has grain in it"
+
+
+def _colour_at(image: Image, x: int, y: int) -> tuple[int, int, int]:
+    at = (y * image.width + x) * 3
+    return (image.pixels[at], image.pixels[at + 1], image.pixels[at + 2])
+
+
+def _brightness(colour: tuple[int, int, int]) -> float:
+    return sum(colour) / 3

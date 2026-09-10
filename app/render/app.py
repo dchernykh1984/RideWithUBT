@@ -43,7 +43,7 @@ from app.core.session import RideState
 from app.frozen import panda_config_dir, panda_plugin_dir
 from app.render.geometry import arrow_node, geom_node
 from app.workout.model import DurationKind
-from app.world.mesh import ground_plane, network_mesh
+from app.world.mesh import buildings_mesh, ground_plane, network_mesh
 from app.world.navigation import Steer
 from app.world.network import TrackNetwork
 
@@ -73,6 +73,8 @@ COMPANION_COLOUR = (0.20, 0.45, 0.85, 1.0)
 # A plain backdrop under the circuit. Not terrain - the landscape around Sokol is
 # not modelled - just something for the track to sit on so it does not float.
 GROUND_COLOUR = (0.42, 0.45, 0.34, 1.0)
+#: What a building falls back to if its texture did not travel into a build.
+WALL_COLOUR = (0.69, 0.67, 0.64, 1.0)
 GROUND_SIZE_M = 8000.0
 GROUND_DROP_M = 0.15
 
@@ -115,6 +117,7 @@ class RideApp(ShowBase):
 
         self.ground = self._build_ground()
         self.track = self._build_track()
+        self.buildings = self._build_buildings()
         self.rider = self._build_rider()
         self.companions: dict[str, NodePath] = {}
         self.arrow = self._build_arrow()
@@ -148,6 +151,19 @@ class RideApp(ShowBase):
     def _build_track(self) -> NodePath:
         node = self.render.attachNewNode(geom_node(network_mesh(self.network), "track"))
         self._dress(node, "track.png", ASPHALT)
+        return node
+
+    def _build_buildings(self) -> NodePath | None:
+        """What stands beside the track: the pit garages, the grandstand.
+
+        The thing that tells a rider where they are on a lap is what is beside
+        them. Without any of it, every corner looks like every other corner.
+        """
+        if not self.network.buildings:
+            return None
+        mesh = buildings_mesh(self.network)
+        node = self.render.attachNewNode(geom_node(mesh, "buildings"))
+        self._dress(node, "wall.png", WALL_COLOUR)
         return node
 
     def _dress(

@@ -163,7 +163,9 @@ uv run ridewithubt --name Askar           # what they see above your rider
 ```
 
 A ride starts halfway down the pit lane, the way a session at the autodrome
-does: roll out, join the circuit, and lap it.
+does: roll out past the garages, join the circuit, and lap it. The buildings
+beside the track - the pit garages, the grandstand, the race hotel - are where
+they really are: their footprints come from the same survey as the track.
 
 Left and right arrows choose which way to go at a junction, space ends a workout
 step that runs until you say so, and escape quits.

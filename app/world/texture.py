@@ -41,6 +41,20 @@ LINE = (232, 232, 228)
 GRASS = (104, 112, 74)
 GRASS_GRAIN = 18
 
+# A wall four metres square: concrete, with a band of glazing where a storey's
+# windows go. Enough that a building reads as a building at two hundred metres,
+# which is the distance a rider sees them from.
+CONCRETE = (176, 172, 164)
+CONCRETE_GRAIN = 10
+GLAZING = (68, 84, 96)
+GLAZING_GRAIN = 22
+FRAME = (150, 146, 140)
+#: Where the windows sit up the wall, as a fraction of it, and how the panes
+#: are divided across.
+WINDOW_TOP = 0.30
+WINDOW_BOTTOM = 0.72
+PANES_ACROSS = 4
+
 Colour = tuple[int, int, int]
 
 
@@ -132,6 +146,39 @@ def track_surface(size: int = DEFAULT_SIZE, seed: int = 1) -> Image:
 def _on_a_line(across: float) -> bool:
     from_edge = min(across, 1.0 - across)
     return EDGE_INSET <= from_edge < EDGE_INSET + EDGE_WIDTH
+
+
+def wall(size: int = DEFAULT_SIZE, seed: int = 3) -> Image:
+    """The side of a building: concrete with a band of windows.
+
+    One repeat is four metres, which is about a storey, so a seven-metre garage
+    gets not quite two rows and a fifteen-metre hotel gets nearly four. That
+    the rows do not line up exactly with real floors matters far less than a
+    building having windows at all - it is what makes it read as a building
+    rather than a grey box.
+    """
+    pixels = bytearray()
+    for y in range(size):
+        up = y / size
+        glazed = WINDOW_TOP <= up < WINDOW_BOTTOM
+        for x in range(size):
+            grain = _grain(x, y, seed)
+            if glazed and not _on_a_frame(x / size, up):
+                pixels.extend(_shade(GLAZING, grain, GLAZING_GRAIN))
+            elif glazed:
+                pixels.extend(_shade(FRAME, grain, CONCRETE_GRAIN))
+            else:
+                pixels.extend(_shade(CONCRETE, grain, CONCRETE_GRAIN))
+    return Image(width=size, height=size, pixels=bytes(pixels))
+
+
+def _on_a_frame(across: float, up: float) -> bool:
+    """The mullions between panes, and the sill and lintel of the band."""
+    edge = 0.02
+    if up - WINDOW_TOP < edge or WINDOW_BOTTOM - up < edge:
+        return True
+    within = (across * PANES_ACROSS) % 1.0
+    return within < edge * PANES_ACROSS or within > 1.0 - edge * PANES_ACROSS
 
 
 def ground_cover(size: int = DEFAULT_SIZE, seed: int = 2) -> Image:
