@@ -367,3 +367,38 @@ def test_merging_keeps_normals_only_when_both_sides_have_them() -> None:
 
     assert solid.merged_with(solid).normals is not None
     assert solid.merged_with(flat).normals is None
+
+
+def test_a_sphere_is_round() -> None:
+    """A box with a face on it is a box; the one part of a person that has to
+    be round for them to read as a person is their head."""
+    solid = solids.sphere(0.5, rings=6, sides=8)
+
+    for x, y, z in solid.vertices:
+        assert math.sqrt(x * x + y * y + z * z) == pytest.approx(0.5, abs=1e-9)
+
+
+def test_a_sphere_points_out_of_itself() -> None:
+    solid = solids.sphere(0.5, rings=6, sides=8)
+
+    assert solid.normals is not None
+    for normal in solid.normals:
+        assert math.sqrt(sum(part * part for part in normal)) == pytest.approx(1.0)
+
+
+def test_a_ring_is_flat_and_hollow() -> None:
+    """A wheel's rim, seen from the side."""
+    solid = solids.annulus(0.2, 0.34, sides=12)
+
+    assert all(vertex[0] == 0.0 for vertex in solid.vertices)
+    radii = {round(math.hypot(y, z), 6) for _, y, z in solid.vertices}
+    assert radii == {0.2, 0.34}
+
+
+def test_a_ring_is_drawn_from_both_sides() -> None:
+    """A wheel is looked at from both sides and nothing about a rim tells them
+    apart."""
+    solid = solids.annulus(0.2, 0.34, sides=4)
+    first, third = solid.triangles[0], solid.triangles[2]
+
+    assert first == tuple(reversed(third))
