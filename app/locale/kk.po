@@ -35,3 +35,12 @@ msgstr "Симуляциялық жүру - жазылмайды"
 
 msgid "No sensors connected"
 msgstr "Датчиктер қосылмаған"
+
+msgid "left"
+msgstr "солға"
+
+msgid "right"
+msgstr "оңға"
+
+msgid "straight on"
+msgstr "тіке"

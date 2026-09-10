@@ -48,10 +48,31 @@ class UpcomingJunction:
     # Where to point the arrow, in radians relative to the way the rider is
     # facing: positive is to the left.
     bearing_rad: float
+    #: Where the junction is. A sign belongs at the place it is about, and on a
+    #: circuit that is a point on a curving road - not a fixed distance in
+    #: front of the rider's nose, which on a bend is out in the grass.
+    point: Point
 
     @property
     def alternatives(self) -> int:
         return len(self.exits)
+
+    @property
+    def rank(self) -> int:
+        """Which way the chosen exit is, among the ways out: -1 left, 1 right.
+
+        By its place in the order, not by its angle. A racing circuit's exits
+        part company gently - six or seven degrees at this one - and an angle
+        that small tells a rider nothing and draws as a sign pointing straight
+        up whichever way they are about to go. Which of the two roads they are
+        taking is the thing they actually need to know.
+        """
+        if len(self.exits) < 2 or self.chosen_exit not in self.exits:
+            return 0
+        place = self.exits.index(self.chosen_exit)
+        if place == 0:
+            return -1
+        return 1 if place == len(self.exits) - 1 else 0
 
 
 def normalise_angle(radians: float) -> float:
@@ -124,6 +145,7 @@ class Navigator:
             chosen_exit=self._chosen_exit,
             exits=order,
             bearing_rad=self._bearing_to(self._chosen_exit),
+            point=segment.points[-1],
         )
 
     def exit_order(self, junction: Junction) -> tuple[str, ...]:

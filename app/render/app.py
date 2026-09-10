@@ -44,7 +44,7 @@ from app.frozen import panda_config_dir, panda_plugin_dir
 from app.render.geometry import arrow_node, geom_node
 from app.workout.model import DurationKind
 from app.world.mesh import buildings_mesh, ground_plane, network_mesh
-from app.world.navigation import Steer
+from app.world.navigation import Steer, UpcomingJunction
 from app.world.network import TrackNetwork
 
 # Frames the self-test renders before it is satisfied the engine really runs.
@@ -61,8 +61,17 @@ CAMERA_LOOK_HEIGHT_M = 1.0
 CAMERA_NEAR_M = 0.5
 CAMERA_FAR_M = 6000.0
 
-ARROW_HEIGHT_M = 5.0
-ARROW_SCALE = 2.5
+ARROW_HEIGHT_M = 7.0
+ARROW_SCALE = 4.0
+# The arrow lies flat, and flat at the height of the camera is edge-on: from
+# the saddle it was a line a few pixels tall, which is no use as a sign. Tipped
+# towards the rider it reads as a gantry sign angled down at them, and still
+# points the way it is pointing.
+ARROW_TILT_DEG = -55.0
+#: How far the sign leans to say "this way". A symbol, not a survey: the roads
+#: at this circuit part company by six or seven degrees, which drawn honestly
+#: is a sign pointing straight up whichever way the rider is about to go.
+ARROW_LEAN_DEG = 35.0
 SKY = (0.53, 0.71, 0.87, 1.0)
 #: Where the generated surfaces live, inside the package so they travel with it.
 TEXTURES = Path(__file__).parent.parent / "data" / "textures"
@@ -75,6 +84,14 @@ COMPANION_COLOUR = (0.20, 0.45, 0.85, 1.0)
 GROUND_COLOUR = (0.42, 0.45, 0.34, 1.0)
 #: What a building falls back to if its texture did not travel into a build.
 WALL_COLOUR = (0.69, 0.67, 0.64, 1.0)
+
+# The settings panel: where it sits, how big, and how far across the second
+# column starts. In Panda3D's aspect2d, x runs about -1.33 to 1.33 and y from
+# -1 to 1, so this is a card down the left of the screen.
+MENU_LEFT = -1.15
+MENU_TOP = 0.78
+MENU_SCALE = 0.055
+MENU_COLUMN = 0.72
 GROUND_SIZE_M = 8000.0
 GROUND_DROP_M = 0.15
 
@@ -201,6 +218,11 @@ class RideApp(ShowBase):
         node = self.render.attachNewNode(arrow_node("junction-arrow"))
         node.setColor(*ARROW_COLOUR)
         node.setScale(ARROW_SCALE)
+        # Tipped towards the rider it can end up showing its back, and a
+        # one-sided triangle seen from behind is not drawn at all. A sign has
+        # no back.
+        node.setTwoSided(True)
+        node.setLightOff()
         node.hide()
         return node
 
@@ -244,20 +266,42 @@ class RideApp(ShowBase):
             mayChange=True,
         )
 
-    def _build_menu_text(self, *, headless: bool) -> OnscreenText | None:
+    def _build_menu_text(self, *, headless: bool) -> list[OnscreenText] | None:
+        """The settings panel: a card, two columns of text, and a footer.
+
+        Two columns rather than one padded block. The font a window draws with
+        is not monospaced, so padding with spaces lines nothing up and a long
+        label shoves its value out into the middle of the screen.
+        """
         if headless:
             return None
-        text = OnscreenText(
+        card = OnscreenText(
             text="",
-            pos=(0.0, 0.4),
-            scale=0.06,
-            fg=(1, 1, 1, 1),
-            bg=(0, 0, 0, 0.65),
-            align=TextNode.ACenter,
+            pos=(MENU_LEFT, MENU_TOP),
+            scale=MENU_SCALE,
+            fg=(1, 1, 1, 0),
+            bg=(0.04, 0.06, 0.09, 0.82),
+            align=TextNode.ALeft,
             mayChange=True,
         )
-        text.hide()
-        return text
+        parts = [card]
+        for x, colour in (
+            (MENU_LEFT, (1, 1, 1, 1)),
+            (MENU_LEFT + MENU_COLUMN, (0.75, 0.85, 1.0, 1)),
+        ):
+            parts.append(
+                OnscreenText(
+                    text="",
+                    pos=(x, MENU_TOP),
+                    scale=MENU_SCALE,
+                    fg=colour,
+                    align=TextNode.ALeft,
+                    mayChange=True,
+                )
+            )
+        for part in parts:
+            part.hide()
+        return parts
 
     def _light(self) -> None:
         ambient = AmbientLight("ambient")
@@ -358,20 +402,32 @@ class RideApp(ShowBase):
     def _update_menu(self) -> None:
         if self.menu_text is None:
             return
+        card, labels, readings = self.menu_text
         if self.menu is None:
-            self.menu_text.hide()
+            for part in self.menu_text:
+                part.hide()
+            if self.hud is not None:
+                self.hud.show()
             return
-        lines = [
-            self.translate("Settings"),
-            "",
-            *self.menu.lines(),
-            "",
-            self.menu.summary,
-            "",
-            self.translate("Press tab to close"),
-        ]
-        self.menu_text.setText("\n".join(lines))
-        self.menu_text.show()
+        # The ride's numbers are not what a rider is reading while they are in
+        # the settings, and they show through the panel from the same layer.
+        if self.hud is not None:
+            self.hud.hide()
+        left = [self.translate("Settings"), ""]
+        right = ["", ""]
+        for name, reading in self.menu.columns():
+            left.append(name)
+            right.append(reading)
+        left += ["", self.menu.summary, "", self.translate("Press tab to close")]
+        right += ["", "", "", ""]
+        # The card is the same block of text drawn invisibly, so its background
+        # is exactly the size of what is on it however many rows there are -
+        # and a menu that grows a row cannot outgrow its own panel.
+        card.setText("\n".join(f"{line:<64}" for line in left))
+        labels.setText("\n".join(left))
+        readings.setText("\n".join(right))
+        for part in self.menu_text:
+            part.show()
 
     def _place_companions(self) -> None:
         """Draw whoever else is on the road: make markers, move them, take them
@@ -421,15 +477,22 @@ class RideApp(ShowBase):
         if upcoming is None:
             self.arrow.hide()
             return
-        point = self.state.point
-        heading = self.state.heading_rad
-        ahead = min(upcoming.distance_m, CAMERA_LOOK_AHEAD_M * 2)
-        self.arrow.setPos(
-            point.x + math.cos(heading) * ahead,
-            point.y + math.sin(heading) * ahead,
-            point.z + ARROW_HEIGHT_M,
+        # At the junction itself, not a fixed distance ahead of the rider: on a
+        # bend, straight ahead is out in the grass.
+        at = upcoming.point
+        self.arrow.setPos(at.x, at.y, at.z + ARROW_HEIGHT_M)
+        # Stood up to face the rider, like a sign over the road, with the
+        # arrow turned within it: flat it is edge-on from the saddle, and
+        # pointing down it says "here" rather than "this way".
+        # A node faces +Y at H=0 and turns left as H grows, so a sign whose
+        # face is to look back down the road at the rider sits at heading - 90.
+        # Pitching it a quarter turn stands it upright; rolling it within its
+        # own plane is what makes it point left or right.
+        self.arrow.setHpr(
+            math.degrees(self.state.heading_rad) - 90.0,
+            90.0,
+            upcoming.rank * ARROW_LEAN_DEG,
         )
-        self.arrow.setH(math.degrees(heading + upcoming.bearing_rad) - 90.0)
         self.arrow.show()
 
     def _update_hud(self) -> None:
@@ -449,9 +512,7 @@ class RideApp(ShowBase):
         if abs(state.gradient) >= 0.005:
             lines.append(f"{state.gradient * 100:5.1f} %")
         if state.upcoming is not None:
-            lines.append(
-                f"{state.upcoming.chosen_exit} in {state.upcoming.distance_m:.0f} m"
-            )
+            lines.append(self._junction_line(state.upcoming))
         lines += self._company_lines()
         lines += self._workout_lines()
         lines += self._standing_lines()
@@ -470,6 +531,15 @@ class RideApp(ShowBase):
         if self.ride.rider_source is None and self.ride.sensors is None:
             return ["", self.translate("No sensors connected")]
         return []
+
+    def _junction_line(self, upcoming: UpcomingJunction) -> str:
+        """Which way the rider is about to go, in words a person uses.
+
+        Not the name of the segment they are about to be on: `main-3` is how
+        the world is stored, not something to tell somebody on a bicycle.
+        """
+        words = {-1: "left", 0: "straight on", 1: "right"}[upcoming.rank]
+        return f"{self.translate(words)} in {upcoming.distance_m:.0f} m"
 
     def _company_lines(self) -> list[str]:
         """Who is up the road and who is behind, in metres."""

@@ -38,3 +38,12 @@ msgstr "Simulated ride - not recorded"
 
 msgid "No sensors connected"
 msgstr "No sensors connected"
+
+msgid "left"
+msgstr "left"
+
+msgid "right"
+msgstr "right"
+
+msgid "straight on"
+msgstr "straight on"

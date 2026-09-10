@@ -233,6 +233,28 @@ speaks is discovered when it connects; the entries exist so a rider can set up
 before anything is plugged in. One file per trainer, so contributing one is a
 pull request that cannot conflict with anyone else's.
 
+## The sign at a junction
+
+The overhead arrow was there from the start and could not be seen. Three things
+were wrong with it and each was invisible until somebody took a picture:
+
+- It was placed a fixed hundred metres in front of the rider's nose. On a bend
+  that is out in the grass. It stands at the junction now, which is where a
+  sign about a junction belongs.
+- It lay flat at the height of the camera, so from the saddle it was a line a
+  few pixels tall. It stands upright facing back down the road, like a sign
+  over a road.
+- It was a single triangle, and tipping it towards the rider showed its back,
+  which is not drawn at all. A sign has no back.
+
+The arrow also leans by a fixed amount rather than by the true angle between
+the roads, and the head-up display says "left" or "right" by the exit's place
+in the order rather than by its bearing. The exits at this circuit part company
+by six or seven degrees: drawn honestly, the sign points straight up whichever
+way the rider is about to go, and the words say "straight on" for both. Which
+of the two roads they are taking is the thing they need to know, so that is
+what is shown - a symbol, not a survey.
+
 ## The rider, and what they are riding
 
 Two numbers decide what a given effort is worth, and neither can be guessed.
