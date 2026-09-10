@@ -219,6 +219,33 @@ speaks is discovered when it connects; the entries exist so a rider can set up
 before anything is plugged in. One file per trainer, so contributing one is a
 pull request that cannot conflict with anyone else's.
 
+## The rider, and what they are riding
+
+Two numbers decide what a given effort is worth, and neither can be guessed.
+Weight decides every climb and every acceleration. Drag decides everything on
+the flat, which on this circuit is nearly all of it: at 250 W, sitting up gives
+34.5 km/h and a time trial bicycle gives 41.0.
+
+So `physics.BIKES` is a small catalogue - sitting up, on the hoods, in the
+drops, a road bicycle with clip-on bars, a proper time trial bicycle - and the
+rider picks one, says what they and their bicycle weigh, and may override the
+drag figure with one they measured, the same way a measured wheel rollout beats
+the catalogue's.
+
+**One of those figures is measured rather than quoted.** A real ride at this
+circuit - 8.9 km in 866 s at 266 W average, a rider of 83 kg on a road bicycle
+with clip-on time trial bars, in air at 645 m and 27 degrees - solves for a CdA
+of 0.267 m2 over its whole energy budget. That recording is kept in
+`build-data/calibration/`, stripped of everything the question does not need:
+no coordinates, no heart rate, no date, because a rider's whereabouts are not a
+test fixture.
+
+`tests/test_calibration.py` replays it. Given the watts that were really
+pushed, the model rides 8.96 km where the bicycle rode 8.92 - four tenths of a
+percent over a quarter of an hour. Every other physics test checks arithmetic
+against published arithmetic; this is the one that checks it against the road,
+and the one that would notice the model drifting away from it.
+
 ## Workouts and plans
 
 Two sources, one internal model:

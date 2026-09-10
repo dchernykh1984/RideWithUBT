@@ -21,7 +21,10 @@ from app.core.physics import (
     step_speed_ms,
 )
 
-RIDER = Bike()  # 80 kg all in, on the hoods
+# Eighty kilos all in, on the hoods. Stated rather than taken from the default,
+# because the figures below are what published calculators say for *this* rider
+# and would quietly stop meaning that if the default moved.
+RIDER = Bike(total_mass_kg=80.0, cda_m2=0.32)
 
 
 @pytest.mark.parametrize(

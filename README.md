@@ -133,6 +133,10 @@ uv run ridewithubt --strava-code CODE     # finish connecting it
 uv run ridewithubt --unpair ble:AA:BB:CC  # forget a paired device
 uv run ridewithubt --version
 uv run ridewithubt --setup                # what it knows about your bike
+uv run ridewithubt --bikes                # the bicycles, and what each is worth
+uv run ridewithubt --bike road-aerobars   # road, road in the drops, aerobars, TT
+uv run ridewithubt --weight 83 9          # what you and your bicycle weigh
+uv run ridewithubt --cda 0.24             # a drag figure you measured yourself
 uv run ridewithubt --wheels               # the wheel sizes and tyre widths
 uv run ridewithubt --wheel 700c 25        # choose yours
 uv run ridewithubt --rollout 2088         # or a rollout you measured yourself
@@ -171,7 +175,11 @@ that speed will be read as. Tab again closes it and saves. Everything on that
 screen can also be set from the command line above; it is the same catalogue and
 the same settings file, in the place where a rider is actually sitting.
 
-Speed is computed from power, weight, gradient and air, not set. With no
+Speed is computed from power, weight, gradient and air, not set. What you weigh
+and what you are riding both matter and neither can be guessed: weight decides
+every climb and acceleration, and the bicycle decides how much air you are
+pushing, which on a flat circuit is nearly all of it - between sitting up and a
+time trial bicycle lies six kilometres an hour at the same 250 W. With no
 sensors connected the rider does not move, because a ride nobody pedalled is
 not a ride: `--simulate 240` asks for a stand-in rider at a power you choose,
 and such a ride is never recorded - invented watts must not end up in your
