@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.7.0...v0.8.0) (2026-09-10)
+
+
+### Features
+
+* **render:** make the rider look like a person on a bicycle ([e9c0d2d](https://github.com/dchernykh1984/RideWithUBT/commit/e9c0d2d98728e5977c7bdddc30bc9c3de2acc832))
+
+
+### Bug Fixes
+
+* **render:** stop the circuit shimmering into dashes at a distance ([ff0f7de](https://github.com/dchernykh1984/RideWithUBT/commit/ff0f7dec2af898327fa127fe89f704fb23bfaf22))
+* **world:** stop the pit lane painting its lines across the track ([e714d0a](https://github.com/dchernykh1984/RideWithUBT/commit/e714d0a3bca25295b308a852a21a26b2403ee1f4))
+
 ## [0.7.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.6.0...v0.7.0) (2026-09-10)
 
 
