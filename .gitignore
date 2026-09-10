@@ -105,3 +105,4 @@ tmp/
 
 # World build cache (downloaded OSM extracts and elevation tiles)
 .worldcache/
+build-data/looks/

@@ -1,0 +1,252 @@
+"""Look at what a change actually did.
+
+Tests say the arithmetic is right. They cannot say the rider looks like a
+person, that a panel fits on its own background, that a road stops shimmering
+at two hundred metres, or that a label came out in Russian - and every one of
+those has shipped broken past a green pipeline.
+
+So this runs the application, puts it in a named situation and takes a picture,
+and drives the keyboard through the real key handling rather than around it.
+Run it after a change that anybody can see:
+
+    uv run python scripts/look.py                 # every scene
+    uv run python scripts/look.py start settings  # just these
+    uv run python scripts/look.py --into /tmp/x   # somewhere of your choosing
+
+Then open the pictures. That is the point: nothing here asserts anything, and
+a scene that renders is not a scene that looks right.
+"""
+
+from __future__ import annotations
+
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+DEFAULT_INTO = Path("build-data/looks")
+
+
+@dataclass(frozen=True)
+class Scene:
+    """One picture: where the ride has got to, and what is on the screen."""
+
+    name: str
+    what: str
+    seconds: float = 0.0
+    language: str = "en"
+    bike_id: str = "road"
+    watts: float = 220.0
+    #: A panel to open, and a row on it to work: the front screen, the
+    #: settings, a list laid out, a number being typed into.
+    panel: str = ""
+    open_row: str = ""
+    typing: str = ""
+    #: Where to put the camera: behind the rider as they ride, or beside them.
+    beside: bool = False
+    crank_deg: float = 90.0
+
+
+SCENES: tuple[Scene, ...] = (
+    Scene("start", "the front screen, as the application opens", panel="start"),
+    Scene(
+        "start-ru",
+        "the same screen in Russian - the alphabet and the labels",
+        panel="start",
+        language="ru",
+    ),
+    Scene(
+        "start-kk",
+        "and in Kazakh, which needs letters Russian does not",
+        panel="start",
+        language="kk",
+    ),
+    Scene("settings", "the settings, every row of them", panel="settings"),
+    Scene(
+        "list",
+        "a list laid out to pick from, with the one in use marked",
+        panel="start",
+        open_row="Route",
+    ),
+    Scene(
+        "typing",
+        "a number being typed into, with what has been typed so far",
+        panel="start",
+        open_row="Ride without sensors",
+        typing="24",
+    ),
+    Scene("pits", "standing in the pit lane, where a ride begins", seconds=1.0),
+    Scene("pit-exit", "rejoining the circuit - the merge, and the markings", 40.0),
+    Scene("junction", "the sign at a junction, and what it says", 66.0),
+    Scene("corner", "a corner, which should be a curve and not a polygon", 118.0),
+    Scene("straight", "the pit straight: buildings, and the road far away", 460.0),
+    Scene("rider", "the rider, from beside them", 40.0, beside=True),
+    Scene(
+        "rider-tt",
+        "and on a time trial bicycle, which is a different shape",
+        40.0,
+        bike_id="tt",
+        beside=True,
+    ),
+)
+
+
+@dataclass
+class Look:
+    """The application, held open long enough to be looked at."""
+
+    into: Path
+    app: Any = None
+    taken: list[Path] = field(default_factory=list)
+
+    def take(self, scene: Scene) -> Path:
+        from panda3d.core import Filename
+
+        self._open(scene)
+        path = self.into / f"{scene.name}.png"
+        self.app.win.saveScreenshot(Filename.fromOsSpecific(str(path)))
+        self.taken.append(path)
+        return path
+
+    def _open(self, scene: Scene) -> None:
+        from app import i18n
+        from app.core.ride import Ride, RideSetup
+        from app.render.app import SELFTEST_FRAMES, RideApp
+        from app.settings import Settings
+
+        settings = Settings.load()
+        settings.virtual_bike_id = scene.bike_id
+        settings.save()
+
+        self.app = RideApp(
+            i18n.load(scene.language),
+            ride=Ride(RideSetup(simulated_watts=scene.watts)),
+            offscreen=True,
+        )
+        # Offscreen deliberately draws no overlay - a picture of the world is
+        # what that mode is for. Put it back, because the overlay is half of
+        # what there is to look at.
+        self.app.font = self.app._font()
+        self.app.hud = self.app._build_hud(headless=False)
+        self.app.menu_text = self.app._build_menu_text(headless=False)
+        self._panel(scene)
+        self.app.ride_forward(scene.seconds)
+        self.app.run_frames(SELFTEST_FRAMES)
+        if scene.beside:
+            self._stand_beside(scene)
+
+    def _panel(self, scene: Scene) -> None:
+        """Open a screen and work a row on it, through the real key handling."""
+        from app.core.preferences import SetupMenu
+        from app.core.startscreen import StartScreen
+
+        if scene.panel == "settings":
+            self.app.screen = None
+            self.app.menu = SetupMenu(
+                speaks=self.app.translate,
+                scanner=lambda _s: _pretend_sensors(),
+            )
+            self.app.menu.scan()
+        elif scene.panel == "start":
+            self.app.screen = StartScreen(speaks=self.app.translate)
+        else:
+            self.app.screen = None
+        panel = self.app.menu or self.app.screen
+        if panel is not None and scene.open_row:
+            wanted = panel.row(scene.open_row)
+            panel.selected = next(
+                index for index, row in enumerate(panel.rows) if row is wanted
+            )
+            self.app._menu_enter()
+            for character in scene.typing:
+                self.app.messenger.send("keystroke", [character])
+        self.app._redraw_panel()
+
+    def _stand_beside(self, scene: Scene) -> None:
+        """Move the camera out to the side, to look at the rider rather than
+        the road."""
+        import math
+
+        state = self.app.state
+        heading = state.heading_rad
+        self.app.taskMgr.remove("ride")
+        self.app.camera.setPos(
+            state.point.x + math.cos(heading + math.pi / 2) * 4.5,
+            state.point.y + math.sin(heading + math.pi / 2) * 4.5,
+            state.point.z + 1.1,
+        )
+        self.app.camera.lookAt(state.point.x, state.point.y, state.point.z + 0.9)
+        self.app.rider.pedal_at(math.radians(scene.crank_deg))
+        self.app.graphicsEngine.renderFrame()
+        self.app.graphicsEngine.renderFrame()
+
+    def close(self) -> None:
+        if self.app is not None:
+            self.app.destroy()
+            self.app = None
+
+
+def _pretend_sensors() -> list[Any]:
+    from app.core.preferences import Found
+
+    return [
+        Found("ble:D2:4C:8A:11", "Wahoo KICKR CORE"),
+        Found("ble:E1:07:3B:5F", "Garmin HRM-Pro"),
+        Found("ant:26714", "Speed and cadence"),
+    ]
+
+
+def main(argv: list[str]) -> int:
+    into = DEFAULT_INTO
+    if "--into" in argv:
+        at = argv.index("--into")
+        into = Path(argv[at + 1])
+        argv = argv[:at] + argv[at + 2 :]
+    wanted = [scene for scene in SCENES if not argv or scene.name in argv]
+    unknown = set(argv) - {scene.name for scene in SCENES}
+    if unknown:
+        print(f"no such scene: {', '.join(sorted(unknown))}", file=sys.stderr)
+        print(f"there is: {', '.join(scene.name for scene in SCENES)}")
+        return 2
+    into.mkdir(parents=True, exist_ok=True)
+    for scene in wanted:
+        # One application per picture: a ShowBase is process-global and does
+        # not come back cleanly after being torn down.
+        code = _in_its_own_process(scene, into)
+        if code != 0:  # pragma: no cover - a scene that will not render
+            print(f"{scene.name} did not render", file=sys.stderr)
+            return code
+        print(f"{into / (scene.name + '.png')}  - {scene.what}")
+    print(f"\n{len(wanted)} to look at. Open them.")
+    return 0
+
+
+def _in_its_own_process(scene: Scene, into: Path) -> int:
+    import subprocess
+
+    # This interpreter, this file, and a scene name that came from the list
+    # above - nothing here is anybody else's input.
+    return subprocess.run(  # noqa: S603
+        [sys.executable, __file__, "--one", scene.name, "--into", str(into)],
+        capture_output=True,
+        check=False,
+    ).returncode
+
+
+def _one(name: str, into: Path) -> int:
+    scene = next(scene for scene in SCENES if scene.name == name)
+    look = Look(into)
+    try:
+        look.take(scene)
+    finally:
+        look.close()
+    return 0
+
+
+if __name__ == "__main__":
+    arguments = sys.argv[1:]
+    if "--one" in arguments:
+        at = arguments.index("--one")
+        directory = Path(arguments[arguments.index("--into") + 1])
+        raise SystemExit(_one(arguments[at + 1], directory))
+    raise SystemExit(main(arguments))

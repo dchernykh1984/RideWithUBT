@@ -67,6 +67,10 @@ class SetupMenu(Panel):
     """
 
     settings: Settings = field(default_factory=Settings.load)
+    #: How to say a thing in the rider's language. A panel builds sentences out
+    #: of numbers it works out itself, and by the time whoever draws them sees
+    #: one it is a single string with a number baked into it.
+    speaks: Callable[[str], str] = str
     scanner: Callable[[float], Sequence[Found]] | None = None
     rows: list[Row] = field(default_factory=list)
     selected: int = 0
@@ -190,13 +194,13 @@ class SetupMenu(Panel):
     def scan(self, seconds: float = SCAN_SECONDS) -> None:
         """Ask the radios who is there, and offer whatever answers."""
         if self.scanner is None:
-            self.note = "no radios in this build"
+            self.note = self.speaks("no radios in this build")
             return
         self.found = list(self.scanner(seconds))
         self.note = (
-            f"found {len(self.found)}"
+            self.speaks("found %d").replace("%d", str(len(self.found)))
             if self.found
-            else "nothing answered - are they awake?"
+            else self.speaks("nothing answered - are they awake?")
         )
         self._rebuild_devices()
 
@@ -227,22 +231,43 @@ class SetupMenu(Panel):
         settings = self.as_settings()
         bike = settings.bike
         speed = physics.steady_speed_ms(250.0, 0.0, bike) * 3.6
-        line = f"{bike.total_mass_kg:.0f} kg all in; {speed:.1f} km/h at 250 W"
+        line = self._say(
+            "%(kg)s kg all in; %(kmh)s km/h at 250 W",
+            kg=f"{bike.total_mass_kg:.0f}",
+            kmh=f"{speed:.1f}",
+        )
         wheel, trainer = settings.wheel, settings.trainer
         if wheel is None or trainer is None:
-            return f"{line}; choose a wheel and a trainer for virtual power"
+            return f"{line}; {self.speaks('choose a wheel and a trainer')}"
         if trainer.reports_own_power:
-            return f"{line}; {trainer.name} measures its own power"
+            return "{}; {}".format(
+                line,
+                self._say("%(name)s measures its own power", name=trainer.name),
+            )
         from app.trainer.estimate import PowerEstimator
 
         estimate = PowerEstimator(wheel=wheel, trainer=trainer).from_speed(30 / 3.6)
         if estimate is None:  # pragma: no cover - reports_own_power covers this
             return line
-        measured = "measured" if estimate.calibrated else "estimated"
-        return (
-            f"{line}; {wheel.rollout_mm:.0f} mm rollout, "
-            f"about {estimate.watts:.0f} W at 30 km/h ({measured})"
+        measured = self.speaks("measured" if estimate.calibrated else "estimated")
+        return "{}; {}".format(
+            line,
+            self._say(
+                "%(mm)s mm rollout, about %(w)s W at 30 km/h (%(how)s)",
+                mm=f"{wheel.rollout_mm:.0f}",
+                w=f"{estimate.watts:.0f}",
+                how=measured,
+            ),
         )
+
+    def _say(self, phrase: str, **parts: str) -> str:
+        """A sentence in the rider's language with numbers put back into it.
+
+        The numbers are named rather than positional: a translator moving them
+        about is the whole point of translating a sentence rather than gluing
+        one together from pieces.
+        """
+        return self.speaks(phrase) % parts
 
     def as_settings(self) -> Settings:
         """The settings these choices describe, without saving them."""

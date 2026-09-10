@@ -155,3 +155,30 @@ msgstr "in use"
 
 msgid "off"
 msgstr "off"
+
+msgid "no radios in this build"
+msgstr "no radios in this build"
+
+msgid "found %d"
+msgstr "found %d"
+
+msgid "nothing answered - are they awake?"
+msgstr "nothing answered - are they awake?"
+
+msgid "%(kg)s kg all in; %(kmh)s km/h at 250 W"
+msgstr "%(kg)s kg all in; %(kmh)s km/h at 250 W"
+
+msgid "choose a wheel and a trainer"
+msgstr "choose a wheel and a trainer"
+
+msgid "%(name)s measures its own power"
+msgstr "%(name)s measures its own power"
+
+msgid "%(mm)s mm rollout, about %(w)s W at 30 km/h (%(how)s)"
+msgstr "%(mm)s mm rollout, about %(w)s W at 30 km/h (%(how)s)"
+
+msgid "measured"
+msgstr "measured"
+
+msgid "estimated"
+msgstr "estimated"

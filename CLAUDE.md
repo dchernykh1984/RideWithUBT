@@ -98,6 +98,15 @@ Learned the hard way; each cost a release or a wrong answer.
   is eighty-three key presses, and a row that cycles through forty trainers is
   one nobody reaches the end of.
 
+## Look at it
+
+Tests say the arithmetic is right. They have never once said the rider looks
+like a person or that a label came out in Russian, and both have shipped
+broken past a green pipeline. After any change a rider can see, run
+`uv run python scripts/look.py` and **open the pictures**. The
+`shipping-a-change` skill lists what to look at for what you touched, and the
+things that got through by not being looked at.
+
 ## Skills
 
 - `shipping-a-change` - branch, commit, open the PR, watch CI to green, cut the release,

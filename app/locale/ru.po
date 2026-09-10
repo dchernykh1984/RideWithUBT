@@ -152,3 +152,30 @@ msgstr "сейчас"
 
 msgid "off"
 msgstr "выкл"
+
+msgid "no radios in this build"
+msgstr "в этой сборке нет радио"
+
+msgid "found %d"
+msgstr "найдено %d"
+
+msgid "nothing answered - are they awake?"
+msgstr "никто не ответил - они включены?"
+
+msgid "%(kg)s kg all in; %(kmh)s km/h at 250 W"
+msgstr "%(kg)s кг всего; %(kmh)s км/ч на 250 Вт"
+
+msgid "choose a wheel and a trainer"
+msgstr "выберите колесо и станок"
+
+msgid "%(name)s measures its own power"
+msgstr "%(name)s меряет мощность сам"
+
+msgid "%(mm)s mm rollout, about %(w)s W at 30 km/h (%(how)s)"
+msgstr "раскат %(mm)s мм, около %(w)s Вт на 30 км/ч (%(how)s)"
+
+msgid "measured"
+msgstr "замерено"
+
+msgid "estimated"
+msgstr "оценка"
