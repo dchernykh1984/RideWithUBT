@@ -517,6 +517,25 @@ who never joins a room never even has an id. `docs/protocol.md` is the whole
 contract, written so somebody else can implement a relay without reading this
 code.
 
+## The icon
+
+The team's logo, at eight sizes, in the three shapes each platform wants:
+`.icns` for macOS, `.ico` for Windows, and a plain PNG the running window is
+given so the icon in the dock is the same picture as the one on the file a
+rider double-clicked.
+
+They are generated rather than hand-made. The logo is committed once under
+`build-data/branding/`, `scripts/make_icons.py` derives the rest, and a test
+fails if what is in the tree no longer matches - which is what stops an old
+logo living on in the dock after a new one lands on the desktop. That is the
+same rule the worlds follow: keep the source, generate the artefacts.
+
+Both container formats accept PNGs inside them and are simple enough to write
+directly (`app/icons.py`), so there is no image library in the dependency list
+for this. `app/imaging.py` reads the logo back in and averages pixels down to
+each size - a box average rather than nearest-neighbour, because the logo is a
+line drawing and picking one pixel in thirty loses the thin parts of it.
+
 ## Localisation
 
 Russian, English and Kazakh, first-class from the start. Source strings are

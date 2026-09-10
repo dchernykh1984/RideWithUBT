@@ -109,6 +109,9 @@ without one, `--worlds`, `--setup` and the other listing commands still work.
   RideWithUBT server to sign up to, and none to be down. See
   [Riding together](docs/protocol.md).
 
+The application carries the Universal Bicycle Team logo as its icon, on the
+file you launch and in the dock or taskbar while it runs.
+
 ## Running from source
 
 Requires [uv](https://docs.astral.sh/uv/).

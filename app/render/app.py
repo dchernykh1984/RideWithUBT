@@ -35,6 +35,7 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
+from app import paths
 from app.core.companions import departed
 from app.core.preferences import SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
@@ -187,6 +188,18 @@ class RideApp(ShowBase):
         node.hide()
         return node
 
+    def _window_icon(self) -> str | None:
+        """The icon a running window shows, in the dock or the taskbar.
+
+        The bundle's icon is what a rider double-clicks; this is what they look
+        at for the next hour, and they are only the same picture if both are
+        set.
+        """
+        icon = paths.packaged("branding", "icon.png")
+        if not icon.exists():  # pragma: no cover - it ships with the application
+            return None
+        return Filename.fromOsSpecific(str(icon)).getFullpath()
+
     def _prepare_window(self, *, offscreen: bool) -> None:
         self.setBackgroundColor(*SKY)
         self.disableMouse()
@@ -197,6 +210,9 @@ class RideApp(ShowBase):
             return
         properties = WindowProperties()
         properties.setTitle(f"RideWithUBT - {self.translate('Virtual training world')}")
+        icon = self._window_icon()
+        if icon is not None:
+            properties.setIconFilename(icon)
         self.win.requestProperties(properties)
 
     def _build_hud(self, *, headless: bool) -> OnscreenText | None:
