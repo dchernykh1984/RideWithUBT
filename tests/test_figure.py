@@ -14,11 +14,14 @@ import pytest
 from app.core.figure import (
     BOTTOM_BRACKET_M,
     DEFAULT_CADENCE_RPM,
+    FRONT_AXLE_M,
+    POSTURES,
     STOPPED_RPM,
     Cranks,
     Joint,
     Rider,
     knee,
+    posture,
 )
 
 
@@ -199,3 +202,75 @@ def test_a_rider_with_the_pedals_above_their_hips_still_bends_forwards() -> None
     where = knee(hip, pedal, 0.45, 0.45)
 
     assert where.along_m > hip.along_m, "the knee still leads the way"
+
+
+# Different bicycles, different riders.
+
+
+def test_every_bicycle_in_the_catalogue_has_a_posture() -> None:
+    """A rider sitting up and one on a time trial bicycle are two quite
+    different shapes, and that difference is the whole reason one is faster."""
+    from app.core.physics import BIKES
+
+    for bike in BIKES:
+        assert posture(bike.id).bike_id == bike.id, bike.id
+
+
+def test_a_bicycle_nobody_has_heard_of_sits_like_a_road_one() -> None:
+    assert posture("penny-farthing").bike_id == "road"
+
+
+def test_the_lower_the_position_the_lower_the_shoulders() -> None:
+    order = ["upright", "road", "road-drops", "road-aerobars", "tt"]
+
+    heights = [posture(bike).shoulder.up_m for bike in order]
+
+    assert heights == sorted(heights, reverse=True)
+
+
+def test_the_faster_the_position_the_further_forward_the_rider() -> None:
+    assert posture("tt").shoulder.along_m > posture("upright").shoulder.along_m
+
+
+def test_it_is_the_same_rider_on_every_bicycle() -> None:
+    """The torso does not change length between positions - the person is the
+    same, so what moves is where their shoulders and hands are."""
+    torsos = [item.hip.distance_to(item.shoulder) for item in POSTURES]
+
+    assert max(torsos) - min(torsos) < 0.02
+
+
+def test_the_saddle_is_the_same_height_on_every_bicycle() -> None:
+    """A rider sets it once, by their leg length, and it does not change
+    because they got on a different frame."""
+    saddles = [Joint(0.0, 0.0).distance_to(item.hip) for item in POSTURES]
+
+    assert max(saddles) - min(saddles) < 0.01
+
+
+def test_the_legs_reach_the_pedals_on_every_bicycle() -> None:
+    """A forward saddle is still a saddle the same distance from the pedals."""
+    for item in POSTURES:
+        Rider(bike_id=item.bike_id)  # refuses in __post_init__ if it does not
+
+
+def test_only_the_aero_positions_have_something_to_rest_on() -> None:
+    resting = {item.bike_id for item in POSTURES if item.aerobars}
+
+    assert resting == {"road-aerobars", "tt"}
+
+
+def test_nobody_holds_on_to_thin_air_ahead_of_the_front_wheel() -> None:
+    """Hands over the bars sit about at the axle; extensions reach ahead of it
+    by their own length and no further."""
+    for item in POSTURES:
+        ahead = item.hands.along_m - FRONT_AXLE_M
+        limit = 0.25 if item.aerobars else 0.10
+        assert ahead <= limit, f"{item.bike_id} reaches {ahead:.2f} m past the axle"
+
+
+def test_a_saddle_too_high_for_the_legs_is_refused() -> None:
+    """Which is what caught a time trial saddle set forward and up: the leg
+    could reach the pedal and had nothing left to bend with."""
+    with pytest.raises(ValueError, match="cannot reach"):
+        Rider(thigh_m=0.44, shin_m=0.46, bike_id="tt")
