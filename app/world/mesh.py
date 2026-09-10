@@ -14,11 +14,14 @@ of the track stay parallel through corners instead of pinching.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from itertools import pairwise
 
+from app.world.buildings import Building
 from app.world.network import Segment, TrackNetwork
 from app.world.offset import offset_polyline
+from app.world.polygon import triangulate
 
 # How many metres of track one repeat of the surface texture covers.
 DEFAULT_TEXTURE_LENGTH_M = 8.0
@@ -119,6 +122,66 @@ def ground_plane(network: TrackNetwork, size_m: float, drop_m: float) -> Mesh:
         tex_coords=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
         triangles=((0, 1, 2), (0, 2, 3)),
     )
+
+
+#: How many metres of wall one repeat of the wall texture covers, across and up.
+WALL_TEXTURE_M = 4.0
+
+
+def building_mesh(building: Building) -> Mesh:
+    """One building: four walls to a side, and a flat roof.
+
+    The walls are the easy part - each edge of the footprint becomes a
+    rectangle. The roof is a polygon and a graphics card draws triangles, so it
+    is cut up properly rather than fanned from the middle: the pit garages here
+    are an L, and a fan would put roof outside the building.
+    """
+    base = building.base_m
+    top = base + building.height_m
+    outline = [(point.x, point.y) for point in building.footprint]
+    if len(outline) > 1 and outline[0] == outline[-1]:
+        outline = outline[:-1]
+    vertices: list[Vertex] = []
+    tex_coords: list[TexCoord] = []
+    triangles: list[Triangle] = []
+
+    along = 0.0
+    for (x1, y1), (x2, y2) in pairwise([*outline, outline[0]]):
+        width = math.hypot(x2 - x1, y2 - y1)
+        if width < 0.01:
+            continue
+        first = len(vertices)
+        left, right = along / WALL_TEXTURE_M, (along + width) / WALL_TEXTURE_M
+        high = building.height_m / WALL_TEXTURE_M
+        vertices += [(x1, y1, base), (x2, y2, base), (x2, y2, top), (x1, y1, top)]
+        tex_coords += [(left, 0.0), (right, 0.0), (right, high), (left, high)]
+        # Both windings, so a wall is solid whichever side it is seen from -
+        # cheaper than working out which way a surveyed footprint runs.
+        triangles += [
+            (first, first + 1, first + 2),
+            (first, first + 2, first + 3),
+            (first + 2, first + 1, first),
+            (first + 3, first + 2, first),
+        ]
+        along += width
+
+    roof_start = len(vertices)
+    for x, y in outline:
+        vertices.append((x, y, top))
+        tex_coords.append((x / WALL_TEXTURE_M, y / WALL_TEXTURE_M))
+    for a, b, c in triangulate(outline):
+        triangles.append((roof_start + a, roof_start + b, roof_start + c))
+        triangles.append((roof_start + c, roof_start + b, roof_start + a))
+
+    return Mesh(tuple(vertices), tuple(tex_coords), tuple(triangles))
+
+
+def buildings_mesh(network: TrackNetwork) -> Mesh:
+    """Everything standing beside this track, in one mesh."""
+    mesh = EMPTY
+    for building in network.buildings:
+        mesh = mesh.merged_with(building_mesh(building))
+    return mesh
 
 
 def network_mesh(

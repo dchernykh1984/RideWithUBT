@@ -13,10 +13,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from app.world.texture import encode_png, ground_cover, track_surface
+from app.world.texture import encode_png, ground_cover, track_surface, wall
 
 TEXTURES = Path(__file__).parent.parent / "app" / "data" / "textures"
-SURFACES = {"track.png": track_surface, "ground.png": ground_cover}
+SURFACES = {
+    "track.png": track_surface,
+    "ground.png": ground_cover,
+    "wall.png": wall,
+}
 
 
 def main() -> int:

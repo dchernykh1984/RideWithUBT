@@ -52,6 +52,7 @@ def test_the_shipped_world_is_what_the_tracked_inputs_produce(
         BUILD_DATA / "recipe.json",
         BUILD_DATA / "overpass.json",
         BUILD_DATA / "elevation.json",
+        BUILD_DATA / "buildings.json",
     )
 
     shipped = json.loads(world_path(WORLD_ID).read_text(encoding="utf-8"))

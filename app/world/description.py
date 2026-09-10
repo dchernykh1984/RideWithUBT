@@ -16,6 +16,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from app.world.buildings import Building
 from app.world.geo import Origin
 from app.world.network import (
     Junction,
@@ -73,6 +74,15 @@ def parse_origin(raw: dict[str, Any] | None) -> Origin | None:
     return Origin(lat=float(raw["lat"]), lon=float(raw["lon"]))
 
 
+def parse_building(raw: dict[str, Any]) -> Building:
+    return Building(
+        id=str(raw["id"]),
+        kind=str(raw.get("kind", "building")),
+        footprint=tuple(parse_point(point) for point in raw["footprint"]),
+        height_m=float(raw["height_m"]),
+    )
+
+
 def parse_start(raw: dict[str, Any] | None) -> Start | None:
     if raw is None:
         return None
@@ -92,6 +102,7 @@ def parse_world(raw: dict[str, Any]) -> TrackNetwork:
             junctions=tuple(parse_junction(item) for item in raw.get("junctions", ())),
             routes=tuple(parse_route(item) for item in raw.get("routes", ())),
             origin=parse_origin(raw.get("origin")),
+            buildings=tuple(parse_building(item) for item in raw.get("buildings", ())),
             start=parse_start(raw.get("start")),
         )
     except KeyError as error:
@@ -163,6 +174,19 @@ def describe(network: TrackNetwork) -> dict[str, Any]:
             "lat": round(network.origin.lat, 9),
             "lon": round(network.origin.lon, 9),
         }
+    if network.buildings:
+        document["buildings"] = [
+            {
+                "id": building.id,
+                "kind": building.kind,
+                "height_m": round(building.height_m, 2),
+                "footprint": [
+                    [round(point.x, 2), round(point.y, 2), round(point.z, 2)]
+                    for point in building.footprint
+                ],
+            }
+            for building in network.buildings
+        ]
     if network.start is not None:
         document["start"] = {
             "segment": network.start.segment_id,

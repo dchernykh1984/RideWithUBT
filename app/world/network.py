@@ -15,8 +15,14 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
 from itertools import pairwise
+from typing import TYPE_CHECKING
 
 from app.world.geo import Origin
+
+if TYPE_CHECKING:
+    # A building is made of Points, so it knows about this module; this one
+    # only holds them as data. The arrow goes one way and this keeps it there.
+    from app.world.buildings import Building
 
 # How much track a gradient is measured across. Short enough that a real ramp is
 # still felt where it starts, long enough that the elevation model's metre of
@@ -229,6 +235,10 @@ class TrackNetwork:
     junctions: tuple[Junction, ...] = ()
     routes: tuple[Route, ...] = ()
     origin: Origin | None = None
+    #: What stands beside the track. Part of the world, not of the renderer:
+    #: another world will have its own, and everything about a map belongs in
+    #: the map.
+    buildings: tuple[Building, ...] = ()
     #: Where a ride begins, when the world says. Without one a rider starts at
     #: the beginning of the first segment, which is wherever the data happened
     #: to start - fine for a test world, arbitrary for a real place.

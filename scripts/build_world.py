@@ -31,13 +31,15 @@ def main(argv: list[str]) -> int:
         directory / "recipe.json",
         directory / "overpass.json",
         directory / "elevation.json",
+        directory / "buildings.json",
     )
     output = world_path(world_id)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(describe(network), indent=1) + "\n", encoding="utf-8")
     print(
         f"wrote {output} - {len(network.segments)} segments, "
-        f"{len(network.junctions)} junctions, {len(network.routes)} routes"
+        f"{len(network.junctions)} junctions, {len(network.routes)} routes, "
+        f"{len(network.buildings)} buildings"
     )
     for route in network.routes:
         print(f"  {route.id:24} {lap_length_m(network, route) / 1000:.3f} km")

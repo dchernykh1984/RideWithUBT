@@ -376,6 +376,24 @@ not a cosmetic wobble, it is resistance somebody actually pushes against. What
 Sokol has left is a 1.2% maximum and about seven metres of climb a lap, which is
 worth eleven km/h at 200 W between its shallowest descent and its steepest rise.
 
+**What stands beside the track is modelled too, and it is real.**
+OpenStreetMap has the footprints of the buildings at this circuit, surveyed in
+the same trace as the track: the pit garages, the grandstand, the race hotel.
+They stand where they really stand and are the shape they really are, which is
+the entire reason for using survey data rather than inventing scenery. What
+open data does not have is how tall they are, so heights come from the recipe
+by kind - a grandstand is not a garage - and are stated rather than guessed at
+per building.
+
+Photographs were the obvious alternative and are the wrong tool: they give
+texture and nothing else - not position, not shape, not scale - and they are
+somebody's to license. Footprints plus stated heights give a rider what they
+actually need from scenery, which is knowing where they are on the lap. Every
+corner looked like every other corner without them.
+
+The buildings live in the world file, not in the renderer: there will be other
+maps, and everything about a map belongs in the map.
+
 **Only the track surface is modelled**: both rings and the pit lane. The
 surrounding landscape is not the point of this app and is not built.
 
