@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.9.0...v0.10.0) (2026-09-10)
+
+
+### Features
+
+* **render:** click a line to change it, and read it in your language ([547d967](https://github.com/dchernykh1984/RideWithUBT/commit/547d9679f4422a650463299e13c74e5048336c96))
+
 ## [0.9.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.8.0...v0.9.0) (2026-09-10)
 
 
