@@ -275,6 +275,20 @@ kilometres an hour - and the speed on screen already says otherwise. It is the
 same person on all of them, so the torso is the same length and the saddle the
 same height above the pedals; what moves is everything else.
 
+**Everything a person is made of is round.** A cyclist built from boxes reads
+as a stack of boxes, which is what the first one was: limbs are tubes, the head
+is a ball, the body is a tube flattened into an oval, and the wheels have deep
+rims that can actually be seen - a four-centimetre tyre is a hairline at any
+distance, and a bicycle whose wheels have vanished is a person floating. A time
+trial bicycle gets a rear disc, which is the most recognisable shape in cycling
+and says from across the circuit what somebody is riding.
+
+The other half of reading as a person is width. From behind - the view from the
+saddle, and the one that was unreadable - a rider is shoulders, a back and two
+legs, and the first figure had shoulders as wide as its hips and its legs
+almost touching. `SHOULDER_WIDTH_M`, `HIP_WIDTH_M` and `FOOT_SPACING_M` are why
+it now reads as a person rather than a column of blocks.
+
 Two things this cost, both worth having:
 
 - **Meshes can carry their own normals now.** The track and the ground are lit
@@ -430,6 +444,19 @@ rolling out of a box, or count the pit lane as part of a circuit that does not
 include it. The recipe says it the way a person would ("on the pit lane,
 halfway") and the build turns that into a segment and a distance, because the
 length of the lane is something the build works out.
+
+**The pit lane is built from its width, not only from its offset.** A lane
+tapered by moving its centre line alone runs *across* the racing surface for as
+long as the two overlap - painting its own edge lines over the road a rider is
+on - and leaves a wedge of grass where the two part company. Both were on
+screen. Its width now eases from nothing at each end, so where it merges there
+is no lane to paint; its centre still reaches the node it is joined to, because
+a rider coming off it onto the circuit must not step sideways to do so.
+
+Textures are mipmapped and filtered anisotropically. Without that a road at two
+hundred metres is a shimmer of dashes where its edge line should be and a
+grandstand is a moire of stripes: the whole circuit crawled, which is what
+sampling a surface once per pixel looks like when you are looking along it.
 
 The pit lane is not in the extract either, so it is built rather than traced: the
 generator offsets the circuit's own points between two of its nodes, which makes
