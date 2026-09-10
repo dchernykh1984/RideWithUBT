@@ -91,6 +91,9 @@ class PitLane:
     id: str = "pit-lane"
     width_m: float = 8.0
     surface: str = "asphalt"
+    #: How far the lane takes to leave the track and to come back to it. Without
+    #: this the lane runs alongside at full offset and then stops in the grass.
+    taper_m: float = 60.0
 
 
 @dataclass(frozen=True)
@@ -203,6 +206,7 @@ def _parse_pit_lane(raw: dict[str, Any] | None) -> PitLane | None:
         id=str(raw.get("id", "pit-lane")),
         width_m=float(raw.get("width_m", 8.0)),
         surface=str(raw.get("surface", "asphalt")),
+        taper_m=float(raw.get("taper_m", 60.0)),
     )
 
 
@@ -384,7 +388,7 @@ def build_pit_lane(
         id=f"{pit.id}-0",
         start_node=node_id(pit.entry_node),
         end_node=node_id(pit.exit_node),
-        points=offset_polyline(along, pit.offset_m),
+        points=offset_polyline(along, pit.offset_m, pit.taper_m),
         width_m=pit.width_m,
         surface=pit.surface,
     )

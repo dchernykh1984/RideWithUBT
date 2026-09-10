@@ -23,6 +23,11 @@ from app.world.network import Point
 # never offset around a hairpin.
 MAX_MITRE = 4.0
 
+# How finely a line is resampled before a taper is applied to it. Fine enough
+# that the curve leaving the track reads as a curve, coarse enough not to turn a
+# kilometre of pit lane into ten thousand points.
+TAPER_STEP_M = 5.0
+
 
 def _normal(start: Point, end: Point) -> tuple[float, float]:
     """The unit vector ninety degrees to the left of this edge."""
@@ -33,21 +38,89 @@ def _normal(start: Point, end: Point) -> tuple[float, float]:
     return (-dy / length, dx / length)
 
 
-def offset_polyline(points: Sequence[Point], offset_m: float) -> tuple[Point, ...]:
+def offset_polyline(
+    points: Sequence[Point], offset_m: float, taper_m: float = 0.0
+) -> tuple[Point, ...]:
     """A parallel line, ``offset_m`` to the left; negative offsets go right.
+
+    With a ``taper_m`` the line starts and ends *on* the one it is offset from
+    and eases out to the full offset over that distance. That is what a pit lane
+    actually does - it leaves the track and rejoins it - and without it the lane
+    runs alongside at full width and then simply stops in the grass, which is
+    what it looked like.
 
     Elevation is carried across unchanged: a lane beside the track is at the
     track's height, not at zero.
     """
     if len(points) < 2:
         raise ValueError("a line needs at least two points to be offset")
+    # A taper needs points to happen at. Open data gives a straight between two
+    # nodes as exactly two points, and a lane that eases away from the track over
+    # sixty metres has nowhere to do it - it would simply lie on the track.
+    if taper_m > 0.0:
+        points = densify(points, TAPER_STEP_M)
     normals = [_normal(start, end) for start, end in pairwise(points)]
-    moved = [_move(points[0], normals[0], offset_m)]
+    along = _distances(points)
+    total = along[-1]
+    moved = [_move(points[0], normals[0], offset_m * _ramp(0.0, total, taper_m))]
     for index in range(1, len(points) - 1):
         direction, scale = _mitre(normals[index - 1], normals[index])
-        moved.append(_move(points[index], direction, offset_m * scale))
-    moved.append(_move(points[-1], normals[-1], offset_m))
+        reach = offset_m * scale * _ramp(along[index], total, taper_m)
+        moved.append(_move(points[index], direction, reach))
+    moved.append(
+        _move(points[-1], normals[-1], offset_m * _ramp(total, total, taper_m))
+    )
     return tuple(moved)
+
+
+def densify(points: Sequence[Point], spacing_m: float) -> tuple[Point, ...]:
+    """The same line with points added, no further apart than ``spacing_m``.
+
+    The shape does not change - every added point sits on an edge that was
+    already there. It is the resolution that changes, which is what anything
+    varying along a line needs to have somewhere to vary.
+    """
+    if spacing_m <= 0.0:  # pragma: no cover - callers pass a real spacing
+        return tuple(points)
+    dense: list[Point] = [points[0]]
+    for start, end in pairwise(points):
+        length = math.hypot(end.x - start.x, end.y - start.y)
+        steps = max(1, math.ceil(length / spacing_m))
+        for step in range(1, steps + 1):
+            t = step / steps
+            dense.append(
+                Point(
+                    x=start.x + (end.x - start.x) * t,
+                    y=start.y + (end.y - start.y) * t,
+                    z=start.z + (end.z - start.z) * t,
+                )
+            )
+    return tuple(dense)
+
+
+def _distances(points: Sequence[Point]) -> list[float]:
+    """How far along the line each point sits."""
+    along = [0.0]
+    for start, end in pairwise(points):
+        along.append(along[-1] + math.hypot(end.x - start.x, end.y - start.y))
+    return along
+
+
+def _ramp(distance_m: float, total_m: float, taper_m: float) -> float:
+    """How much of the full offset applies this far along: 0 at each end, 1 in
+    the middle.
+
+    Smooth rather than linear, so the lane leaves the track at a tangent the way
+    a real one does instead of kinking away from it at a visible corner.
+    """
+    if taper_m <= 0.0:
+        return 1.0
+    reach = min(taper_m, total_m / 2)
+    if reach <= 0.0:  # pragma: no cover - a line with no length is refused above
+        return 1.0
+    from_either_end = min(distance_m, total_m - distance_m)
+    t = max(0.0, min(1.0, from_either_end / reach))
+    return t * t * (3.0 - 2.0 * t)
 
 
 def _mitre(
