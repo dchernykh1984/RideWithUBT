@@ -23,6 +23,71 @@ from app.world.mesh import Mesh, TexCoord, Triangle, Vertex
 TUBE_SIDES = 16
 
 
+def sphere(radius: float, rings: int = 8, sides: int = TUBE_SIDES) -> Mesh:
+    """A ball centred on its own origin.
+
+    A head, mostly. A box with a face on it is a box; the one part of a person
+    that has to be round for them to read as a person is their head.
+    """
+    vertices: list[Vertex] = []
+    tex_coords: list[TexCoord] = []
+    normals: list[Vertex] = []
+    for ring in range(rings + 1):
+        up = math.pi * ring / rings
+        for side in range(sides + 1):
+            around = math.tau * side / sides
+            direction = (
+                math.cos(up),
+                math.sin(up) * math.cos(around),
+                math.sin(up) * math.sin(around),
+            )
+            vertices.append(tuple(part * radius for part in direction))  # type: ignore[arg-type]
+            normals.append(direction)
+            tex_coords.append((side / sides, ring / rings))
+    triangles: list[Triangle] = []
+    for ring in range(rings):
+        for side in range(sides):
+            here = ring * (sides + 1) + side
+            below = here + sides + 1
+            triangles += [
+                (here, below, below + 1),
+                (here, below + 1, here + 1),
+            ]
+    return Mesh(tuple(vertices), tuple(tex_coords), tuple(triangles), tuple(normals))
+
+
+def annulus(inner: float, outer: float, sides: int = TUBE_SIDES) -> Mesh:
+    """A flat ring in the plane across +X: a wheel's rim, seen from the side.
+
+    Drawn both ways round, because a wheel is looked at from both sides and
+    nothing about a rim distinguishes them.
+    """
+    vertices: list[Vertex] = []
+    tex_coords: list[TexCoord] = []
+    normals: list[Vertex] = []
+    triangles: list[Triangle] = []
+    for side in range(sides):
+        around = math.tau * side / sides
+        after = math.tau * (side + 1) / sides
+        first = len(vertices)
+        for radius, angle in (
+            (inner, around),
+            (outer, around),
+            (outer, after),
+            (inner, after),
+        ):
+            vertices.append((0.0, radius * math.cos(angle), radius * math.sin(angle)))
+            tex_coords.append((side / sides, 0.0 if radius == inner else 1.0))
+            normals.append((1.0, 0.0, 0.0))
+        triangles += [
+            (first, first + 1, first + 2),
+            (first, first + 2, first + 3),
+            (first + 2, first + 1, first),
+            (first + 3, first + 2, first),
+        ]
+    return Mesh(tuple(vertices), tuple(tex_coords), tuple(triangles), tuple(normals))
+
+
 def _face_normal(a: Vertex, b: Vertex, c: Vertex) -> Vertex:
     """Which way three corners face, taken in the order they are wound."""
     first = (b[0] - a[0], b[1] - a[1], b[2] - a[2])

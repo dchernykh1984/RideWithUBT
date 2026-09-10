@@ -36,6 +36,16 @@ WHEELBASE_M = 1.02
 #: holds on to should be beyond it by more than the length of an extension.
 FRONT_AXLE_M = 0.60
 
+#: How wide a rider is, in metres. These are what a cyclist looks like from
+#: behind, which is the view from the saddle and the one that was unreadable:
+#: a narrow column of blocks, because the shoulders were as wide as the hips
+#: and the legs almost touching.
+SHOULDER_WIDTH_M = 0.42
+HIP_WIDTH_M = 0.30
+#: How far apart the pedals are - the q-factor of a road crankset - and so how
+#: far apart the feet, and the knees, are.
+FOOT_SPACING_M = 0.15
+
 #: How much bend a leg keeps at the bottom of the stroke. A rider sets their
 #: saddle so the knee never quite straightens, and one that does looks wrong.
 KNEE_MARGIN_M = 0.02
