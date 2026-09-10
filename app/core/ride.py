@@ -13,9 +13,10 @@ where the rider is and draw them there.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
+from collections.abc import Coroutine, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 from app import paths
 from app.core.companions import (
@@ -223,6 +224,47 @@ class Ride:
         if self.recorder is not None:
             self.recorder.observe(self.state)
         return self.state
+
+    def on_sensor_loop(self, work: Coroutine[Any, Any, Any], timeout: float) -> Any:
+        """Run something on the radios' own thread and wait for the answer.
+
+        For the settings screen, which asks a question and needs it answered
+        before it can show anything. The ride loop never waits on this.
+        """
+        loop = self.sensor_loop or SensorLoop()
+        loop.start()
+        self.sensor_loop = loop
+        return loop.run(work, timeout)
+
+    def reconsider(self, simulated_watts: float | None = None) -> None:
+        """Take up settings the rider changed without leaving the ride.
+
+        A menu that only takes effect next time is a menu a rider does not
+        trust. Weight and bicycle apply at once; a sensor paired here starts
+        being listened to; a stand-in rider starts or stops pedalling.
+        """
+        settings = self.settings = Settings.load()
+        self.bike = settings.bike
+        self.session.bike = self.bike
+        self.setup = replace(
+            self.setup,
+            simulated_watts=simulated_watts,
+            paired_device_ids=tuple(settings.paired_device_ids),
+        )
+        self.sensors = self._prepare_sensors()
+        self.rider_source = (
+            SimulatedSensors(steady(power_w=simulated_watts))
+            if simulated_watts is not None and not self.sensors
+            else None
+        )
+        if self.setup.simulated and self.recorder is not None:
+            # Invented watts must not join a real recording. Turning the
+            # stand-in on mid-ride throws away what was kept so far, which is
+            # the only honest thing to do with a file that would otherwise be
+            # part real and part not.
+            self.recorder = None
+        elif self.setup.records and self.recorder is None:
+            self.recorder = RideRecorder()
 
     def steer(self, direction: Steer) -> str | None:
         return self.navigator.steer(direction)

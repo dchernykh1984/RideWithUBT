@@ -102,12 +102,26 @@ The test for the rule is not "does it import Panda3D" but "could this be tested"
 Anything in `app/render` that answers no to the second while passing the first is
 in the wrong file.
 
-The setup screen is the same rule applied to a menu. Picking a wheel and a
-trainer from a window is walking two lists and saving the result, and none of
+The settings screen is the same rule applied to a menu, and it is where a rider
+now does everything: weight, bicycle, wheel, tyre, trainer, trainer control,
+scanning and pairing sensors, the language, and the stand-in rider. None of
 that needs a window to be decided, so `app/core/preferences.py` holds a
 `SetupMenu` - rows, where each points, what the choices are worth - and the
-renderer only draws its lines and hands it key presses. It is the same
-catalogue and the same settings file the command line writes.
+renderer draws its lines and hands it key presses. It is the same catalogue and
+the same settings file the command line writes.
+
+Two things about it are worth saying:
+
+- **Scanning is handed in.** It is the one thing a settings screen does that
+  reaches outside the machine, so the menu takes a callable rather than
+  importing a radio, and every one of its tests runs on a machine with no
+  Bluetooth in the room.
+- **Closing the menu applies everything at once.** `Ride.reconsider` takes up
+  the new weight, the new bicycle, a newly paired sensor and the stand-in
+  rider without restarting: a menu that only takes effect next time is a menu a
+  rider does not trust. Turning the stand-in on mid-ride throws away what was
+  recorded so far, because a file that is part real and part invented is worse
+  than no file.
 
 ## Sensors
 

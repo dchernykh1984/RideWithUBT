@@ -170,12 +170,21 @@ they really are: their footprints come from the same survey as the track.
 Left and right arrows choose which way to go at a junction, space ends a workout
 step that runs until you say so, and escape quits.
 
-Tab opens the setup screen without leaving the ride: arrows move between the
-wheel, tyre, trainer and control rows and through each row's options, and the
-line underneath says what the choices are worth - the rollout, and the power
-that speed will be read as. Tab again closes it and saves. Everything on that
-screen can also be set from the command line above; it is the same catalogue and
-the same settings file, in the place where a rider is actually sitting.
+**Tab opens the settings, without leaving the ride.** Everything is there:
+what you weigh, which bicycle you are riding, the wheel and tyre on the
+trainer, the trainer and how it is controlled, the sensors - including scanning
+for them and pairing them - the language, and a stand-in rider you can wind up
+to a power of your choosing when nobody is pedalling. Arrows move between rows
+and through each row's options, Enter works a row that does something, and the
+line underneath says what the choices are worth: the weight all in, the speed
+250 W buys, the rollout, and the watts a speed will be read as.
+
+Tab again closes it and applies everything at once - a new weight, a newly
+paired sensor and a stand-in rider all take effect without restarting.
+
+Everything on that screen can also be set from the command line above. It is
+the same catalogue and the same settings file, in the place where a rider is
+actually sitting.
 
 Speed is computed from power, weight, gradient and air, not set. What you weigh
 and what you are riding both matter and neither can be guessed: weight decides
