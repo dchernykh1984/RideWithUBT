@@ -8,7 +8,7 @@ the pieces are split the way they are.
 ## Conventions
 
 - Python 3.14, everything through uv: `uv run pytest`, `uv run ruff check .`,
-  `uv run mypy app tests`.
+  `uv run mypy app tests scripts`.
 - Never commit to `main`. Branch off `origin/main`, one logical change per commit.
 - Commit messages: one-line Conventional Commits, no body, no `Co-Authored-By` trailer
   and no co-author line. `cz check --rev-range origin/main..HEAD` runs on every PR, and
@@ -18,16 +18,29 @@ the pieces are split the way they are.
   exempt - translations cannot be ASCII). A pre-commit hook and the `.claude` PostToolUse
   guard both enforce it. Chat in any language; code stays ASCII.
 - Before committing run the full gate: `uv run pytest` (coverage gate 90%),
-  `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy app tests`.
+  `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy app tests scripts`.
   `uv run` may rewrite `uv.lock`; keep it out of feature commits with
   `git checkout uv.lock` unless the lock itself is the change.
+- **Update the writing in the same change.** `docs/architecture.md`, `README.md`,
+  this file and `.claude/skills/*` are part of the deliverable, not follow-up work -
+  and so are the tests. If you find writing that has drifted, fix it while you are
+  there. See the `shipping-a-change` skill.
 
-## The one rule about layout
+## The two rules about layout
 
-Only `app/render/` may import Panda3D or touch the window. The simulation, the sensors,
-the workout engine and the world model must run headless, because that is what makes
-them testable and what would let a second frontend exist later. A `from panda3d...`
-import anywhere else is a bug.
+**Only `app/render/` may import Panda3D or touch the window.** The simulation, the
+sensors, the workout engine and the world model must run headless, because that is what
+makes them testable and what would let a second frontend exist later. A
+`from panda3d...` import anywhere else is a bug (`tests/test_layout.py`).
+
+**Only `app/services/` may reach a network.** Everything else must work with the cable
+pulled. `tests/test_offline.py` names each module there and what it may reach, with the
+reason; a new one that opens a socket fails until it is listed. Bluetooth and ANT+ are
+not networks - they talk to what is in the room.
+
+The renderer decides nothing. Anything in `app/render/` that could be tested but is not
+is in the wrong file: that is how the settings menu ended up in `app/core/preferences.py`
+and the ride loop in `app/core/ride.py`.
 
 ## What the tests do not cover
 
@@ -39,13 +52,36 @@ the build rather than a user's first launch.
 
 ## Where data lives
 
-`app/data/` is inside the package, so it ships in the frozen app: catalogues,
-textures, world descriptions. Anything only a generator needs - a raw
-OpenStreetMap extract, say - belongs in `build-data/` at the root instead, tracked
-but not shipped. Adding a trainer or a wheel size is a data change; see
+`app/data/` is inside the package, so it ships in the frozen app: catalogues, textures,
+world descriptions, the icon. Anything only a generator needs - a raw OpenStreetMap
+extract, the logo, a reference ride - belongs in `build-data/` at the root instead,
+tracked but not shipped. Adding a trainer or a wheel size is a data change; see
 `docs/trainers.md`.
+
+**Everything about a map lives in the map.** A world file carries its segments,
+junctions, routes, origin, start position and buildings. There will be other maps, and
+nothing about one should have to be found somewhere else.
+
+Several tracked files are generated from those inputs and a test fails when they drift -
+the worlds, the textures, the icons. Change the input and rerun the generator; the
+`shipping-a-change` skill lists which command builds what.
+
+## Things that look fine and are not
+
+Learned the hard way; each cost a release or a wrong answer.
+
+- **A packaged application is not the application.** `--selftest` runs on the *frozen*
+  binary in CI and checks that lazily-reached modules imported and that Panda3D can
+  actually find a display module. A build that imports cleanly can still fail to open a
+  window - see `app/frozen.py`.
+- **A ride nobody pedalled is not a ride.** Simulated riding must be asked for by name
+  with a power, and is never recorded. `RideSetup.records` is deliberately a different
+  question from `RideSetup.record`.
+- **Uploads and rooms go straight from the rider's machine to the other end.** This
+  project runs no server, and adding one changes what the application is.
 
 ## Skills
 
-- `shipping-a-change` - branch, commit, open the PR, watch CI to green.
+- `shipping-a-change` - branch, commit, open the PR, watch CI to green, cut the release,
+  and keep the writing in step.
 - `review-cycle` - review a branch or PR and land the fixes.
