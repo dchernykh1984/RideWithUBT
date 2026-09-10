@@ -102,6 +102,20 @@ The test for the rule is not "does it import Panda3D" but "could this be tested"
 Anything in `app/render` that answers no to the second while passing the first is
 in the wrong file.
 
+**The application opens on a front screen, not on the track.** Dropping a rider
+straight into a lap with a stand-in pedalling was the wrong first thing to see.
+What is on it is what changes every session - which circuit, which way round,
+which workout, and go. What is behind Settings is what changes once: the
+trainer, the sensors, the wheel, the rider's weight. `app/core/startscreen.py`
+holds that list, `app/core/rows.py` holds the rows both screens are built from,
+and the renderer draws either through the same panel.
+
+**Both answer to the mouse.** A menu that only takes the arrow keys is one
+somebody reaches for with a mouse and finds does nothing. Moving the pointer
+marks a row, clicking works it, the wheel steps through a list. Which row the
+pointer is over is arithmetic - a top, a line height, a count - so it is a
+`Layout` in `app/core/rows.py` and not a sum in the renderer.
+
 The settings screen is the same rule applied to a menu, and it is where a rider
 now does everything: weight, bicycle, wheel, tyre, trainer, trainer control,
 scanning and pairing sensors, the language, and the stand-in rider. None of

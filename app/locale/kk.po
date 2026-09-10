@@ -44,3 +44,6 @@ msgstr "оңға"
 
 msgid "straight on"
 msgstr "тіке"
+
+msgid "Arrows or mouse to choose, space to ride"
+msgstr "Тандау - тілсызықтар не тінтуір, бос орын - жүру"

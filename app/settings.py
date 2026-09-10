@@ -39,6 +39,12 @@ class Settings:
     #: The Garmin Connect account to import from. Only the name is kept here;
     #: the password lives in the operating system's credential store.
     garmin_username: str = ""
+    #: What the rider last chose to ride, so the application opens on it. Kept
+    #: here rather than asked for every time: a rider who rides the same
+    #: circuit every week should not have to say so every week.
+    world_id: str = "sokol"
+    route_id: str = ""
+    workout_name: str = ""
     #: Shown to other riders in a room, and only ever sent to a relay the rider
     #: asked to join. Empty until they do.
     rider_name: str = ""

@@ -23,6 +23,17 @@ from dataclasses import dataclass, field
 from app import i18n
 from app.core import physics
 from app.core.control import ControlMode
+from app.core.rows import (
+    ActionRow,
+    Choice,
+    ChoiceRow,
+    DeviceRow,
+    Found,
+    Heading,
+    NumberRow,
+    Row,
+    ToggleRow,
+)
 from app.settings import Settings
 from app.trainer import catalog, wheels
 
@@ -43,180 +54,6 @@ SCAN = "Scan for sensors"
 #: How long a scan listens for. Long enough for a sleepy sensor to wake up and
 #: answer, short enough that a rider does not think it has hung.
 SCAN_SECONDS = 6.0
-
-
-@dataclass(frozen=True)
-class Choice:
-    """One option in a row: what is stored, and what the rider reads."""
-
-    value: str
-    label: str
-
-
-@dataclass(frozen=True)
-class Found:
-    """A sensor a radio answered with. Only what the menu needs to show it."""
-
-    id: str
-    label: str
-
-
-class Row:
-    """One line of the menu."""
-
-    name: str
-
-    @property
-    def reading(self) -> str:  # pragma: no cover - every row overrides this
-        raise NotImplementedError
-
-    def change(self, by: int) -> None:
-        """Left and right. A row that does not adjust ignores it."""
-
-    def activate(self) -> None:
-        """Enter. A row that does nothing on Enter ignores it."""
-
-    @property
-    def selectable(self) -> bool:
-        return True
-
-
-@dataclass
-class Heading(Row):
-    """A label between groups of rows. Not somewhere the marker can rest."""
-
-    name: str
-
-    @property
-    def reading(self) -> str:
-        return ""
-
-    @property
-    def selectable(self) -> bool:
-        return False
-
-
-@dataclass
-class ChoiceRow(Row):
-    """A row that steps through a list."""
-
-    name: str
-    choices: tuple[Choice, ...]
-    index: int = 0
-
-    @property
-    def chosen(self) -> Choice | None:
-        return self.choices[self.index] if self.choices else None
-
-    @property
-    def value(self) -> str:
-        chosen = self.chosen
-        return chosen.value if chosen else ""
-
-    @property
-    def reading(self) -> str:
-        chosen = self.chosen
-        return chosen.label if chosen else "-"
-
-    def change(self, by: int) -> None:
-        """Step through the options, wrapping - a list is a ring in a menu."""
-        if self.choices:
-            self.index = (self.index + by) % len(self.choices)
-
-    def point_at(self, value: str) -> None:
-        for index, choice in enumerate(self.choices):
-            if choice.value == value:
-                self.index = index
-                return
-
-
-@dataclass
-class NumberRow(Row):
-    """A row that counts up and down: a weight, a power, a drag figure."""
-
-    name: str
-    value: float
-    step: float
-    low: float
-    high: float
-    unit: str = ""
-    decimals: int = 0
-    #: What to show instead of a number at the bottom of the range. A weight has
-    #: no such thing; a stand-in rider at zero watts is "off", which is the
-    #: whole point of the row.
-    off_label: str = ""
-
-    @property
-    def is_off(self) -> bool:
-        return bool(self.off_label) and self.value <= self.low
-
-    @property
-    def reading(self) -> str:
-        if self.is_off:
-            return self.off_label
-        return f"{self.value:.{self.decimals}f}{self.unit}"
-
-    def change(self, by: int) -> None:
-        stepped = self.value + by * self.step
-        self.value = min(max(stepped, self.low), self.high)
-
-
-@dataclass
-class ToggleRow(Row):
-    """A row that is either on or off."""
-
-    name: str
-    on: bool = False
-    on_label: str = "yes"
-    off_label: str = "no"
-
-    @property
-    def reading(self) -> str:
-        return self.on_label if self.on else self.off_label
-
-    def change(self, by: int) -> None:
-        self.on = not self.on
-
-    def activate(self) -> None:
-        self.on = not self.on
-
-
-@dataclass
-class ActionRow(Row):
-    """A row that does something when the rider presses Enter."""
-
-    name: str
-    do: Callable[[], None]
-    reading_of: Callable[[], str] = lambda: ""
-
-    @property
-    def reading(self) -> str:
-        return self.reading_of()
-
-    def activate(self) -> None:
-        self.do()
-
-
-@dataclass
-class DeviceRow(Row):
-    """One sensor, and whether the rider is listening to it."""
-
-    name: str
-    device_id: str
-    paired: set[str]
-
-    @property
-    def reading(self) -> str:
-        return "paired" if self.device_id in self.paired else "not paired"
-
-    def change(self, by: int) -> None:
-        self.activate()
-
-    def activate(self) -> None:
-        if self.device_id in self.paired:
-            self.paired.discard(self.device_id)
-        else:
-            self.paired.add(self.device_id)
 
 
 @dataclass
@@ -378,6 +215,13 @@ class SetupMenu:
             self.selected = (self.selected + step) % len(self.rows)
             if self.rows[self.selected].selectable:
                 return
+
+    def point_at(self, index: int) -> bool:
+        """Put the marker on a row, for a mouse moving over it."""
+        if 0 <= index < len(self.rows) and self.rows[index].selectable:
+            self.selected = index
+            return True
+        return False
 
     def change(self, by: int) -> None:
         """Left and right within the selected row."""

@@ -44,3 +44,6 @@ msgstr "направо"
 
 msgid "straight on"
 msgstr "прямо"
+
+msgid "Arrows or mouse to choose, space to ride"
+msgstr "Выбор стрелками или мышью, пробел - поехали"
