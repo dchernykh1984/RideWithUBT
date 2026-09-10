@@ -29,8 +29,16 @@ DEFAULT_CADENCE_RPM = 85.0
 #: thing on the tarmac instead of through it - without it the pedals swing
 #: seventeen centimetres below the road at the bottom of every stroke.
 BOTTOM_BRACKET_M = 0.27
-#: A road wheel with a tyre on it.
+#: A road wheel with a tyre on it, and how far apart the two are.
 WHEEL_RADIUS_M = 0.34
+WHEELBASE_M = 1.02
+#: How far ahead of the bottom bracket the front axle sits. Nothing a rider
+#: holds on to should be beyond it by more than the length of an extension.
+FRONT_AXLE_M = 0.60
+
+#: How much bend a leg keeps at the bottom of the stroke. A rider sets their
+#: saddle so the knee never quite straightens, and one that does looks wrong.
+KNEE_MARGIN_M = 0.02
 
 #: Below this the pedals are stopped rather than turning slowly. A cadence
 #: sensor reports small numbers as a wheel coasts to a halt, and legs still
@@ -60,6 +68,75 @@ class LegPose:
 
 
 @dataclass(frozen=True)
+class Posture:
+    """How a rider sits on a particular bicycle.
+
+    The same person on a time trial bicycle and sitting up on the hoods is two
+    quite different shapes, and the difference is the whole reason one is
+    faster than the other. Drawing them the same would say the choice does not
+    matter, when it is worth six kilometres an hour.
+
+    The torso is the same length in all of them - it is the same rider - so
+    what changes is where the shoulders and the hands are.
+    """
+
+    bike_id: str
+    hip: Joint
+    shoulder: Joint
+    hands: Joint
+    #: Extensions to rest the forearms on, drawn ahead of the bars.
+    aerobars: bool = False
+
+
+#: The postures, from sitting up to a time trial bicycle. The lean angles are
+#: the usual ones: about sixty-five degrees off horizontal sitting up, forty-
+#: five on the hoods, and flat enough on a time trial bicycle that the back is
+#: nearly level.
+POSTURES: tuple[Posture, ...] = (
+    Posture(
+        "upright",
+        hip=Joint(-0.12, 0.710),
+        shoulder=Joint(0.13, 1.24),
+        hands=Joint(0.46, 1.00),
+    ),
+    Posture(
+        "road",
+        hip=Joint(-0.10, 0.715),
+        shoulder=Joint(0.31, 1.13),
+        hands=Joint(0.64, 0.90),
+    ),
+    Posture(
+        "road-drops",
+        hip=Joint(-0.10, 0.715),
+        shoulder=Joint(0.38, 1.05),
+        hands=Joint(0.66, 0.72),
+    ),
+    Posture(
+        "road-aerobars",
+        hip=Joint(-0.06, 0.718),
+        shoulder=Joint(0.47, 0.96),
+        hands=Joint(0.74, 0.90),
+        aerobars=True,
+    ),
+    Posture(
+        "tt",
+        hip=Joint(-0.02, 0.720),
+        shoulder=Joint(0.54, 0.87),
+        hands=Joint(0.78, 0.88),
+        aerobars=True,
+    ),
+)
+
+
+def posture(bike_id: str) -> Posture:
+    """How a rider sits on this bicycle, or on a road one if it is not listed."""
+    for known in POSTURES:
+        if known.bike_id == bike_id:
+            return known
+    return next(known for known in POSTURES if known.bike_id == "road")
+
+
+@dataclass(frozen=True)
 class Rider:
     """The rider's dimensions. A bicycle is measured from its bottom bracket.
 
@@ -71,12 +148,17 @@ class Rider:
     crank_m: float = 0.1725
     thigh_m: float = 0.45
     shin_m: float = 0.48
-    #: The hip: saddle height above the bottom bracket, and a little behind it.
-    hip_along_m: float = -0.10
-    hip_up_m: float = 0.72
+    #: Which bicycle they are on, which is what decides how they sit on it.
+    bike_id: str = "road"
+
+    @property
+    def posture(self) -> Posture:
+        return posture(self.bike_id)
 
     def __post_init__(self) -> None:
-        lowest = Joint(0.0, -self.crank_m).distance_to(self.hip)
+        # A margin, not just a reach: a leg that only just gets there locks
+        # straight at the bottom of every stroke and looks like a mannequin.
+        lowest = Joint(0.0, -self.crank_m).distance_to(self.hip) + KNEE_MARGIN_M
         if self.thigh_m + self.shin_m <= lowest:
             raise ValueError(
                 f"a leg of {self.thigh_m + self.shin_m:.2f} m cannot reach a pedal "
@@ -85,7 +167,7 @@ class Rider:
 
     @property
     def hip(self) -> Joint:
-        return Joint(self.hip_along_m, self.hip_up_m)
+        return self.posture.hip
 
     def pedal_at(self, angle_rad: float) -> Joint:
         """Where a pedal is, with the crank at this angle.

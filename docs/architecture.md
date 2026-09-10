@@ -267,6 +267,14 @@ broken, and that is the state most riders will see first. Below five revolutions
 a minute the legs stop, because a sensor reports small numbers as a wheel coasts
 to a halt.
 
+**A rider sits differently on each bicycle**, and the figure does too:
+`POSTURES` puts the shoulders and the hands where that position puts them, from
+sitting up to a time trial bicycle with the forearms on extensions. Drawing
+them all the same would say the choice does not matter, when it is worth six
+kilometres an hour - and the speed on screen already says otherwise. It is the
+same person on all of them, so the torso is the same length and the saddle the
+same height above the pedals; what moves is everything else.
+
 Two things this cost, both worth having:
 
 - **Meshes can carry their own normals now.** The track and the ground are lit

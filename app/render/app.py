@@ -38,7 +38,7 @@ from panda3d.core import (
 
 from app import paths
 from app.core.companions import departed
-from app.core.figure import BOTTOM_BRACKET_M, Cranks
+from app.core.figure import BOTTOM_BRACKET_M, Cranks, Rider
 from app.core.preferences import Found, SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
 from app.core.rows import ActionRow, DeviceRow, Layout, ToggleRow
@@ -222,6 +222,19 @@ class RideApp(ShowBase):
         if repeat != 1.0:
             node.setTexScale(TextureStage.getDefault(), repeat, repeat)
 
+    def _refresh_rider(self) -> None:
+        """Put the rider on the bicycle they just chose.
+
+        A rider sitting up on the hoods and one on a time trial bicycle are two
+        quite different shapes, and that difference is the whole reason one is
+        faster - drawing them the same would say the choice does not matter.
+        """
+        wanted = (self.ride.settings or Settings.load()).virtual_bike_id
+        if wanted == self.rider.rider.bike_id:
+            return
+        self.rider.root.removeNode()
+        self.rider = Cyclist(self.render, Rider(bike_id=wanted))
+
     def _build_rider(self) -> Cyclist:
         """A person on a bicycle, with legs that go round.
 
@@ -229,7 +242,7 @@ class RideApp(ShowBase):
         say something no number does: that the pedals are going round, and how
         fast.
         """
-        return Cyclist(self.render)
+        return Cyclist(self.render, Rider(bike_id=Settings.load().virtual_bike_id))
 
     def _build_arrow(self) -> NodePath:
         node = self.render.attachNewNode(arrow_node("junction-arrow"))
@@ -412,6 +425,7 @@ class RideApp(ShowBase):
         else:
             self.menu.save()
             self.ride.reconsider(self.menu.simulated_watts)
+            self._refresh_rider()
             self.menu = None
         self._update_menu()
 

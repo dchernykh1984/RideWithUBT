@@ -15,7 +15,13 @@ import math
 
 from panda3d.core import NodePath
 
-from app.core.figure import BOTTOM_BRACKET_M, WHEEL_RADIUS_M, Joint, Rider
+from app.core.figure import (
+    BOTTOM_BRACKET_M,
+    WHEEL_RADIUS_M,
+    WHEELBASE_M,
+    Joint,
+    Rider,
+)
 from app.render.geometry import geom_node
 from app.world.solids import box, tube
 
@@ -57,7 +63,7 @@ class Cyclist:
     # the node is put at the road's height plus the wheel's radius.
 
     def _build_bicycle(self) -> None:
-        wheelbase = 1.02
+        wheelbase = WHEELBASE_M
         radius = WHEEL_RADIUS_M
         # The wheels' centres, measured from the bottom bracket rather than
         # from the road: everything here is.
@@ -78,6 +84,10 @@ class Cyclist:
             ((0.46, 0.56), (0.62, 0.56), 0.04),  # bars
         ):
             self._strut(Joint(*start), Joint(*end), thickness, BIKE)
+        if self.rider.posture.aerobars:
+            # Extensions to rest the forearms on, reaching towards the hands:
+            # they are most of what makes a time trial position what it is.
+            self._strut(Joint(0.50, 0.58), self.rider.posture.hands, 0.035, BIKE)
         # The chainring, so the cranks have something to turn on.
         ring = self._part(tube(0.02, 0.10, hollow=True), BIKE, "chainring")
         ring.setHpr(90.0, 0.0, 0.0)
@@ -85,17 +95,23 @@ class Cyclist:
 
     def _build_body(self) -> None:
         """A rider bent over the bars: a back, arms, and a head."""
-        hip = self.rider.hip
-        shoulder = Joint(0.36, 0.94)
+        posture = self.rider.posture
+        hip, shoulder = posture.hip, posture.shoulder
         self._strut(hip, shoulder, 0.17, JERSEY)
         for side in (TRACK_M, -TRACK_M):
-            arm = self._strut(shoulder, Joint(0.60, 0.58), 0.07, SKIN)
+            arm = self._strut(shoulder, posture.hands, 0.07, SKIN)
             arm.setY(side)
         # A helmet, across the bike rather than along it: a disc pointing at
-        # the rider behind is not a head.
+        # the rider behind is not a head. It goes on ahead of the shoulders,
+        # along the line the back is already running.
+        lean = math.atan2(shoulder.up_m - hip.up_m, shoulder.along_m - hip.along_m)
         head = self._part(tube(0.19, 0.095), JERSEY, "head")
         head.setHpr(90.0, 0.0, 0.0)
-        head.setPos(shoulder.along_m + 0.13, -0.095, shoulder.up_m + 0.02)
+        head.setPos(
+            shoulder.along_m + 0.14 * math.cos(lean),
+            -0.095,
+            shoulder.up_m + 0.14 * math.sin(lean),
+        )
 
     def _strut(
         self, start: Joint, end: Joint, thickness: float, colour: tuple[float, ...]
