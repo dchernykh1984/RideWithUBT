@@ -189,6 +189,243 @@ class DeviceRow(Row):
             self.paired.add(self.device_id)
 
 
+@dataclass
+class Typing:
+    """A number being typed into a row.
+
+    Stepping a weight to 83 kg with an arrow key is eighty-three key presses.
+    A field you click and type into is one - which is what a number field is
+    for, and what this is.
+    """
+
+    row: NumberRow
+    text: str = ""
+
+    def key(self, character: str) -> None:
+        """Take one keystroke. Digits and a single decimal point, nothing else."""
+        if character.isdigit():
+            self.text += character
+        elif character in ".," and "." not in self.text:
+            self.text += "."
+        if len(self.text) > MAX_TYPED:
+            self.text = self.text[:MAX_TYPED]
+
+    def backspace(self) -> None:
+        self.text = self.text[:-1]
+
+    @property
+    def reading(self) -> str:
+        """What the field shows while it is being typed into."""
+        return f"{self.text}_"
+
+    def commit(self) -> bool:
+        """Put what was typed into the row. False if it was not a number.
+
+        Out of range is not refused, it is pulled back into range: somebody
+        typing 300 for their weight meant 300, and the row knows what a weight
+        can be.
+        """
+        try:
+            wanted = float(self.text)
+        except ValueError:
+            return False
+        self.row.value = min(max(wanted, self.row.low), self.row.high)
+        return True
+
+
+@dataclass
+class Picking:
+    """A list opened on a row, to choose from rather than to cycle through.
+
+    A row that steps through forty trainers one arrow press at a time is a row
+    nobody reaches the end of. Opening the list shows them all and puts the
+    marker on the one already chosen.
+    """
+
+    row: ChoiceRow
+    index: int = 0
+
+    def move(self, by: int) -> None:
+        if self.row.choices:
+            self.index = (self.index + by) % len(self.row.choices)
+
+    def point_at(self, index: int) -> bool:
+        if 0 <= index < len(self.row.choices):
+            self.index = index
+            return True
+        return False
+
+    def choose(self) -> None:
+        self.row.index = self.index
+
+    def lines(self) -> list[tuple[str, str]]:
+        """The list as a panel draws it, with a marker on where it is now."""
+        return [
+            (
+                f"{'> ' if index == self.index else '  '}{choice.label}",
+                "in use" if index == self.row.index else "",
+            )
+            for index, choice in enumerate(self.row.choices)
+        ]
+
+
+#: Nobody types a weight longer than this, and a field that accepts a hundred
+#: digits is a field that has stopped being a number.
+MAX_TYPED = 7
+
+
+class Panel:
+    """A list of rows a person works with: the front screen, or the settings.
+
+    Both are the same thing with different rows in them, and both are worked
+    the same way - arrows or a mouse to move, a click or Enter to open a field,
+    and either a list to pick from or a number to type.
+    """
+
+    rows: list[Row]
+    selected: int
+    typing: Typing | None = None
+    picking: Picking | None = None
+
+    # Reaching for a row.
+
+    def row(self, name: str) -> Row:
+        """The row by what it decides, rather than by where it happens to sit.
+
+        Headings are skipped: a section and a row inside it can be about the
+        same thing and share a word, and asking for "Trainer" means the row.
+        """
+        return next(
+            row
+            for row in self.rows
+            if row.name == name and not isinstance(row, Heading)
+        )
+
+    def choice(self, name: str) -> ChoiceRow:
+        row = self.row(name)
+        if not isinstance(row, ChoiceRow):  # pragma: no cover - names are fixed
+            raise TypeError(f"{name} is not a row that chooses from a list")
+        return row
+
+    def number(self, name: str) -> NumberRow:
+        row = self.row(name)
+        if not isinstance(row, NumberRow):  # pragma: no cover - names are fixed
+            raise TypeError(f"{name} is not a row that counts")
+        return row
+
+    @property
+    def busy(self) -> bool:
+        """Whether a field is open, and the keys belong to it rather than the list."""
+        return self.typing is not None or self.picking is not None
+
+    # Moving about.
+
+    def move(self, by: int) -> None:
+        """Up and down: the open list if there is one, the rows if not."""
+        if self.picking is not None:
+            self.picking.move(by)
+            return
+        step = 1 if by >= 0 else -1
+        for _ in range(len(self.rows)):
+            self.selected = (self.selected + step) % len(self.rows)
+            if self.rows[self.selected].selectable:
+                return
+
+    def point_at(self, index: int) -> bool:
+        """Put the marker on a row, for a mouse moving over it."""
+        if self.picking is not None:
+            return self.picking.point_at(index)
+        if 0 <= index < len(self.rows) and self.rows[index].selectable:
+            self.selected = index
+            return True
+        return False
+
+    def change(self, by: int) -> None:
+        """Left and right, which still step a row without opening it."""
+        if self.picking is not None:
+            self.picking.move(by)
+            return
+        if self.typing is not None:
+            return
+        self.rows[self.selected].change(by)
+        self.changed(self.rows[self.selected])
+
+    def changed(self, row: Row) -> None:
+        """What to do after a row changes. Panels that care override this."""
+
+    # Opening and closing a field.
+
+    def activate(self) -> None:
+        """Enter, or a click: open the field, or take what is in the open one."""
+        if self.picking is not None:
+            self.picking.choose()
+            chosen = self.picking.row
+            self.picking = None
+            self.changed(chosen)
+            return
+        if self.typing is not None:
+            self.commit()
+            return
+        here = self.rows[self.selected]
+        if isinstance(here, ChoiceRow) and len(here.choices) > 1:
+            self.picking = Picking(here, here.index)
+            return
+        if isinstance(here, NumberRow):
+            self.typing = Typing(here)
+            return
+        here.activate()
+        self.changed(here)
+
+    def key(self, character: str) -> None:
+        if self.typing is not None:
+            self.typing.key(character)
+
+    def backspace(self) -> None:
+        if self.typing is not None:
+            self.typing.backspace()
+
+    def commit(self) -> None:
+        """Take what was typed, if it was a number, and close the field."""
+        if self.typing is None:  # pragma: no cover - callers check first
+            return
+        row = self.typing.row
+        self.typing.commit()
+        self.typing = None
+        self.changed(row)
+
+    def cancel(self) -> None:
+        """Escape: close the field and keep what was there before."""
+        self.typing = None
+        self.picking = None
+
+    # What it says.
+
+    def columns(self) -> list[tuple[str, str]]:
+        """The panel as two columns, or the open list if there is one."""
+        if self.picking is not None:
+            return self.picking.lines()
+        drawn = []
+        for index, row in enumerate(self.rows):
+            if isinstance(row, Heading):
+                # Left as it is written, not shouted here: a renderer that
+                # translates a label first cannot uppercase it beforehand.
+                drawn.append((row.name, ""))
+                continue
+            marker = "> " if index == self.selected else "  "
+            reading = (
+                self.typing.reading
+                if self.typing is not None and self.typing.row is row
+                else row.reading
+            )
+            drawn.append((f"{marker}{row.name}", reading))
+        return drawn
+
+    @property
+    def title(self) -> str | None:
+        """What an open list is a list of."""
+        return self.picking.row.name if self.picking is not None else None
+
+
 @dataclass(frozen=True)
 class Layout:
     """Where the lines of a menu are drawn, so a click can be placed on one.

@@ -47,3 +47,108 @@ msgstr "прямо"
 
 msgid "Arrows or mouse to choose, space to ride"
 msgstr "Выбор стрелками или мышью, пробел - поехали"
+
+msgid "Type a number, enter to keep it"
+msgstr "Введите число, enter - сохранить"
+
+msgid "Enter or click to choose, escape to go back"
+msgstr "Enter или клик - выбрать, escape - назад"
+
+msgid "Click a line to change it, space to ride"
+msgstr "Клик по строке - изменить, пробел - поехали"
+
+msgid "Click a line to change it, tab to close"
+msgstr "Клик по строке - изменить, tab - закрыть"
+
+msgid "Application"
+msgstr "Приложение"
+
+msgid "Bike weight"
+msgstr "Вес велосипеда"
+
+msgid "Language"
+msgstr "Язык"
+
+msgid "Quit"
+msgstr "Выход"
+
+msgid "Record trainer data"
+msgstr "Снимать данные станка"
+
+msgid "Ride without sensors"
+msgstr "Ехать без датчиков"
+
+msgid "Rider"
+msgstr "Гонщик"
+
+msgid "Riding"
+msgstr "Велосипед"
+
+msgid "Route"
+msgstr "Круг"
+
+msgid "Scan for sensors"
+msgstr "Искать датчики"
+
+msgid "Sensors"
+msgstr "Датчики"
+
+msgid "This ride"
+msgstr "Этот заезд"
+
+msgid "Track"
+msgstr "Трасса"
+
+msgid "Trainer"
+msgstr "Станок"
+
+msgid "Trainer and wheel"
+msgstr "Станок и колесо"
+
+msgid "Trainer control"
+msgstr "Управление станком"
+
+msgid "Tyre"
+msgstr "Покрышка"
+
+msgid "Wheel"
+msgstr "Колесо"
+
+msgid "Workout"
+msgstr "Тренировка"
+
+msgid "Your weight"
+msgstr "Ваш вес"
+
+msgid "start"
+msgstr "поехали"
+
+msgid "none - just ride"
+msgstr "нет - просто катание"
+
+msgid "off - your own legs"
+msgstr "выкл - вашими ногами"
+
+msgid "trainer, sensors, bike"
+msgstr "станок, датчики, велосипед"
+
+msgid "not chosen"
+msgstr "не выбран"
+
+msgid "yes"
+msgstr "да"
+
+msgid "no"
+msgstr "нет"
+
+msgid "paired"
+msgstr "подключен"
+
+msgid "not paired"
+msgstr "не подключен"
+
+msgid "in use"
+msgstr "сейчас"
+
+msgid "off"
+msgstr "выкл"

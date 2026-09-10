@@ -1,0 +1,17 @@
+DejaVu Sans is used here for the text the application draws on screen.
+
+Panda3D's own font has no Cyrillic in it, so Russian and Kazakh came out as
+rows of empty boxes - two of the three languages this application speaks.
+DejaVu covers both, including the letters Kazakh needs that Russian does not
+(ae, gh, q, ng, oe, u, ue, h, i with their own shapes).
+
+Bitstream Vera Fonts Copyright (c) 2003 by Bitstream, Inc.
+DejaVu changes are in the public domain.
+
+The Bitstream Vera licence permits redistribution, with or without
+modification, provided the fonts are not sold by themselves and the names
+"Bitstream" and "Vera" are not used in modified versions without permission.
+Neither applies here: the font travels inside an application that is given
+away, and it is unmodified.
+
+The full text is at https://dejavu-fonts.github.io/License.html

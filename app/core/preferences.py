@@ -31,6 +31,7 @@ from app.core.rows import (
     Found,
     Heading,
     NumberRow,
+    Panel,
     Row,
     ToggleRow,
 )
@@ -57,7 +58,7 @@ SCAN_SECONDS = 6.0
 
 
 @dataclass
-class SetupMenu:
+class SetupMenu(Panel):
     """Everything a rider decides before riding, as rows to move through.
 
     `scanner` is how the menu reaches a radio. Handed in rather than reached
@@ -143,16 +144,6 @@ class SetupMenu:
             Heading("Sensors"),
             *self._device_rows(),
             ActionRow(SCAN, self.scan, lambda: self.note),
-            Heading("Riding"),
-            NumberRow(
-                SIMULATE,
-                0.0,
-                10.0,
-                0.0,
-                600.0,
-                " W",
-                off_label="off - your own legs",
-            ),
             Heading("Application"),
             languages,
         ]
@@ -180,69 +171,19 @@ class SetupMenu:
         size = wheels.catalogue().size(chosen.value)
         return tuple(Choice(width.id, width.id) for width in size.widths)
 
-    # Reaching for it.
-
-    def row(self, name: str) -> Row:
-        """The row by what it decides, rather than by where it happens to sit.
-
-        Headings are skipped: a section and a row inside it can be about the
-        same thing and share a word, and asking for "Trainer" means the row.
-        """
-        return next(
-            row
-            for row in self.rows
-            if row.name == name and not isinstance(row, Heading)
-        )
-
-    def choice(self, name: str) -> ChoiceRow:
-        row = self.row(name)
-        if not isinstance(row, ChoiceRow):  # pragma: no cover - names are fixed
-            raise TypeError(f"{name} is not a row that chooses from a list")
-        return row
-
-    def number(self, name: str) -> NumberRow:
-        row = self.row(name)
-        if not isinstance(row, NumberRow):  # pragma: no cover - names are fixed
-            raise TypeError(f"{name} is not a row that counts")
-        return row
-
-    # Moving about.
-
-    def move(self, by: int) -> None:
-        """Up and down the rows, stepping over the headings."""
-        step = 1 if by >= 0 else -1
-        for _ in range(len(self.rows)):
-            self.selected = (self.selected + step) % len(self.rows)
-            if self.rows[self.selected].selectable:
-                return
-
-    def point_at(self, index: int) -> bool:
-        """Put the marker on a row, for a mouse moving over it."""
-        if 0 <= index < len(self.rows) and self.rows[index].selectable:
-            self.selected = index
-            return True
-        return False
-
-    def change(self, by: int) -> None:
-        """Left and right within the selected row."""
-        row = self.rows[self.selected]
-        row.change(by)
+    def changed(self, row: Row) -> None:
+        """A tyre width belongs to a rim: 2.1in is not a 650c size, and 20 mm
+        is not a mountain bike one. Changing the rim rebuilds the width list
+        and offers the width the rider asked for wherever a rim takes it, so
+        that walking from 700c to 26in past two rims with no 35 mm still
+        arrives on 35 mm."""
         if isinstance(row, ChoiceRow) and row.name == TYRE_WIDTH:
             self.wanted_width = row.value
         if isinstance(row, ChoiceRow) and row.name == WHEEL_SIZE:
-            # A tyre width belongs to a rim: 2.1in is not a 650c size, and 20 mm
-            # is not a mountain bike one. Changing the rim rebuilds the list and
-            # offers the width the rider asked for wherever a rim takes it, so
-            # that walking from 700c to 26in past two rims with no 35 mm still
-            # arrives on 35 mm.
             widths = self.choice(TYRE_WIDTH)
             widths.choices = self._widths(row)
             widths.index = 0
             widths.point_at(self.wanted_width)
-
-    def activate(self) -> None:
-        """Enter on the selected row."""
-        self.rows[self.selected].activate()
 
     # Doing things that reach outside.
 
@@ -276,32 +217,9 @@ class SetupMenu:
 
     # What it says, and what it keeps.
 
-    def columns(self) -> list[tuple[str, str]]:
-        """The menu as two columns: what each row is, and what it says.
-
-        Two rather than one padded string, because the font a window draws
-        with is not monospaced - padding with spaces lines nothing up, and a
-        long label shoves its value out of the column. The renderer puts each
-        column at its own left margin, which is what makes a table a table.
-        """
-        drawn = []
-        for index, row in enumerate(self.rows):
-            if isinstance(row, Heading):
-                drawn.append((row.name.upper(), ""))
-                continue
-            marker = "> " if index == self.selected else "  "
-            drawn.append((f"{marker}{row.name}", row.reading))
-        return drawn
-
     def lines(self) -> list[str]:
-        """The menu as one padded string a row, for anything without columns."""
+        """The panel as one padded string a row, for anything without columns."""
         return [f"{name:26}{reading}" for name, reading in self.columns()]
-
-    @property
-    def simulated_watts(self) -> float | None:
-        """The watts a stand-in rider should push, if the rider asked for one."""
-        row = self.number(SIMULATE)
-        return None if row.is_off else row.value
 
     @property
     def summary(self) -> str:

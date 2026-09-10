@@ -16,7 +16,15 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
-from app.core.rows import ActionRow, Choice, ChoiceRow, Heading, Row
+from app.core.rows import (
+    ActionRow,
+    Choice,
+    ChoiceRow,
+    Heading,
+    NumberRow,
+    Panel,
+    Row,
+)
 from app.settings import Settings
 from app.workout.model import Workout
 from app.world.description import available_worlds
@@ -30,13 +38,18 @@ WORKOUT = "Workout"
 RIDE = "Ride"
 SETTINGS = "Settings"
 QUIT = "Quit"
+#: Riding with nobody pedalling, at a power the rider types in. On the front
+#: screen because it is a choice about *this* ride, and because a rider looking
+#: for it should not have to find it behind Settings - which is where it was,
+#: and where it was not found.
+SIMULATE = "Ride without sensors"
 
 #: The workout row when there is none: a free ride, which is most rides.
 NO_WORKOUT = ""
 
 
 @dataclass
-class StartScreen:
+class StartScreen(Panel):
     """The front screen: what to ride, and go.
 
     `workouts` is handed in rather than read here, because a rider's workout
@@ -84,6 +97,15 @@ class StartScreen:
             worlds,
             routes,
             workouts,
+            NumberRow(
+                SIMULATE,
+                0.0,
+                10.0,
+                0.0,
+                600.0,
+                " W",
+                off_label="off - your own legs",
+            ),
             Heading("Application"),
             ActionRow(SETTINGS, self.on_settings, lambda: "trainer, sensors, bike"),
             ActionRow(QUIT, self.on_quit),
@@ -99,60 +121,23 @@ class StartScreen:
 
     # Reaching for it.
 
-    def row(self, name: str) -> Row:
-        return next(
-            row
-            for row in self.rows
-            if row.name == name and not isinstance(row, Heading)
-        )
-
-    def choice(self, name: str) -> ChoiceRow:
-        row = self.row(name)
-        if not isinstance(row, ChoiceRow):  # pragma: no cover - names are fixed
-            raise TypeError(f"{name} is not a row that chooses from a list")
-        return row
-
-    # Moving about.
-
-    def move(self, by: int) -> None:
-        step = 1 if by >= 0 else -1
-        for _ in range(len(self.rows)):
-            self.selected = (self.selected + step) % len(self.rows)
-            if self.rows[self.selected].selectable:
-                return
-
-    def point_at(self, index: int) -> bool:
-        """Put the marker on a row, for a mouse moving over it."""
-        if 0 <= index < len(self.rows) and self.rows[index].selectable:
-            self.selected = index
-            return True
-        return False
-
-    def change(self, by: int) -> None:
-        row = self.rows[self.selected]
-        row.change(by)
+    def changed(self, row: Row) -> None:
+        """Every row here is a decision about the ride about to start, so it is
+        kept as it is made - unlike the settings, where stepping through a list
+        of trainers is looking rather than choosing."""
         if isinstance(row, ChoiceRow) and row.name == WORLD:
-            # Another circuit has its own ways round it; the names from the last
-            # one mean nothing here.
+            # Another circuit has its own ways round it; the names from the
+            # last one mean nothing here.
             routes = self.choice(ROUTE)
             routes.choices = self._routes(row.value)
             routes.index = 0
         self.save()
 
-    def activate(self) -> None:
-        self.rows[self.selected].activate()
-
-    # What it says, and what it keeps.
-
-    def columns(self) -> list[tuple[str, str]]:
-        drawn = []
-        for index, row in enumerate(self.rows):
-            if isinstance(row, Heading):
-                drawn.append((row.name.upper(), ""))
-                continue
-            marker = "> " if index == self.selected else "  "
-            drawn.append((f"{marker}{row.name}", row.reading))
-        return drawn
+    @property
+    def simulated_watts(self) -> float | None:
+        """The watts a stand-in rider should push, if one was asked for."""
+        row = self.number(SIMULATE)
+        return None if row.is_off else row.value
 
     @property
     def chosen_workout(self) -> Workout | None:

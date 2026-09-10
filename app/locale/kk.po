@@ -47,3 +47,108 @@ msgstr "тіке"
 
 msgid "Arrows or mouse to choose, space to ride"
 msgstr "Тандау - тілсызықтар не тінтуір, бос орын - жүру"
+
+msgid "Type a number, enter to keep it"
+msgstr "Санды теріңіз, enter - сақтау"
+
+msgid "Enter or click to choose, escape to go back"
+msgstr "Enter не басу - таңдау, escape - артқа"
+
+msgid "Click a line to change it, space to ride"
+msgstr "Жолды басып өзгертіңіз, бос орын - жүру"
+
+msgid "Click a line to change it, tab to close"
+msgstr "Жолды басып өзгертіңіз, tab - жабу"
+
+msgid "Application"
+msgstr "Қосымша"
+
+msgid "Bike weight"
+msgstr "Велосипед салмағы"
+
+msgid "Language"
+msgstr "Тіл"
+
+msgid "Quit"
+msgstr "Шығу"
+
+msgid "Record trainer data"
+msgstr "Станок деректерін жазу"
+
+msgid "Ride without sensors"
+msgstr "Датчиксіз жүру"
+
+msgid "Rider"
+msgstr "Шабандоз"
+
+msgid "Riding"
+msgstr "Велосипед"
+
+msgid "Route"
+msgstr "Шеңбер"
+
+msgid "Scan for sensors"
+msgstr "Датчиктерді іздеу"
+
+msgid "Sensors"
+msgstr "Датчиктер"
+
+msgid "This ride"
+msgstr "Осы жүру"
+
+msgid "Track"
+msgstr "Трасса"
+
+msgid "Trainer"
+msgstr "Станок"
+
+msgid "Trainer and wheel"
+msgstr "Станок пен дөңгелек"
+
+msgid "Trainer control"
+msgstr "Станокты басқару"
+
+msgid "Tyre"
+msgstr "Дөңгелек шинасы"
+
+msgid "Wheel"
+msgstr "Дөңгелек"
+
+msgid "Workout"
+msgstr "Жаттығу"
+
+msgid "Your weight"
+msgstr "Салмағыңыз"
+
+msgid "start"
+msgstr "жүрдік"
+
+msgid "none - just ride"
+msgstr "жоқ - жай жүру"
+
+msgid "off - your own legs"
+msgstr "өшірулі - өз аяғыңызбен"
+
+msgid "trainer, sensors, bike"
+msgstr "станок, датчиктер, велосипед"
+
+msgid "not chosen"
+msgstr "таңдалмаған"
+
+msgid "yes"
+msgstr "иә"
+
+msgid "no"
+msgstr "жоқ"
+
+msgid "paired"
+msgstr "қосылған"
+
+msgid "not paired"
+msgstr "қосылмаған"
+
+msgid "in use"
+msgstr "қазір"
+
+msgid "off"
+msgstr "өшірулі"

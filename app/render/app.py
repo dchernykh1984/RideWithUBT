@@ -42,7 +42,7 @@ from app.core.companions import departed
 from app.core.figure import BOTTOM_BRACKET_M, Cranks, Rider
 from app.core.preferences import Found, SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
-from app.core.rows import ActionRow, DeviceRow, Layout, ToggleRow
+from app.core.rows import Layout
 from app.core.session import RideState
 from app.core.startscreen import StartScreen
 from app.frozen import panda_config_dir, panda_plugin_dir
@@ -155,6 +155,7 @@ class RideApp(ShowBase):
         self.arrow = self._build_arrow()
         if not headless:
             self._prepare_window(offscreen=offscreen)
+        self.font = None if headless else self._font()
         self.hud = self._build_hud(headless=headless or offscreen)
         self.menu: SetupMenu | None = None
         self.menu_text = self._build_menu_text(headless=headless or offscreen)
@@ -297,6 +298,24 @@ class RideApp(ShowBase):
             properties.setIconFilename(icon)
         self.win.requestProperties(properties)
 
+    def _font(self) -> object | None:
+        """A typeface with Cyrillic in it.
+
+        Panda3D's own font has none, so Russian and Kazakh came out as rows of
+        empty boxes - two of the three languages this application speaks. The
+        one that ships with it covers both, including the letters Kazakh needs
+        that Russian does not.
+        """
+        path = paths.packaged("fonts", "DejaVuSans.ttf")
+        if not path.exists():  # pragma: no cover - it ships with the app
+            return None
+        font = self.loader.loadFont(Filename.fromOsSpecific(str(path)).getFullpath())
+        if font is not None:
+            # Rendered big and scaled down, so text stays crisp at the size a
+            # panel draws it rather than being a blur of a small bitmap.
+            font.setPixelsPerUnit(80)
+        return font
+
     def _build_hud(self, *, headless: bool) -> OnscreenText | None:
         if headless:
             return None
@@ -307,6 +326,7 @@ class RideApp(ShowBase):
             fg=(1, 1, 1, 1),
             shadow=(0, 0, 0, 0.6),
             align=TextNode.ALeft,
+            font=self.font,
             mayChange=True,
         )
 
@@ -326,6 +346,7 @@ class RideApp(ShowBase):
             fg=(1, 1, 1, 0),
             bg=(0.04, 0.06, 0.09, 0.82),
             align=TextNode.ALeft,
+            font=self.font,
             mayChange=True,
         )
         parts = [card]
@@ -340,6 +361,7 @@ class RideApp(ShowBase):
                     scale=MENU_SCALE,
                     fg=colour,
                     align=TextNode.ALeft,
+                    font=self.font,
                     mayChange=True,
                 )
             )
@@ -375,11 +397,37 @@ class RideApp(ShowBase):
         self.accept("tab", self._toggle_menu)
         self.accept("enter", self._menu_enter)
         self.accept("mouse1", self._click)
+        # Text, for fields that are typed into rather than stepped through.
+        # There is no keyboard without a window, and a picture of the world is
+        # taken without one.
+        if self.buttonThrowers:
+            self.buttonThrowers[0].node().setKeystrokeEvent("keystroke")
+        self.accept("keystroke", self._typed)
+        self.accept("backspace", self._backspace)
         self.accept("wheel_up", self._scroll, [1])
         self.accept("wheel_down", self._scroll, [-1])
 
+    def _typed(self, character: str) -> None:
+        """A keystroke, while a number field is open."""
+        panel = self._panel()
+        if panel is None or panel.typing is None:
+            return
+        panel.key(character)
+        self._redraw_panel()
+
+    def _backspace(self) -> None:
+        panel = self._panel()
+        if panel is None or panel.typing is None:
+            return
+        panel.backspace()
+        self._redraw_panel()
+
     def _space(self) -> None:
         """Go, on the front screen; end an open workout step while riding."""
+        panel = self._panel()
+        if panel is not None and panel.busy:
+            panel.key(" ")
+            return
         if self.screen is not None:
             self._start_riding()
         else:
@@ -438,7 +486,7 @@ class RideApp(ShowBase):
             self.menu = SetupMenu(scanner=self._scan_for_sensors)
         else:
             self.menu.save()
-            self.ride.reconsider(self.menu.simulated_watts)
+            self.ride.reconsider(self.ride.setup.simulated_watts)
             self._refresh_rider()
             self.menu = None
         self._update_menu()
@@ -475,16 +523,21 @@ class RideApp(ShowBase):
             return
         chosen = self.screen.save()
         workout = self.screen.chosen_workout
+        watts = self.screen.simulated_watts
         self.screen = None
         self._hide_panel()
+        if watts != self.ride.setup.simulated_watts:
+            self.ride.reconsider(watts)
         if (
             chosen.world_id != self.ride.setup.world_id
             or chosen.route_id != (self.ride.setup.route_id or "")
             or workout is not self.ride.setup.workout
         ):
-            self._change_ride(chosen, workout)
+            self._change_ride(chosen, workout, watts)
 
-    def _change_ride(self, chosen: Settings, workout: Workout | None) -> None:
+    def _change_ride(
+        self, chosen: Settings, workout: Workout | None, watts: float | None
+    ) -> None:
         """Build the ride the rider asked for, and the scene that goes with it.
 
         The ride being replaced is finished first. A rider who does a lap, goes
@@ -501,6 +554,7 @@ class RideApp(ShowBase):
                 world_id=chosen.world_id,
                 route_id=chosen.route_id or None,
                 workout=workout,
+                simulated_watts=watts,
             )
         )
         if not world_changed:
@@ -513,7 +567,12 @@ class RideApp(ShowBase):
         self.buildings = self._build_buildings()
 
     def _show_start_screen(self) -> None:
-        """Escape: back to the front screen, or out of the application."""
+        """Escape: close an open field, then the panel, then the application."""
+        panel = self._panel()
+        if panel is not None and panel.busy:
+            panel.cancel()
+            self._redraw_panel()
+            return
         if self.menu is not None:
             self._toggle_menu()
             return
@@ -566,13 +625,11 @@ class RideApp(ShowBase):
         if panel is None or index is None:
             return
         panel.point_at(index)
-        row = panel.rows[panel.selected]
-        # A click on a row that steps through a list steps it, because that is
-        # what a rider expects of it and there is nothing else it could mean.
-        if isinstance(row, ActionRow | ToggleRow | DeviceRow):
-            panel.activate()
-        else:
-            panel.change(1)
+        # A click opens the field: a list to pick from, or a number to type
+        # into. Stepping a weight to 83 kg one arrow press at a time is
+        # eighty-three key presses, and a list of forty trainers is a list
+        # nobody reaches the end of.
+        panel.activate()
         self._redraw_panel()
 
     def _scroll(self, by: int) -> None:
@@ -614,10 +671,38 @@ class RideApp(ShowBase):
             return
         self._draw_panel(
             self.menu.columns(),
-            self.translate("Settings"),
-            self.menu.summary,
-            footer=self.translate("Press tab to close"),
+            self.translate(self.menu.title or "Settings"),
+            "" if self.menu.busy else self.menu.summary,
+            footer=self._panel_footer(self.menu),
         )
+
+    def _label(self, name: str) -> str:
+        """A row's label in the rider's language, marker and all.
+
+        A screen that says it speaks three languages and then labels every row
+        in English speaks one.
+
+        A row comes with a marker in front of it and a heading comes without
+        one, which is how the two are told apart here: the marker is put back
+        afterwards because it is punctuation rather than a word, and a heading
+        is shouted afterwards for the same reason.
+        """
+        plain = name.lstrip("> ")
+        if not plain:  # pragma: no cover - every row has a name
+            return name
+        marker = name[: len(name) - len(plain)]
+        translated = self.translate(plain)
+        return f"{marker}{translated}" if marker else translated.upper()
+
+    def _panel_footer(self, panel: StartScreen | SetupMenu) -> str:
+        """What to do next, which depends on what is open."""
+        if panel.typing is not None:
+            return self.translate("Type a number, enter to keep it")
+        if panel.picking is not None:
+            return self.translate("Enter or click to choose, escape to go back")
+        if panel is self.screen:
+            return self.translate("Click a line to change it, space to ride")
+        return self.translate("Click a line to change it, tab to close")
 
     def _draw_panel(
         self,
@@ -642,8 +727,8 @@ class RideApp(ShowBase):
         left = [title, ""]
         right = ["", ""]
         for name, reading in rows:
-            left.append(name)
-            right.append(reading)
+            left.append(self._label(name))
+            right.append(self.translate(reading) if reading else reading)
         # Only the lines there is something to say on: a panel with nothing
         # underneath it should not reserve four rows of empty card for it.
         for line in (summary, footer):
@@ -673,9 +758,9 @@ class RideApp(ShowBase):
             return
         self._draw_panel(
             self.screen.columns(),
-            self.translate("RideWithUBT"),
+            self.translate(self.screen.title) if self.screen.title else "RideWithUBT",
             "",
-            footer=self.translate("Arrows or mouse to choose, space to ride"),
+            footer=self._panel_footer(self.screen),
         )
 
     def _hide_panel(self) -> None:

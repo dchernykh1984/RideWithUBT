@@ -62,6 +62,13 @@ The rider is data too: `app/data/figure.json` holds every measurement of the
 figure and the bicycle it sits on. No number about how the rider looks belongs
 in Python.
 
+**Every word a rider reads goes through `translate`, and into all three
+catalogues.** This application says it speaks Russian, Kazakh and English; a
+screen labelled in English speaks one. The names of real things - a circuit, a
+route, a trainer - are not translated, because they are what those things are
+called. `app/data/fonts/DejaVuSans.ttf` ships because Panda3D's own font has no
+Cyrillic and two of the three languages came out as empty boxes.
+
 **Everything about a map lives in the map.** A world file carries its segments,
 junctions, routes, origin, start position and buildings. There will be other maps, and
 nothing about one should have to be found somewhere else.
@@ -83,6 +90,13 @@ Learned the hard way; each cost a release or a wrong answer.
   question from `RideSetup.record`.
 - **Uploads and rooms go straight from the rider's machine to the other end.** This
   project runs no server, and adding one changes what the application is.
+- **There is no keyboard, mouse or font without a window.** `--screenshot` and
+  `--selftest` run offscreen, where `mouseWatcherNode` and `buttonThrowers` are
+  empty and a font need not load. Each of those has crashed a build once.
+- **A menu is worked with a mouse.** Clicking a number opens it for typing;
+  clicking a list opens the list. Stepping a weight to 83 kg with an arrow key
+  is eighty-three key presses, and a row that cycles through forty trainers is
+  one nobody reaches the end of.
 
 ## Skills
 

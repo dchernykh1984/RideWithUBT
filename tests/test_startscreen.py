@@ -256,3 +256,23 @@ def test_the_row_that_starts_a_ride_says_so() -> None:
 
     assert isinstance(row, ActionRow)
     assert row.reading == "start"
+
+
+def test_the_labels_are_in_the_rider_s_language() -> None:
+    """A screen that says it speaks three languages and labels every row in
+    English speaks one."""
+    from app import i18n
+
+    russian = i18n.load("ru")
+
+    for name, _ in screen().columns():
+        plain = name.lstrip("> ")
+        assert russian(plain) != plain, f"{plain} is still English in Russian"
+
+
+def test_the_names_of_real_things_are_left_alone() -> None:
+    """A circuit and a route are called what they are called; translating them
+    would invent a place that does not exist."""
+    front = screen()
+
+    assert front.choice(WORLD).reading == "Sokol International Racetrack"
