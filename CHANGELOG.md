@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.8.0...v0.9.0) (2026-09-10)
+
+
+### Features
+
+* **render:** give the rider elbows, ankles, spokes and a description ([ea8cbec](https://github.com/dchernykh1984/RideWithUBT/commit/ea8cbecbe6304cee9cac4dff14ccee0567ab92e5))
+
 ## [0.8.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.7.0...v0.8.0) (2026-09-10)
 
 
