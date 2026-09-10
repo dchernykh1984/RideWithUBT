@@ -21,6 +21,7 @@ from app.settings import Settings
 from app.workout.model import Workout
 from app.world.description import available_worlds
 from app.world.description import load as load_world
+from app.world.network import NetworkError
 
 #: What each row decides.
 WORLD = "Track"
@@ -180,5 +181,5 @@ def _titled(world_id: str) -> str:
     """A world's id as a name, for a screen: `sokol` reads as Sokol."""
     try:
         return load_world(world_id).name
-    except Exception:  # pragma: no cover - a shipped world always loads
+    except NetworkError, OSError:  # pragma: no cover - a shipped world loads
         return world_id
