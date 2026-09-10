@@ -152,3 +152,30 @@ msgstr "қазір"
 
 msgid "off"
 msgstr "өшірулі"
+
+msgid "no radios in this build"
+msgstr "бұл құрастыруда радио жоқ"
+
+msgid "found %d"
+msgstr "%d табылды"
+
+msgid "nothing answered - are they awake?"
+msgstr "ешкім жауап бермеді - олар қосулы ма?"
+
+msgid "%(kg)s kg all in; %(kmh)s km/h at 250 W"
+msgstr "барлығы %(kg)s кг; 250 Вт-та %(kmh)s км/сағ"
+
+msgid "choose a wheel and a trainer"
+msgstr "дөңгелек пен станокты таңдаңыз"
+
+msgid "%(name)s measures its own power"
+msgstr "%(name)s қуатты өзі өлшейді"
+
+msgid "%(mm)s mm rollout, about %(w)s W at 30 km/h (%(how)s)"
+msgstr "%(mm)s мм жүріс, 30 км/сағ-та шамамен %(w)s Вт (%(how)s)"
+
+msgid "measured"
+msgstr "өлшенген"
+
+msgid "estimated"
+msgstr "болжам"

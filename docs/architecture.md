@@ -747,6 +747,23 @@ English because every tracked source file is ASCII; the translations live in
 gettext `.po` catalogues under `app/locale/`, read directly with polib - no
 compile step and no `.mo` binaries in the repository.
 
+## Looking at it
+
+`scripts/look.py` runs the application, puts it in a named situation and takes
+a picture: the front screen in each language, a list laid out, a number being
+typed into, the rider from beside them, five places round the circuit. It
+drives the keyboard through the real key handling rather than around it, so
+what it shows is what a rider gets.
+
+It asserts nothing, deliberately. Its whole purpose is the things a test cannot
+say - that a figure reads as a person, that a panel fits on its own card, that
+a road stops shimmering at two hundred metres - and every one of those has
+shipped past a green pipeline. A scene that renders is not a scene that looks
+right; somebody has to open the picture.
+
+The pictures go to `build-data/looks/` and are not tracked: they are what a
+change looked like on the day, not an input to anything.
+
 ## Packaging and release
 
 Conventional Commits drive release-please, which cuts the release and tags it.

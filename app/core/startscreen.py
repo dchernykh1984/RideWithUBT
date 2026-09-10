@@ -58,6 +58,10 @@ class StartScreen(Panel):
     """
 
     settings: Settings = field(default_factory=Settings.load)
+    #: How to say a thing in the rider's language. A panel builds sentences out
+    #: of numbers it works out itself, and by the time whoever draws them sees
+    #: one it is a single string with a number baked into it.
+    speaks: Callable[[str], str] = str
     workouts: Sequence[Workout] = ()
     worlds: Sequence[str] = ()
     on_ride: Callable[[], None] = lambda: None

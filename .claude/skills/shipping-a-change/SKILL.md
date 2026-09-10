@@ -18,6 +18,48 @@ description: Branch, commit, open a pull request, and drive CI to green in this 
   release-please builds CHANGELOG from these subjects, so the type matters (`feat`/`fix`
   are released; `chore`/`docs`/`test`/`style`/`refactor` are not).
 
+## Look at what you did
+
+**A green pipeline is not a change that works.** Run the application and look
+at the result of anything a rider can see:
+
+```
+uv run python scripts/look.py            # every scene, into build-data/looks/
+uv run python scripts/look.py start rider
+```
+
+Then open the pictures. Nothing in there asserts anything - a scene that
+renders is not a scene that looks right, and reading the file names is not
+looking.
+
+Every one of these shipped past a full green pipeline and was found by opening
+a picture:
+
+- a rider drawn as a stack of horizontal slabs (limbs turned about their own
+  length, which for a square cross-section is no rotation at all)
+- wheels that were hairlines, then wheels whose spokes lay flat on the road
+- a junction sign that could not be seen: placed a fixed distance in front of
+  the rider's nose, lying edge-on at camera height, and one-sided so its back
+  was not drawn
+- a settings panel whose background was sized by padding with spaces, in a
+  font that is not monospaced
+- the pit lane painting its own edge lines across the racing surface
+- a whole circuit shimmering into dashes for want of mipmaps
+- Russian and Kazakh drawn as rows of empty boxes, and then - with a font that
+  could draw them - every label still in English
+
+What to look for, by what you touched:
+
+| Touched | Look at | For |
+| --- | --- | --- |
+| the rider or the bicycle | `rider`, `rider-tt` | limbs joined, wheels round, the position right for the bicycle |
+| a panel, a row, a field | `start`, `settings`, `list`, `typing` | columns lined up, the card fitting its text, the footer saying what the keys do |
+| any user-visible string | `start-ru`, `start-kk` | letters that draw, and nothing left in English |
+| the world, the mesh, a texture | `pits`, `pit-exit`, `corner`, `straight`, `junction` | no seams, no markings across the road, nothing shimmering in the distance |
+
+If a change is only arithmetic, say so and skip it. If it is anything a rider
+sees, look.
+
 ## Keep the context in step
 
 **A change to what the application does is not finished until the writing about it
@@ -31,6 +73,8 @@ matches.** In the same pull request, not a later one:
   changes. These are what the next session reads instead of the codebase.
 - Tests. A behaviour with no test is a behaviour the next change will break silently,
   and the coverage gate does not notice a *missing* case - only an unexecuted line.
+- `scripts/look.py`, when a change adds something worth looking at: a scene
+  nobody thought to add is a thing nobody will notice breaking.
 
 If you find writing that has drifted out of step with the code, fix it while you are
 there rather than leaving it. Stale guidance is worse than none: it is believed.

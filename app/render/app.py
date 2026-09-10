@@ -483,7 +483,7 @@ class RideApp(ShowBase):
         thirty times would make the last look the decision.
         """
         if self.menu is None:
-            self.menu = SetupMenu(scanner=self._scan_for_sensors)
+            self.menu = SetupMenu(scanner=self._scan_for_sensors, speaks=self.translate)
         else:
             self.menu.save()
             self.ride.reconsider(self.ride.setup.simulated_watts)
@@ -511,6 +511,7 @@ class RideApp(ShowBase):
         from app.workout import library
 
         return StartScreen(
+            speaks=self.translate,
             workouts=library.load_library().workouts,
             on_ride=self._start_riding,
             on_settings=self._toggle_menu,

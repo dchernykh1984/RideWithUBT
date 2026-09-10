@@ -286,6 +286,12 @@ class Panel:
     selected: int
     typing: Typing | None = None
     picking: Picking | None = None
+    #: How to say a thing in the rider's language. A panel builds sentences out
+    #: of numbers it works out itself - "found 3", "about 130 W at 30 km/h" -
+    #: and those cannot be translated by whoever draws them, because by then
+    #: they are one string with a number baked into it. Identity by default, so
+    #: nothing that does not care has to know about it.
+    speaks: Callable[[str], str] = str
 
     # Reaching for a row.
 
