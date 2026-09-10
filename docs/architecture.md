@@ -252,9 +252,26 @@ pull request that cannot conflict with anyone else's.
 A red triangle told a rider where they were and nothing else. A cyclist tells
 them something no number does: whether the pedals are turning, and how fast.
 
+**The measurements are data.** `app/data/figure.json` holds the frame as a list
+of tubes between points, the rider as a set of lengths, and each bicycle as a
+posture; no number about how the rider looks is in any Python file. A figure is
+a set of measurements, and measurements are data - the same rule the worlds and
+the catalogues already follow, and it means changing the shape of the rider is
+changing a file.
+
 The figure is built rather than loaded - a frozen application carries no model
-file it could fail to find - out of the two shapes in `app/world/solids.py`, a
-box and a tube. `app/core/figure.py` holds the dimensions of a road bicycle and
+file it could fail to find - out of the shapes in `app/world/solids.py`: a box,
+a tube, a ball and a flat ring.
+
+**Arms bend at the elbow, ankles turn, and wheels have spokes.** An arm is
+nearly sixty centimetres from shoulder to wrist and a rider's hands are forty
+from their shoulders, so the elbow is bent hard: drawn as one straight piece it
+is not an arm, it is a stick. The elbow goes *down* rather than away from the
+bars - with the arms nearly level, as they are on time trial extensions,
+away-from-the-bars puts the elbow above the shoulder and the arm over the
+rider's own head, which is what it did. The ankle swings about fifteen degrees
+either way through the stroke, which is small and is the difference between a
+person pedalling and a linkage going round. `app/core/figure.py` holds the dimensions of a road bicycle and
 the pedal stroke: the pedals go round a circle the size of the cranks, and each
 leg finds its knee by the same two-bone geometry a real one uses, bending
 forwards because the other solution to those two circles is a leg bending the

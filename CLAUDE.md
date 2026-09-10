@@ -58,6 +58,10 @@ extract, the logo, a reference ride - belongs in `build-data/` at the root inste
 tracked but not shipped. Adding a trainer or a wheel size is a data change; see
 `docs/trainers.md`.
 
+The rider is data too: `app/data/figure.json` holds every measurement of the
+figure and the bicycle it sits on. No number about how the rider looks belongs
+in Python.
+
 **Everything about a map lives in the map.** A world file carries its segments,
 junctions, routes, origin, start position and buildings. There will be other maps, and
 nothing about one should have to be found somewhere else.

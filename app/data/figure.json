@@ -1,0 +1,257 @@
+{
+  "comment": [
+    "The rider and the bicycle, as measurements rather than as code.",
+    "",
+    "Everything drawn is built from these: the frame is a list of tubes between",
+    "points in the bicycle's side plane, the rider is a set of joints, and each",
+    "An arm is 0.59 m from shoulder to wrist and a rider's hands are 0.40 m",
+    "from their shoulders, so the elbow is well bent - which is why it is a",
+    "joint here and not a straight line.",
+    "posture says where the shoulders and the hands go on a particular bicycle.",
+    "Change a number here and the figure changes; no code knows any of them.",
+    "",
+    "Distances are metres, measured from the bottom bracket - the axis the",
+    "cranks turn on - with x along the bike and z up. That is the origin a",
+    "bicycle is actually built around, and the one that puts the wheels on the",
+    "road rather than through it."
+  ],
+  "bicycle": {
+    "bottom_bracket_m": 0.27,
+    "wheel_radius_m": 0.34,
+    "wheelbase_m": 1.02,
+    "front_axle_m": 0.6,
+    "rim_depth_m": 0.055,
+    "tyre_width_m": 0.03,
+    "spokes": 20,
+    "spoke_thickness_m": 0.004,
+    "tubes": [
+      {
+        "from": [
+          -0.42,
+          0.07
+        ],
+        "to": [
+          0.0,
+          0.0
+        ],
+        "thickness": 0.035,
+        "name": "chainstay"
+      },
+      {
+        "from": [
+          -0.42,
+          0.07
+        ],
+        "to": [
+          -0.06,
+          0.58
+        ],
+        "thickness": 0.028,
+        "name": "seat stay"
+      },
+      {
+        "from": [
+          0.0,
+          0.0
+        ],
+        "to": [
+          -0.06,
+          0.62
+        ],
+        "thickness": 0.045,
+        "name": "seat tube"
+      },
+      {
+        "from": [
+          0.0,
+          0.0
+        ],
+        "to": [
+          0.5,
+          0.5
+        ],
+        "thickness": 0.048,
+        "name": "down tube"
+      },
+      {
+        "from": [
+          -0.06,
+          0.6
+        ],
+        "to": [
+          0.5,
+          0.5
+        ],
+        "thickness": 0.04,
+        "name": "top tube"
+      },
+      {
+        "from": [
+          0.5,
+          0.5
+        ],
+        "to": [
+          0.6,
+          0.07
+        ],
+        "thickness": 0.032,
+        "name": "fork"
+      },
+      {
+        "from": [
+          0.5,
+          0.5
+        ],
+        "to": [
+          0.5,
+          0.58
+        ],
+        "thickness": 0.03,
+        "name": "stem"
+      }
+    ],
+    "bar_width_m": 0.42,
+    "bar_at": [
+      0.5,
+      0.58
+    ],
+    "chainring_m": 0.105,
+    "saddle_length_m": 0.26
+  },
+  "rider": {
+    "crank_m": 0.1725,
+    "thigh_m": 0.45,
+    "shin_m": 0.48,
+    "foot_m": 0.24,
+    "shoulder_width_m": 0.42,
+    "hip_width_m": 0.3,
+    "foot_spacing_m": 0.15,
+    "head_m": 0.105,
+    "thigh_thickness_m": 0.075,
+    "shin_thickness_m": 0.055,
+    "arm_thickness_m": 0.045,
+    "knee_margin_m": 0.02,
+    "default_cadence_rpm": 85.0,
+    "ankle_swing_deg": 14.0,
+    "upper_arm_m": 0.32,
+    "forearm_m": 0.27,
+    "hand_m": 0.1,
+    "head_height_m": 0.23
+  },
+  "postures": [
+    {
+      "bike_id": "upright",
+      "hip": [
+        -0.12,
+        0.71
+      ],
+      "shoulder": [
+        0.13,
+        1.24
+      ],
+      "hands": [
+        0.46,
+        1.0
+      ],
+      "hand_spacing_m": 0.2
+    },
+    {
+      "bike_id": "road",
+      "hip": [
+        -0.1,
+        0.715
+      ],
+      "shoulder": [
+        0.31,
+        1.13
+      ],
+      "hands": [
+        0.64,
+        0.9
+      ],
+      "hand_spacing_m": 0.2
+    },
+    {
+      "bike_id": "road-drops",
+      "hip": [
+        -0.1,
+        0.715
+      ],
+      "shoulder": [
+        0.38,
+        1.05
+      ],
+      "hands": [
+        0.66,
+        0.72
+      ],
+      "hand_spacing_m": 0.2
+    },
+    {
+      "bike_id": "road-aerobars",
+      "hip": [
+        -0.06,
+        0.718
+      ],
+      "shoulder": [
+        0.47,
+        0.96
+      ],
+      "hands": [
+        0.74,
+        0.9
+      ],
+      "aerobars": true,
+      "hand_spacing_m": 0.075
+    },
+    {
+      "bike_id": "tt",
+      "hip": [
+        -0.02,
+        0.72
+      ],
+      "shoulder": [
+        0.54,
+        0.87
+      ],
+      "hands": [
+        0.78,
+        0.88
+      ],
+      "aerobars": true,
+      "hand_spacing_m": 0.075
+    }
+  ],
+  "colours": {
+    "jersey": [
+      0.95,
+      0.42,
+      0.05
+    ],
+    "shorts": [
+      0.13,
+      0.14,
+      0.18
+    ],
+    "skin": [
+      0.85,
+      0.68,
+      0.55
+    ],
+    "frame": [
+      0.16,
+      0.17,
+      0.2
+    ],
+    "tyre": [
+      0.09,
+      0.09,
+      0.1
+    ],
+    "rim": [
+      0.72,
+      0.74,
+      0.78
+    ]
+  }
+}
