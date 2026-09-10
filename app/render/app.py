@@ -12,7 +12,7 @@ and see that the geometry, the junctions and the steering all work.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from direct.gui.OnscreenText import OnscreenText
@@ -37,7 +37,7 @@ from panda3d.core import (
 
 from app import paths
 from app.core.companions import departed
-from app.core.preferences import SetupMenu
+from app.core.preferences import Found, SetupMenu
 from app.core.ride import DEFAULT_POWER_W, DEFAULT_WORLD, Ride, RideSetup
 from app.core.session import RideState
 from app.frozen import panda_config_dir, panda_plugin_dir
@@ -280,6 +280,7 @@ class RideApp(ShowBase):
         self.accept("space", self.ride.end_open_step)
         # Tab opens the settings, and the arrows move about in it while it is up.
         self.accept("tab", self._toggle_menu)
+        self.accept("enter", self._menu_enter)
 
     def _tick(self, task: Task) -> int:
         now = self._clock.getFrameTime()
@@ -317,10 +318,32 @@ class RideApp(ShowBase):
         thirty times would make the last look the decision.
         """
         if self.menu is None:
-            self.menu = SetupMenu()
+            self.menu = SetupMenu(scanner=self._scan_for_sensors)
         else:
             self.menu.save()
+            self.ride.reconsider(self.menu.simulated_watts)
             self.menu = None
+        self._update_menu()
+
+    def _scan_for_sensors(self, seconds: float) -> Sequence[Found]:
+        """Ask the radios who is there, from inside the window.
+
+        The scan runs on the sensor loop's own thread and this waits for it,
+        which freezes the picture for a few seconds. That is the honest thing
+        for a menu: a rider who pressed "scan" is waiting for an answer, and a
+        world sliding past underneath while they wait is not useful to them.
+        """
+        from app.sensors.discovery import default_transports
+        from app.sensors.manager import DeviceManager
+
+        manager = DeviceManager(hub=self.ride.hub, transports=default_transports())
+        found = self.ride.on_sensor_loop(manager.scan(seconds), seconds + 5.0)
+        return [Found(device.id, device.label) for device in found]
+
+    def _menu_enter(self) -> None:
+        if self.menu is None:
+            return
+        self.menu.activate()
         self._update_menu()
 
     def _menu_key(self, rows: int, values: int) -> None:

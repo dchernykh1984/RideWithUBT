@@ -345,3 +345,106 @@ def test_the_pits_are_still_somewhere_you_can_turn_into() -> None:
             offered |= set(riding.navigator.upcoming.exits)
 
     assert "pit-lane-0" in offered
+
+
+# Settings changed without leaving the ride.
+
+
+def test_a_new_weight_applies_at_once() -> None:
+    """A menu that only takes effect next time is one a rider does not trust."""
+    riding = ride()
+    Settings(rider_mass_kg=95.0, bike_mass_kg=9.0).save()
+
+    riding.reconsider()
+
+    assert riding.bike.total_mass_kg == 104.0
+    assert riding.session.bike.total_mass_kg == 104.0
+
+
+def test_a_new_bicycle_applies_at_once() -> None:
+    riding = ride()
+    Settings(virtual_bike_id="tt").save()
+
+    riding.reconsider()
+
+    assert riding.bike.cda_m2 == 0.23
+
+
+def test_starting_a_stand_in_rider_from_the_menu() -> None:
+    riding = ride()
+    assert riding.rider_source is None
+
+    riding.reconsider(simulated_watts=180.0)
+
+    assert riding.rider_source is not None
+    assert riding.setup.simulated
+
+
+def test_stopping_one_again() -> None:
+    riding = ride(simulated_watts=180.0)
+
+    riding.reconsider(simulated_watts=None)
+
+    assert riding.rider_source is None
+    assert not riding.setup.simulated
+
+
+def test_starting_a_stand_in_throws_away_what_was_recorded() -> None:
+    """A file that is part real and part invented is worse than no file."""
+    riding = ride(record=True)
+    assert riding.recorder is not None
+    pedal(riding, seconds=5.0)
+
+    riding.reconsider(simulated_watts=180.0)
+
+    assert riding.recorder is None
+
+
+def test_stopping_the_stand_in_starts_recording_again() -> None:
+    riding = ride(record=True, simulated_watts=180.0)
+    assert riding.recorder is None
+
+    riding.reconsider(simulated_watts=None)
+
+    assert riding.recorder is not None
+
+
+def test_a_ride_that_was_never_recording_still_is_not() -> None:
+    riding = ride(record=False)
+
+    riding.reconsider(simulated_watts=None)
+
+    assert riding.recorder is None
+
+
+def test_a_sensor_paired_in_the_menu_is_listened_to() -> None:
+    riding = ride()
+    assert riding.sensors is None
+    Settings(paired_device_ids=["ble:AA"]).save()
+
+    riding.reconsider()
+
+    assert riding.setup.paired_device_ids == ("ble:AA",)
+
+
+def test_the_menu_can_ask_the_radios_a_question_and_wait() -> None:
+    """Scanning is the one thing a settings screen does that reaches outside.
+
+    It runs on the radios' own thread and the caller waits, because a rider who
+    pressed "scan" is waiting for an answer.
+    """
+    loop = FakeLoop()
+    riding = ride_with_loop(loop)
+    answered: list[str] = []
+
+    async def ask() -> None:
+        answered.append("asked")
+
+    riding.on_sensor_loop(ask(), timeout=1.0)
+
+    assert answered == ["asked"]
+    assert loop.started
+
+
+def ride_with_loop(loop: FakeLoop) -> Ride:
+    return Ride(setup=RideSetup(), sensor_loop=loop)
