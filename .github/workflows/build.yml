@@ -115,6 +115,7 @@ jobs:
                   --copy-metadata ridewithubt)
           if [ "$RUNNER_OS" = "macOS" ]; then
             "${pyi[@]}" --name "$APP_BUNDLE_NAME" --windowed \
+              --icon app/app.icns \
               --osx-bundle-identifier "$APP_BUNDLE_ID" \
               "${common[@]}" app/cli.py
             # PyInstaller hardcodes CFBundleShortVersionString to 0.0.0 and
@@ -135,7 +136,8 @@ jobs:
               "${APP_BUNDLE_NAME}.app" )
             echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}.zip" >> "$GITHUB_ENV"
           elif [ "$RUNNER_OS" = "Windows" ]; then
-            "${pyi[@]}" --name "$APP_NAME" --onefile "${common[@]}" app/cli.py
+            "${pyi[@]}" --name "$APP_NAME" --onefile --icon app/app.ico \
+              "${common[@]}" app/cli.py
             mv "dist/${APP_NAME}.exe" "dist/${APP_NAME}-${{ matrix.name }}.exe"
             echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}.exe" >> "$GITHUB_ENV"
           else

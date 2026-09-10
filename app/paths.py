@@ -18,6 +18,15 @@ APP_DIR_NAME = "RideWithUBT"
 HOME_ENV_VAR = "RIDEWITHUBT_HOME"
 
 
+def packaged(*parts: str) -> Path:
+    """A file that ships inside the application, not one a rider owns.
+
+    The worlds, the catalogues, the icon. Distinct from `data_root`, which is
+    where a rider's own settings and rides live.
+    """
+    return Path(__file__).resolve().parent / "data" / Path(*parts)
+
+
 def data_root() -> Path:
     """Return the root of the user data tree, creating nothing."""
     override = os.environ.get(HOME_ENV_VAR)
