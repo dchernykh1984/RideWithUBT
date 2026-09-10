@@ -20,6 +20,9 @@ from app.core.figure import (
     Cranks,
     Joint,
     Rider,
+    colour,
+    described,
+    frame_tubes,
     knee,
     posture,
 )
@@ -274,3 +277,119 @@ def test_a_saddle_too_high_for_the_legs_is_refused() -> None:
     could reach the pedal and had nothing left to bend with."""
     with pytest.raises(ValueError, match="cannot reach"):
         Rider(thigh_m=0.44, shin_m=0.46, bike_id="tt")
+
+
+# The figure as data.
+
+
+def test_the_measurements_are_data_rather_than_code() -> None:
+    """A figure is a set of measurements, and measurements are data: changing
+    how the rider looks is changing a file, not a function."""
+    written = described()
+
+    assert set(written) >= {"bicycle", "rider", "postures", "colours"}
+    assert written["rider"]["thigh_m"] == Rider().thigh_m
+
+
+def test_the_frame_is_a_list_of_tubes() -> None:
+    tubes = frame_tubes()
+
+    assert len(tubes) >= 6
+    assert {tube.name for tube in tubes} >= {"seat tube", "down tube", "fork"}
+    for tube in tubes:
+        assert tube.thickness_m > 0
+        assert tube.start.distance_to(tube.end) > 0.05
+
+
+def test_the_frame_is_joined_up() -> None:
+    """Every tube has to meet something, or it is a tube floating in the air.
+
+    Not only another tube: a fork ends at the front axle and a stem ends at the
+    bars, and neither of those is welded to anything.
+    """
+    tubes = frame_tubes()
+    bicycle = described()["bicycle"]
+    axle = bicycle["wheel_radius_m"] - bicycle["bottom_bracket_m"]
+    joins = (
+        [tube.start for tube in tubes]
+        + [tube.end for tube in tubes]
+        + [
+            Joint(bicycle["front_axle_m"], axle),
+            Joint(-(bicycle["wheelbase_m"] - bicycle["front_axle_m"]), axle),
+            Joint(*bicycle["bar_at"]),
+        ]
+    )
+
+    for tube in tubes:
+        for own in (tube.start, tube.end):
+            met = sum(1 for other in joins if own.distance_to(other) < 0.03)
+            assert met >= 2, f"{tube.name} has an end at nothing"
+
+
+def test_a_colour_comes_back_as_the_renderer_wants_it() -> None:
+    jersey = colour("jersey")
+
+    assert len(jersey) == 4
+    assert jersey[3] == 1.0
+    assert all(0.0 <= part <= 1.0 for part in jersey)
+
+
+# The arm, which has an elbow in it.
+
+
+def test_an_arm_bends_at_the_elbow() -> None:
+    """An arm is nearly sixty centimetres from shoulder to wrist and a rider's
+    hands are forty from their shoulders. A straight line between the two is
+    not an arm, it is a stick."""
+    rider = Rider()
+    shoulder, elbow_at, hand = rider.arm()
+
+    assert shoulder.distance_to(elbow_at) == pytest.approx(rider.upper_arm_m)
+    assert elbow_at.distance_to(hand) == pytest.approx(rider.forearm_m)
+    assert shoulder.distance_to(hand) < rider.upper_arm_m + rider.forearm_m
+
+
+def test_the_elbow_is_below_the_shoulder_on_every_bicycle() -> None:
+    """Down rather than away from the bars: with the arms nearly level, as on
+    time trial extensions, away-from-the-bars puts the elbow above the shoulder
+    and the arm over the rider's own head."""
+    for item in POSTURES:
+        shoulder, elbow_at, _ = Rider(bike_id=item.bike_id).arm()
+        assert elbow_at.up_m < shoulder.up_m, item.bike_id
+
+
+def test_hands_are_where_the_bars_are() -> None:
+    """Shoulder width apart on the bars, almost touching on extensions - which
+    is the whole point of extensions."""
+    on_bars = posture("road")
+    on_extensions = posture("tt")
+
+    assert on_bars.hand_spacing_m > on_extensions.hand_spacing_m * 2
+
+
+# The ankle.
+
+
+def test_the_foot_turns_through_the_stroke() -> None:
+    """A foot bolted rigidly to the pedal is what makes a pedalling figure look
+    like a machine."""
+    rider = Rider()
+
+    angles = [rider.ankle_at(math.tau * step / 12) for step in range(12)]
+
+    assert max(angles) > math.radians(10)
+    assert min(angles) < -math.radians(10)
+
+
+def test_the_ankle_comes_back_to_where_it_started() -> None:
+    rider = Rider()
+
+    assert rider.ankle_at(0.0) == pytest.approx(rider.ankle_at(math.tau), abs=1e-9)
+
+
+def test_a_leg_carries_its_foot_angle() -> None:
+    rider = Rider()
+
+    leg = rider.leg_at(1.0)
+
+    assert leg.foot_rad == pytest.approx(rider.ankle_at(1.0))

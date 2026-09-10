@@ -3,52 +3,83 @@
 A red triangle told you where you were and nothing else. A cyclist tells you
 something a number cannot: whether you are turning the pedals, and how fast.
 
-Everything here is worked out rather than drawn. The shape of the bicycle and
-the rider is a handful of boxes and tubes in the bike's own side plane; the
-legs follow the pedals by the same two-bone geometry a knee actually uses. The
-renderer places what this produces and decides nothing, which is what lets a
-pedal stroke be checked without a window.
+Everything here is worked out rather than drawn: the shape of the bicycle and
+the rider in the bike's own side plane, and the legs following the pedals by
+the same two-bone geometry a knee actually uses. The renderer places what this
+produces and decides nothing, which is what lets a pedal stroke be checked
+without a window.
 
-Dimensions are a road bicycle's, in metres, measured from the bottom bracket:
-they are what makes the figure read as a person on a bicycle rather than a
-shape that happens to move.
+**None of the measurements are in this file.** They are in
+`app/data/figure.json` - the frame as a list of tubes, the rider as a set of
+lengths, and each bicycle as a posture. A figure is a set of measurements, and
+measurements are data: changing how the rider looks is changing that file, the
+same rule the worlds and the catalogues already follow.
+
+Everything is measured from the bottom bracket, the axis the cranks turn on,
+with x along the bike and z up. That is what a bicycle is actually built
+around, and the origin that puts the wheels on the road rather than through it.
 """
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
+from functools import cache
+from typing import Any
+
+from app import paths
+
+
+@cache
+def described() -> dict[str, Any]:
+    """The figure as it is written down, read once."""
+    return json.loads(paths.packaged("figure.json").read_text(encoding="utf-8"))
+
+
+def _bicycle(key: str) -> Any:
+    return described()["bicycle"][key]
+
+
+def _rider(key: str) -> Any:
+    return described()["rider"][key]
+
+
+def colour(name: str) -> tuple[float, float, float, float]:
+    """A colour from the description, as the renderer wants it."""
+    red, green, blue = described()["colours"][name]
+    return (float(red), float(green), float(blue), 1.0)
+
 
 #: What a rider turns the pedals at when nothing is measuring it. Between the
 #: 60-70 of somebody riding to the shops and the 90-100 of a racing cyclist:
 #: this application is for training, and its rider is somewhere in between.
-DEFAULT_CADENCE_RPM = 85.0
+DEFAULT_CADENCE_RPM: float = float(_rider("default_cadence_rpm"))
 
 #: How high the bottom bracket sits above the road. Everything about the
 #: figure is measured from the bottom bracket, so this is what puts the whole
 #: thing on the tarmac instead of through it - without it the pedals swing
 #: seventeen centimetres below the road at the bottom of every stroke.
-BOTTOM_BRACKET_M = 0.27
-#: A road wheel with a tyre on it, and how far apart the two are.
-WHEEL_RADIUS_M = 0.34
-WHEELBASE_M = 1.02
-#: How far ahead of the bottom bracket the front axle sits. Nothing a rider
-#: holds on to should be beyond it by more than the length of an extension.
-FRONT_AXLE_M = 0.60
+BOTTOM_BRACKET_M: float = float(_bicycle("bottom_bracket_m"))
+#: A road wheel with a tyre on it, how far apart the two are, and how far
+#: ahead of the cranks the front one sits.
+WHEEL_RADIUS_M: float = float(_bicycle("wheel_radius_m"))
+WHEELBASE_M: float = float(_bicycle("wheelbase_m"))
+FRONT_AXLE_M: float = float(_bicycle("front_axle_m"))
 
-#: How wide a rider is, in metres. These are what a cyclist looks like from
-#: behind, which is the view from the saddle and the one that was unreadable:
-#: a narrow column of blocks, because the shoulders were as wide as the hips
-#: and the legs almost touching.
-SHOULDER_WIDTH_M = 0.42
-HIP_WIDTH_M = 0.30
+#: How wide a rider is. These are what a cyclist looks like from behind, which
+#: is the view from the saddle and the one that was unreadable: a narrow column
+#: of blocks, because the shoulders were as wide as the hips and the legs
+#: almost touching.
+SHOULDER_WIDTH_M: float = float(_rider("shoulder_width_m"))
+HIP_WIDTH_M: float = float(_rider("hip_width_m"))
 #: How far apart the pedals are - the q-factor of a road crankset - and so how
 #: far apart the feet, and the knees, are.
-FOOT_SPACING_M = 0.15
+FOOT_SPACING_M: float = float(_rider("foot_spacing_m"))
 
 #: How much bend a leg keeps at the bottom of the stroke. A rider sets their
 #: saddle so the knee never quite straightens, and one that does looks wrong.
-KNEE_MARGIN_M = 0.02
+KNEE_MARGIN_M: float = float(_rider("knee_margin_m"))
 
 #: Below this the pedals are stopped rather than turning slowly. A cadence
 #: sensor reports small numbers as a wheel coasts to a halt, and legs still
@@ -69,12 +100,39 @@ class Joint:
 
 
 @dataclass(frozen=True)
+class Tube:
+    """One tube of a frame: where it runs, and how fat it is."""
+
+    name: str
+    start: Joint
+    end: Joint
+    thickness_m: float
+
+
+def frame_tubes() -> tuple[Tube, ...]:
+    """The bicycle, as the tubes it is welded from."""
+    return tuple(
+        Tube(
+            name=str(tube.get("name", "tube")),
+            start=Joint(*tube["from"]),
+            end=Joint(*tube["to"]),
+            thickness_m=float(tube["thickness"]),
+        )
+        for tube in _bicycle("tubes")
+    )
+
+
+@dataclass(frozen=True)
 class LegPose:
     """Where one leg is at this moment: three points and two bones."""
 
     hip: Joint
     knee: Joint
     pedal: Joint
+    #: Which way the foot is pointing, in radians above horizontal. An ankle
+    #: is a joint too: a foot bolted rigidly to the pedal is the thing that
+    #: makes a pedalling figure look like a machine.
+    foot_rad: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -94,48 +152,29 @@ class Posture:
     hip: Joint
     shoulder: Joint
     hands: Joint
+    #: How far apart the hands are. On the bars they are shoulder width; on
+    #: extensions they are almost touching, which is the point of them.
+    hand_spacing_m: float = 0.20
     #: Extensions to rest the forearms on, drawn ahead of the bars.
     aerobars: bool = False
 
 
-#: The postures, from sitting up to a time trial bicycle. The lean angles are
-#: the usual ones: about sixty-five degrees off horizontal sitting up, forty-
-#: five on the hoods, and flat enough on a time trial bicycle that the back is
-#: nearly level.
-POSTURES: tuple[Posture, ...] = (
-    Posture(
-        "upright",
-        hip=Joint(-0.12, 0.710),
-        shoulder=Joint(0.13, 1.24),
-        hands=Joint(0.46, 1.00),
-    ),
-    Posture(
-        "road",
-        hip=Joint(-0.10, 0.715),
-        shoulder=Joint(0.31, 1.13),
-        hands=Joint(0.64, 0.90),
-    ),
-    Posture(
-        "road-drops",
-        hip=Joint(-0.10, 0.715),
-        shoulder=Joint(0.38, 1.05),
-        hands=Joint(0.66, 0.72),
-    ),
-    Posture(
-        "road-aerobars",
-        hip=Joint(-0.06, 0.718),
-        shoulder=Joint(0.47, 0.96),
-        hands=Joint(0.74, 0.90),
-        aerobars=True,
-    ),
-    Posture(
-        "tt",
-        hip=Joint(-0.02, 0.720),
-        shoulder=Joint(0.54, 0.87),
-        hands=Joint(0.78, 0.88),
-        aerobars=True,
-    ),
-)
+def _postures() -> tuple[Posture, ...]:
+    return tuple(
+        Posture(
+            bike_id=str(item["bike_id"]),
+            hip=Joint(*item["hip"]),
+            shoulder=Joint(*item["shoulder"]),
+            hands=Joint(*item["hands"]),
+            hand_spacing_m=float(item.get("hand_spacing_m", 0.20)),
+            aerobars=bool(item.get("aerobars", False)),
+        )
+        for item in described()["postures"]
+    )
+
+
+POSTURES: tuple[Posture, ...] = _postures()
+DEFAULT_BIKE = "road"
 
 
 def posture(bike_id: str) -> Posture:
@@ -143,23 +182,27 @@ def posture(bike_id: str) -> Posture:
     for known in POSTURES:
         if known.bike_id == bike_id:
             return known
-    return next(known for known in POSTURES if known.bike_id == "road")
+    return next(known for known in POSTURES if known.bike_id == DEFAULT_BIKE)
 
 
 @dataclass(frozen=True)
 class Rider:
-    """The rider's dimensions. A bicycle is measured from its bottom bracket.
+    """The rider's own dimensions, and which bicycle they are on.
 
-    The legs have to reach the pedal at its lowest, which for these numbers is
-    0.90 m from the hip - so thigh plus shin is a little more than that and the
-    knee stays bent all the way round, which is what a rider's does.
+    The legs have to reach the pedal at its lowest with something left to bend
+    with, which is what a rider sets their saddle height for.
     """
 
-    crank_m: float = 0.1725
-    thigh_m: float = 0.45
-    shin_m: float = 0.48
+    crank_m: float = float(_rider("crank_m"))
+    thigh_m: float = float(_rider("thigh_m"))
+    shin_m: float = float(_rider("shin_m"))
+    foot_m: float = float(_rider("foot_m"))
+    #: How far the ankle swings through the stroke, in degrees.
+    ankle_swing_deg: float = float(_rider("ankle_swing_deg"))
+    upper_arm_m: float = float(_rider("upper_arm_m"))
+    forearm_m: float = float(_rider("forearm_m"))
     #: Which bicycle they are on, which is what decides how they sit on it.
-    bike_id: str = "road"
+    bike_id: str = DEFAULT_BIKE
 
     @property
     def posture(self) -> Posture:
@@ -190,6 +233,16 @@ class Rider:
             self.crank_m * math.sin(angle_rad),
         )
 
+    def ankle_at(self, angle_rad: float) -> float:
+        """Which way the foot points, in radians above horizontal.
+
+        A rider's ankle is not locked. The heel drops through the top of the
+        stroke and the toe points down over the bottom of it, by about fifteen
+        degrees either way - small, and the difference between a person
+        pedalling and a linkage going round.
+        """
+        return math.radians(self.ankle_swing_deg) * math.sin(angle_rad - math.pi / 2)
+
     def leg_at(self, angle_rad: float) -> LegPose:
         """One leg, with its pedal at this crank angle."""
         pedal = self.pedal_at(angle_rad)
@@ -197,6 +250,16 @@ class Rider:
             hip=self.hip,
             knee=knee(self.hip, pedal, self.thigh_m, self.shin_m),
             pedal=pedal,
+            foot_rad=self.ankle_at(angle_rad),
+        )
+
+    def arm(self) -> tuple[Joint, Joint, Joint]:
+        """Shoulder, elbow and hand, for the posture this rider is in."""
+        posture = self.posture
+        return (
+            posture.shoulder,
+            elbow(posture.shoulder, posture.hands, self.upper_arm_m, self.forearm_m),
+            posture.hands,
         )
 
     def legs(self, angle_rad: float) -> tuple[LegPose, LegPose]:
@@ -208,11 +271,43 @@ class Rider:
 def knee(hip: Joint, pedal: Joint, thigh_m: float, shin_m: float) -> Joint:
     """Where the knee is, given where the hip and the pedal are.
 
-    Two bones of fixed length between two known points: the knee is on both
-    circles, so it is one of the two places they cross. A knee bends forwards,
-    so it is the forward one - the other solution is a leg bending the wrong
-    way, which is a thing to notice rather than to draw.
+    A knee bends forwards, so of the two places the circles cross it is the
+    forward one; the other solution is a leg bending the wrong way, which is a
+    thing to notice rather than to draw.
     """
+    return _bend(hip, pedal, thigh_m, shin_m, towards=(1.0, 0.0))
+
+
+def elbow(shoulder: Joint, hand: Joint, upper_m: float, fore_m: float) -> Joint:
+    """Where the elbow is, given where the shoulder and the hand are.
+
+    Downwards, which is where a rider's elbows go on every bicycle. Down
+    rather than "away from the bars": with the arms nearly level, as they are
+    on time trial extensions, away-from-the-bars puts the elbow above the
+    shoulder and the arm over the rider's own head.
+
+    It matters more than it sounds: an arm is nearly sixty centimetres from
+    shoulder to wrist and a rider's hands are forty from their shoulders, so
+    the elbow is bent hard - and a straight line between the two is not an arm,
+    it is a stick.
+    """
+    return _bend(shoulder, hand, upper_m, fore_m, towards=(0.0, -1.0))
+
+
+def _bend(
+    start: Joint,
+    end: Joint,
+    first_m: float,
+    second_m: float,
+    towards: tuple[float, float],
+) -> Joint:
+    """The joint between two bones of fixed length reaching from one point to
+    another: it is on both circles, so it is one of the two places they cross.
+
+    `towards` says which of the two - the one on that side of the line between
+    the ends. A knee goes forwards along the bike; an elbow goes down.
+    """
+    hip, pedal, thigh_m, shin_m = start, end, first_m, second_m
     span = hip.distance_to(pedal)
     reach = thigh_m + shin_m
     if span >= reach:  # pragma: no cover - Rider refuses dimensions that do this
@@ -228,9 +323,8 @@ def knee(hip: Joint, pedal: Joint, thigh_m: float, shin_m: float) -> Joint:
     along = (span * span + thigh_m * thigh_m - shin_m * shin_m) / (2 * span)
     off = math.sqrt(max(thigh_m * thigh_m - along * along, 0.0))
     unit = ((pedal.along_m - hip.along_m) / span, (pedal.up_m - hip.up_m) / span)
-    # The normal pointing forwards along the bike, which is the way a knee goes.
     normal = (-unit[1], unit[0])
-    if normal[0] < 0:
+    if normal[0] * towards[0] + normal[1] * towards[1] < 0:
         normal = (-normal[0], -normal[1])
     return Joint(
         hip.along_m + unit[0] * along + normal[0] * off,
