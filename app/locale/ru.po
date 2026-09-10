@@ -35,3 +35,12 @@ msgstr "Симулированный заезд - не записывается"
 
 msgid "No sensors connected"
 msgstr "Датчики не подключены"
+
+msgid "left"
+msgstr "налево"
+
+msgid "right"
+msgstr "направо"
+
+msgid "straight on"
+msgstr "прямо"

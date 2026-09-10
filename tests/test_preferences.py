@@ -502,3 +502,37 @@ def test_the_language_is_not_filed_under_riding() -> None:
 
     assert setup.rows[last_heading].name == "Application"
     assert "Riding" in headings
+
+
+def test_the_menu_is_two_columns_rather_than_one_padded_block() -> None:
+    """A window's font is not monospaced: padding with spaces lines nothing up
+    and a long label shoves its value into the middle of the screen."""
+    setup = menu()
+
+    named = setup.columns()
+
+    assert all(len(pair) == 2 for pair in named)
+    assert (" RIDER", "") in [(f" {a}", b) for a, b in named] or any(
+        a == "RIDER" for a, b in named
+    )
+    weight = next(reading for name, reading in named if RIDER_KG in name)
+    assert weight.endswith("kg")
+
+
+def test_a_heading_has_a_label_and_no_value() -> None:
+    setup = menu()
+
+    headings = [pair for pair in setup.columns() if pair[0].isupper()]
+
+    assert headings
+    assert all(reading == "" for _, reading in headings)
+
+
+def test_the_marker_is_on_the_name_not_the_value() -> None:
+    setup = menu()
+    point_at(setup, RIDER_KG)
+
+    marked = [name for name, _ in setup.columns() if name.startswith(">")]
+
+    assert len(marked) == 1
+    assert RIDER_KG in marked[0]

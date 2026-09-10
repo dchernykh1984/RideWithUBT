@@ -432,16 +432,26 @@ class SetupMenu:
 
     # What it says, and what it keeps.
 
-    def lines(self) -> list[str]:
-        """The menu as a screen draws it, with a marker on the current row."""
+    def columns(self) -> list[tuple[str, str]]:
+        """The menu as two columns: what each row is, and what it says.
+
+        Two rather than one padded string, because the font a window draws
+        with is not monospaced - padding with spaces lines nothing up, and a
+        long label shoves its value out of the column. The renderer puts each
+        column at its own left margin, which is what makes a table a table.
+        """
         drawn = []
         for index, row in enumerate(self.rows):
             if isinstance(row, Heading):
-                drawn.append(f"  {row.name.upper()}")
+                drawn.append((row.name.upper(), ""))
                 continue
-            marker = ">" if index == self.selected else " "
-            drawn.append(f"{marker} {row.name:22}{row.reading}")
+            marker = "> " if index == self.selected else "  "
+            drawn.append((f"{marker}{row.name}", row.reading))
         return drawn
+
+    def lines(self) -> list[str]:
+        """The menu as one padded string a row, for anything without columns."""
+        return [f"{name:26}{reading}" for name, reading in self.columns()]
 
     @property
     def simulated_watts(self) -> float | None:

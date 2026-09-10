@@ -9,6 +9,7 @@ from app.world.description import load
 from app.world.navigation import (
     Navigator,
     Steer,
+    UpcomingJunction,
     lap_length_m,
     lap_segments,
     normalise_angle,
@@ -364,3 +365,89 @@ def test_a_lap_is_still_the_circuit_and_not_the_pit_lane() -> None:
     # traces the centre of the track and a smoothed curve cuts the corners a
     # little more, so the built lap comes out consistently short of it.
     assert 4380 <= lap_length_m(network, network.route("big-ring")) <= 4460
+
+
+# Which way the sign points.
+
+
+def test_the_chosen_way_is_ranked_among_the_ways_out() -> None:
+    """By its place in the order, not by its angle: the roads at a circuit
+    part company by six or seven degrees, and drawn honestly that is a sign
+    pointing straight up whichever way the rider is about to go."""
+    network = load("sokol")
+    navigator = Navigator(network, route=network.route("big-ring"))
+
+    while navigator.upcoming is None:
+        navigator.advance(10.0)
+    upcoming = navigator.upcoming
+
+    assert len(upcoming.exits) == 2
+    assert upcoming.rank in (-1, 1)
+    assert upcoming.exits.index(upcoming.chosen_exit) == (
+        0 if upcoming.rank == -1 else 1
+    )
+
+
+def test_the_two_routes_through_a_junction_point_opposite_ways() -> None:
+    network = load("sokol")
+
+    ranks = []
+    for route_id in ("big-ring", "small-ring"):
+        navigator = Navigator(network, route=network.route(route_id))
+        while navigator.upcoming is None:
+            navigator.advance(10.0)
+        ranks.append(navigator.upcoming.rank)
+
+    assert ranks == [-1, 1] or ranks == [1, -1]
+
+
+def test_a_junction_with_one_way_out_is_not_a_choice() -> None:
+    upcoming = UpcomingJunction(
+        node="n1",
+        distance_m=50.0,
+        chosen_exit="a",
+        exits=("a",),
+        bearing_rad=0.0,
+        point=Point(0.0, 0.0, 0.0),
+    )
+
+    assert upcoming.rank == 0
+
+
+def test_a_middle_way_out_is_neither_left_nor_right() -> None:
+    upcoming = UpcomingJunction(
+        node="n1",
+        distance_m=50.0,
+        chosen_exit="b",
+        exits=("a", "b", "c"),
+        bearing_rad=0.0,
+        point=Point(0.0, 0.0, 0.0),
+    )
+
+    assert upcoming.rank == 0
+
+
+def test_a_chosen_way_that_is_not_on_offer_points_nowhere() -> None:
+    upcoming = UpcomingJunction(
+        node="n1",
+        distance_m=50.0,
+        chosen_exit="gone",
+        exits=("a", "b"),
+        bearing_rad=0.0,
+        point=Point(0.0, 0.0, 0.0),
+    )
+
+    assert upcoming.rank == 0
+
+
+def test_the_sign_stands_at_the_junction_not_in_front_of_the_rider() -> None:
+    """On a bend, a fixed distance straight ahead is out in the grass."""
+    network = load("sokol")
+    navigator = Navigator(network, route=network.route("big-ring"))
+    while navigator.upcoming is None:
+        navigator.advance(10.0)
+
+    upcoming = navigator.upcoming
+    segment = network.segment(navigator.position.segment_id)
+
+    assert upcoming.point == segment.points[-1]
