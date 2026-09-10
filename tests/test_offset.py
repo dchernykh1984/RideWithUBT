@@ -264,3 +264,8 @@ def test_the_pit_lane_still_starts_and_ends_on_the_track() -> None:
         )
         < 0.5
     )
+
+
+def test_a_line_of_one_point_cannot_be_offset() -> None:
+    with pytest.raises(ValueError, match="at least two points"):
+        offset_varying((Point(0.0, 0.0, 0.0),), (1.0,))

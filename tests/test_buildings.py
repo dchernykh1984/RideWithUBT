@@ -402,3 +402,26 @@ def test_a_ring_is_drawn_from_both_sides() -> None:
     first, third = solid.triangles[0], solid.triangles[2]
 
     assert first == tuple(reversed(third))
+
+
+def test_a_footprint_with_a_repeated_corner_grows_no_wall() -> None:
+    """Survey data has near-duplicate points, and a wall of no width is not a
+    wall - it is two triangles of nothing."""
+    doubled = Building(
+        id="b",
+        kind="garage",
+        footprint=(
+            Point(0.0, 0.0, 0.0),
+            Point(0.0, 0.0, 0.0),
+            Point(10.0, 0.0, 0.0),
+            Point(10.0, 6.0, 0.0),
+            Point(0.0, 6.0, 0.0),
+        ),
+        height_m=4.0,
+    )
+
+    walls = building_mesh(doubled)
+    upright = {round(vertex[2], 3) for vertex in walls.vertices}
+
+    assert upright == {0.0, 4.0}
+    assert len(walls.triangles) > 8
