@@ -27,7 +27,7 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
-from app.world import elevation
+from app.world import elevation, smooth
 from app.world.geo import Origin
 from app.world.network import (
     Junction,
@@ -39,6 +39,7 @@ from app.world.network import (
     TrackNetwork,
 )
 from app.world.offset import offset_polyline
+from app.world.smooth import smooth_polyline
 
 MAIN_WAY_KEY = "main"
 
@@ -126,6 +127,8 @@ class Recipe:
     elevation_window_m: float = elevation.DEFAULT_WINDOW_M
     start_node: int | None = None
     pit_lane: PitLane | None = None
+    #: How finely the road is rebuilt as a curve through the surveyed points.
+    curve_spacing_m: float = smooth.DEFAULT_SPACING_M
     #: Where a ride begins: a named group of segments, and how far along it. At
     #: an autodrome that is the pit lane, because that is where a session
     #: starts - not the first node the survey happened to record.
@@ -181,6 +184,7 @@ def load_recipe(path: Path) -> Recipe:
         elevation_window_m=float(
             raw.get("elevation_window_m", elevation.DEFAULT_WINDOW_M)
         ),
+        curve_spacing_m=float(raw.get("curve_spacing_m", smooth.DEFAULT_SPACING_M)),
         start_node=int(raw["start_node"]) if "start_node" in raw else None,
         pit_lane=_parse_pit_lane(raw.get("pit_lane")),
         start_on=_parse_start_on(raw.get("start_on")),
@@ -254,13 +258,20 @@ def split_way(
                 id=f"{key}-{number}",
                 start_node=node_id(way.nodes[start]),
                 end_node=node_id(way.nodes[end]),
-                points=tuple(
-                    _point(
-                        origin,
-                        way.coordinates[index],
-                        (heights or {}).get(way.nodes[index], 0.0),
-                    )
-                    for index in range(start, end + 1)
+                # Through a curve, not between the surveyed points: joining
+                # them with straight lines makes a corner out of flats meeting
+                # at angles, and the rider's heading really does snap round at
+                # each one.
+                points=smooth_polyline(
+                    [
+                        _point(
+                            origin,
+                            way.coordinates[index],
+                            (heights or {}).get(way.nodes[index], 0.0),
+                        )
+                        for index in range(start, end + 1)
+                    ],
+                    recipe.curve_spacing_m,
                 ),
                 width_m=recipe.width_m,
                 surface=way.tags.get("surface", recipe.surface),

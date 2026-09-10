@@ -290,6 +290,24 @@ measures within a couple of percent of the published length. The shortfall is
 expected and one-sided: OpenStreetMap traces the centre of the track, while a
 circuit is measured along its racing line.
 
+**The road is rebuilt as a curve, not joined up with straight lines.** A survey
+records a corner as a point every thirteen metres or so, and a rider going
+round the chords between them has their heading snap by up to twenty-six
+degrees at a time - which is what riding it looked like. `app/world/smooth.py`
+puts a centripetal Catmull-Rom spline through the surveyed points and samples
+it every four metres, then eases the result towards itself a few times. The
+spline alone is not enough: it turns smoothly but changes *how sharply* it
+turns in one step at every surveyed point, because a coarse survey does not sit
+on a smooth curve, and a rider feels that step as a flick of the bars. Easing
+takes the step from sixteen degrees to under two and moves the road by at most
+1.3 m, at the sharpest hairpin only - a tenth of the width of the track, and
+closer to the asphalt than the survey was.
+
+The heading is blended between one edge and the next rather than read off
+whichever edge the rider is on. A road is a list of straight pieces however
+finely it is drawn, and reading the heading off the current piece makes the
+view sit still and then snap at every join.
+
 **A ride begins where a session does: halfway down the pit lane.** That is a
 different thing from where a lap is measured from, and the two are kept apart -
 `TrackNetwork.start` places the rider, `Route.start_segment` measures the lap.
