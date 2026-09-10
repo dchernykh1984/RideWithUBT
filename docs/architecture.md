@@ -302,7 +302,11 @@ length of the lane is something the build works out.
 The pit lane is not in the extract either, so it is built rather than traced: the
 generator offsets the circuit's own points between two of its nodes, which makes
 the lane exactly parallel to the track and puts its entry and rejoin on real
-nodes - a junction and a merge like any other. Its shape is therefore real and
+nodes - a junction and a merge like any other. The offset eases in and out over
+sixty metres, so the lane leaves the track and rejoins it the way a real one
+does; at a constant offset it ran alongside at full width and then stopped in
+the grass. That taper needs points to happen at, and open data gives a straight
+between two nodes as exactly two of them, so the line is resampled first. Its shape is therefore real and
 its position is local knowledge: Sokol's runs along the shorter of the two long
 straights, on the left, and the circuit runs clockwise. A test asserts both,
 because a refreshed extract with the way drawn the other way round would reverse
