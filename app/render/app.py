@@ -28,6 +28,7 @@ from panda3d.core import (
     LVector3,
     NodePath,
     OrthographicLens,
+    SamplerState,
     TextNode,
     Texture,
     TextureStage,
@@ -100,6 +101,11 @@ MENU_SCALE = 0.055
 MENU_COLUMN = 0.72
 #: Space between the panel's text and the edge of its background, in ems.
 MENU_PAD = 0.5
+#: How hard to work at surfaces seen at a shallow angle, which for a road is
+#: all of them. Sixteen is what a graphics card of the last decade does without
+#: noticing; the road is the thing a rider looks at for an hour.
+ANISOTROPY = 16
+
 GROUND_SIZE_M = 8000.0
 GROUND_DROP_M = 0.15
 
@@ -218,6 +224,14 @@ class RideApp(ShowBase):
             return
         texture.setWrapU(Texture.WMRepeat)
         texture.setWrapV(Texture.WMRepeat)
+        # Smaller copies for what is far away, and filtering that copes with a
+        # surface seen almost edge-on. Without them a road at two hundred
+        # metres is a shimmer of dashes where its edge line should be, and a
+        # building's windows are a moire of stripes - the whole circuit
+        # crawled, and that is the road being sampled once per pixel.
+        texture.setMinfilter(SamplerState.FT_linear_mipmap_linear)
+        texture.setMagfilter(SamplerState.FT_linear)
+        texture.setAnisotropicDegree(ANISOTROPY)
         node.setTexture(texture)
         if repeat != 1.0:
             node.setTexScale(TextureStage.getDefault(), repeat, repeat)

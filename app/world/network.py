@@ -60,6 +60,11 @@ class Segment:
     end_node: str
     points: tuple[Point, ...]
     width_m: float = 10.0
+    #: How wide it is at each of its points, where that changes along its
+    #: length. A pit lane leaves the track from its kerb and widens out, so at
+    #: the two ends it has no width at all - which is what stops it being
+    #: painted across the racing surface it is merging into.
+    width_profile: tuple[float, ...] | None = None
     surface: str = "asphalt"
 
     def __post_init__(self) -> None:

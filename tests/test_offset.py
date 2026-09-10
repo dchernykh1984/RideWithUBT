@@ -7,7 +7,13 @@ import pytest
 
 from app.world.description import load
 from app.world.network import Point
-from app.world.offset import MAX_MITRE, densify, offset_polyline
+from app.world.offset import (
+    MAX_MITRE,
+    densify,
+    offset_polyline,
+    offset_varying,
+    ramps,
+)
 
 
 def test_a_straight_line_moves_sideways_by_exactly_the_offset() -> None:
@@ -185,3 +191,76 @@ def test_sokol_pit_lane_joins_the_track_at_both_ends() -> None:
     assert gap(0.0) == pytest.approx(0.0, abs=0.5)
     assert gap(1.0) == pytest.approx(0.0, abs=0.5)
     assert gap(0.5) == pytest.approx(14.0, abs=0.5), "and still a lane in between"
+
+
+# A lane that changes width along its length.
+
+
+def test_a_line_can_be_offset_by_a_different_reach_at_each_point() -> None:
+    straight = (Point(0.0, 0.0, 0.0), Point(10.0, 0.0, 0.0), Point(20.0, 0.0, 0.0))
+
+    moved = offset_varying(straight, (1.0, 5.0, 2.0))
+
+    assert [round(point.y, 6) for point in moved] == [1.0, 5.0, 2.0]
+
+
+def test_every_point_needs_a_reach() -> None:
+    straight = (Point(0.0, 0.0, 0.0), Point(10.0, 0.0, 0.0))
+
+    with pytest.raises(ValueError, match="reach of its own"):
+        offset_varying(straight, (1.0,))
+
+
+def test_a_ramp_eases_from_nothing_to_the_full_reach() -> None:
+    straight = densify((Point(0.0, 0.0, 0.0), Point(400.0, 0.0, 0.0)), 5.0)
+
+    reaches = ramps(straight, 60.0, 14.0)
+
+    assert reaches[0] == pytest.approx(0.0)
+    assert reaches[-1] == pytest.approx(0.0)
+    assert max(reaches) == pytest.approx(14.0)
+
+
+def test_a_ramp_can_ease_between_two_reaches() -> None:
+    """A pit lane's inner edge leaves the kerb rather than the centre line."""
+    straight = densify((Point(0.0, 0.0, 0.0), Point(400.0, 0.0, 0.0)), 5.0)
+
+    reaches = ramps(straight, 60.0, 6.0, 10.0)
+
+    assert reaches[0] == pytest.approx(6.0)
+    assert max(reaches) == pytest.approx(10.0)
+
+
+def test_sokol_pit_lane_has_no_width_where_it_meets_the_track() -> None:
+    """A lane still at full width where it merges paints its own edge lines
+    across the racing surface, which is what was on screen."""
+    lane = load("sokol").segment("pit-lane-0")
+
+    assert lane.width_profile is not None
+    assert lane.width_profile[0] == pytest.approx(0.0)
+    assert lane.width_profile[-1] == pytest.approx(0.0)
+    assert max(lane.width_profile) == pytest.approx(8.0)
+
+
+def test_the_pit_lane_still_starts_and_ends_on_the_track() -> None:
+    """Its width may go to nothing; its centre may not. A rider coming off it
+    onto the circuit must not step sideways to do so."""
+    network = load("sokol")
+    lane = network.segment("pit-lane-0")
+    entry = network.segment("main-0")
+    exit_to = network.segment("main-2")
+
+    assert (
+        math.dist(
+            (lane.points[0].x, lane.points[0].y),
+            (entry.points[-1].x, entry.points[-1].y),
+        )
+        < 0.5
+    )
+    assert (
+        math.dist(
+            (lane.points[-1].x, lane.points[-1].y),
+            (exit_to.points[0].x, exit_to.points[0].y),
+        )
+        < 0.5
+    )
