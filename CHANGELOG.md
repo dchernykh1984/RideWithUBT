@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/dchernykh1984/RideWithUBT/compare/v0.5.0...v0.5.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **render:** make the junction sign and the settings panel readable ([635a46f](https://github.com/dchernykh1984/RideWithUBT/commit/635a46f9f6a7a146e2e28d9d695222002dc599fb))
+
 ## [0.5.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.4.0...v0.5.0) (2026-09-10)
 
 
