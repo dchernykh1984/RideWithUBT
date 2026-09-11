@@ -47,9 +47,17 @@ class Scene:
     #: screen it comes back to.
     choose: str = ""
     save: bool = False
-    #: Where to put the camera: behind the rider as they ride, or beside them.
-    beside: bool = False
+    #: Where the camera is, as a rider who dragged it there would have it:
+    #: round from behind, up from the road, and how far off.
+    turn_deg: float = 0.0
+    lift_deg: float = 0.0
+    distance_m: float = 0.0
     crank_deg: float = 90.0
+
+    @property
+    def swung(self) -> bool:
+        """Whether this scene moves the camera off where a ride puts it."""
+        return bool(self.turn_deg or self.lift_deg or self.distance_m)
 
 
 SCENES: tuple[Scene, ...] = (
@@ -105,13 +113,46 @@ SCENES: tuple[Scene, ...] = (
     Scene("junction", "the sign at a junction, and what it says", 66.0),
     Scene("corner", "a corner, which should be a curve and not a polygon", 118.0),
     Scene("straight", "the pit straight: buildings, and the road far away", 460.0),
-    Scene("rider", "the rider, from beside them", 40.0, beside=True),
+    Scene(
+        "rider",
+        "the rider, from beside them",
+        40.0,
+        turn_deg=90.0,
+        lift_deg=8.0,
+        distance_m=6.0,
+    ),
     Scene(
         "rider-tt",
         "and on a time trial bicycle, which is a different shape",
         40.0,
         bike_id="tt",
-        beside=True,
+        turn_deg=90.0,
+        lift_deg=8.0,
+        distance_m=6.0,
+    ),
+    Scene(
+        "view-side",
+        "the view dragged a quarter turn round the rider, mid-ride",
+        460.0,
+        turn_deg=90.0,
+        lift_deg=12.0,
+        distance_m=14.0,
+    ),
+    Scene(
+        "view-front",
+        "and all the way round, looking back down the road at them",
+        460.0,
+        turn_deg=180.0,
+        lift_deg=10.0,
+        distance_m=10.0,
+    ),
+    Scene(
+        "view-above",
+        "dragged upwards, which is as far up as it goes",
+        460.0,
+        turn_deg=40.0,
+        lift_deg=70.0,
+        distance_m=20.0,
     ),
 )
 
@@ -158,8 +199,8 @@ class Look:
         self._panel(scene)
         self.app.ride_forward(scene.seconds)
         self.app.run_frames(SELFTEST_FRAMES)
-        if scene.beside:
-            self._stand_beside(scene)
+        if scene.swung:
+            self._swing_the_view(scene)
 
     def _panel(self, scene: Scene) -> None:
         """Open a screen and work a row on it, through the real key handling."""
@@ -201,20 +242,20 @@ class Look:
             self.app._menu_enter()
         self.app._redraw_panel()
 
-    def _stand_beside(self, scene: Scene) -> None:
-        """Move the camera out to the side, to look at the rider rather than
-        the road."""
+    def _swing_the_view(self, scene: Scene) -> None:
+        """Put the camera where a rider dragging the mouse would have put it.
+
+        Through the same `Chase` the mouse drives, rather than by placing the
+        camera by hand: a picture taken some other way is a picture of
+        something the application does not do.
+        """
         import math
 
-        state = self.app.state
-        heading = state.heading_rad
         self.app.taskMgr.remove("ride")
-        self.app.camera.setPos(
-            state.point.x + math.cos(heading + math.pi / 2) * 4.5,
-            state.point.y + math.sin(heading + math.pi / 2) * 4.5,
-            state.point.z + 1.1,
-        )
-        self.app.camera.lookAt(state.point.x, state.point.y, state.point.z + 0.9)
+        self.app.chase.turn_deg = scene.turn_deg
+        self.app.chase.lift_deg = scene.lift_deg
+        self.app.chase.distance_m = scene.distance_m
+        self.app._place_camera()
         self.app.rider.pedal_at(math.radians(scene.crank_deg))
         self.app.graphicsEngine.renderFrame()
         self.app.graphicsEngine.renderFrame()
