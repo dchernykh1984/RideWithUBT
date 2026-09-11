@@ -101,6 +101,17 @@ MENU_SCALE = 0.055
 MENU_COLUMN = 0.72
 #: Space between the panel's text and the edge of its background, in ems.
 MENU_PAD = 0.5
+#: Where the box that asks for a value sits: over the panel, towards the
+#: middle of the screen, so it reads as a thing on top rather than a new page.
+POPUP_LEFT = -0.30
+POPUP_TOP = 0.34
+#: The gap between a row's label and its value. Set from the widest label
+#: rather than fixed, or a long one runs into its own value - which
+#: "Record trainer data" did.
+COLUMN_GAP = 0.6
+#: Which is drawn over which. A panel, then the box a field opens in.
+PANEL_LAYER = 20
+POPUP_LAYER = 40
 #: How hard to work at surfaces seen at a shallow angle, which for a road is
 #: all of them. Sixteen is what a graphics card of the last decade does without
 #: noticing; the road is the thing a rider looks at for an hour.
@@ -159,6 +170,7 @@ class RideApp(ShowBase):
         self.hud = self._build_hud(headless=headless or offscreen)
         self.menu: SetupMenu | None = None
         self.menu_text = self._build_menu_text(headless=headless or offscreen)
+        self.popup_text = self._build_popup_text(headless=headless or offscreen)
         # A picture of the world and the smoke test are not somebody sitting
         # down to ride, so neither opens on a front screen.
         self.screen: StartScreen | None = (
@@ -366,6 +378,46 @@ class RideApp(ShowBase):
                 )
             )
         for part in parts:
+            part.setBin("fixed", PANEL_LAYER)
+            part.hide()
+        return parts
+
+    def _build_popup_text(self, *, headless: bool) -> list[OnscreenText] | None:
+        """The box that opens over the panel when a field is worked.
+
+        Over it rather than instead of it: a rider changing their weight can
+        still see what the rest of it is set to, and a list of routes does not
+        take the whole screen away from the screen it came from.
+        """
+        if headless:
+            return None
+        card = OnscreenText(
+            text="",
+            pos=(POPUP_LEFT, POPUP_TOP),
+            scale=MENU_SCALE,
+            fg=(1, 1, 1, 0),
+            bg=(0.10, 0.14, 0.20, 0.97),
+            align=TextNode.ALeft,
+            font=self.font,
+            mayChange=True,
+        )
+        parts = [card]
+        for colour in ((1, 1, 1, 1), (0.75, 0.85, 1.0, 1)):
+            parts.append(
+                OnscreenText(
+                    text="",
+                    pos=(POPUP_LEFT, POPUP_TOP),
+                    scale=MENU_SCALE,
+                    fg=colour,
+                    align=TextNode.ALeft,
+                    font=self.font,
+                    mayChange=True,
+                )
+            )
+        for part in parts:
+            # Above the panel, said rather than left to the order things were
+            # made in: a box the screen behind shows through is not a box.
+            part.setBin("fixed", POPUP_LAYER)
             part.hide()
         return parts
 
@@ -589,27 +641,44 @@ class RideApp(ShowBase):
     def _panel(self) -> StartScreen | SetupMenu | None:
         return self.menu if self.menu is not None else self.screen
 
-    def _layout(self) -> Layout | None:
-        if self.menu_text is None:
+    def _layout(self, *, popup: bool = False) -> Layout | None:
+        """Where the lines of the panel - or of the box over it - are drawn."""
+        parts = self.popup_text if popup else self.menu_text
+        if parts is None:
             return None
-        node = self.menu_text[1].textNode
+        node = parts[1].textNode
         return Layout(
-            top=MENU_TOP,
+            top=POPUP_TOP if popup else MENU_TOP,
             line_height=MENU_SCALE * node.getLineHeight(),
             #: The title and the blank line under it, which are not rows.
             header=2,
         )
 
     def _row_under_the_mouse(self) -> int | None:
-        panel, layout = self._panel(), self._layout()
+        """Which line the pointer is on: of the open list, or of the panel.
+
+        An open list is drawn in its own box, in its own place. Measuring the
+        click against the panel underneath would put the marker on whatever
+        row of the panel happens to be at that height, which is not what the
+        rider is pointing at.
+        """
+        panel = self._panel()
         # There is no mouse without a window, and a picture of the world is
         # taken without one.
         watcher = self.mouseWatcherNode
-        if panel is None or layout is None or watcher is None or not watcher.hasMouse():
+        if panel is None or watcher is None or not watcher.hasMouse():
             return None
+        if panel.typing is not None:
+            # A field being typed into has no lines to land on.
+            return None
+        picking = panel.picking
+        layout = self._layout(popup=picking is not None)
+        if layout is None:
+            return None
+        count = len(picking.row.choices) if picking is not None else len(panel.rows)
         # The mouse is reported in render2d, where y runs -1 to 1 up the window;
         # the panel is laid out in aspect2d, which shares that vertical scale.
-        return layout.row_at(self.mouseWatcherNode.getMouseY(), len(panel.rows))
+        return layout.row_at(watcher.getMouseY(), count)
 
     def _follow_mouse(self) -> None:
         """Mark whatever the pointer is over, the way a menu is expected to."""
@@ -622,8 +691,17 @@ class RideApp(ShowBase):
 
     def _click(self) -> None:
         panel = self._panel()
+        if panel is None:
+            return
+        if panel.typing is not None:
+            # Clicking away from a number being typed keeps it, the way Enter
+            # does: a rider who reached for the mouse should not have to find
+            # out which key closes the field.
+            panel.activate()
+            self._redraw_panel()
+            return
         index = self._row_under_the_mouse()
-        if panel is None or index is None:
+        if index is None:
             return
         panel.point_at(index)
         # A click opens the field: a list to pick from, or a number to type
@@ -672,10 +750,11 @@ class RideApp(ShowBase):
             return
         self._draw_panel(
             self.menu.columns(),
-            self.translate(self.menu.title or "Settings"),
-            "" if self.menu.busy else self.menu.summary,
+            self.translate("Settings"),
+            self.menu.summary,
             footer=self._panel_footer(self.menu),
         )
+        self._draw_popup(self.menu)
 
     def _label(self, name: str) -> str:
         """A row's label in the rider's language, marker and all.
@@ -696,14 +775,20 @@ class RideApp(ShowBase):
         return f"{marker}{translated}" if marker else translated.upper()
 
     def _panel_footer(self, panel: StartScreen | SetupMenu) -> str:
-        """What to do next, which depends on what is open."""
-        if panel.typing is not None:
-            return self.translate("Type a number, enter to keep it")
-        if panel.picking is not None:
-            return self.translate("Enter or click to choose, escape to go back")
+        """What to do next on the panel itself.
+
+        The box over it says what to do in the box; saying it twice, once
+        there and once underneath, only makes a rider read it twice.
+        """
         if panel is self.screen:
             return self.translate("Click a line to change it, space to ride")
         return self.translate("Click a line to change it, tab to close")
+
+    def _field_footer(self, panel: StartScreen | SetupMenu) -> str:
+        """What to do in the open field."""
+        if panel.typing is not None:
+            return self.translate("Type a number, enter to keep it")
+        return self.translate("Enter or click to choose, escape to go back")
 
     def _draw_panel(
         self,
@@ -720,7 +805,6 @@ class RideApp(ShowBase):
         """
         if self.menu_text is None:
             return
-        card, labels, readings = self.menu_text
         # The ride's numbers are not what a rider is reading while a panel is
         # up, and they show through it from the same layer.
         if self.hud is not None:
@@ -736,22 +820,67 @@ class RideApp(ShowBase):
             if line:
                 left += ["", line]
                 right += ["", ""]
+        self._lay_out(self.menu_text, MENU_LEFT, MENU_TOP, left, right, len(rows))
+        for part in self.menu_text:
+            part.show()
+
+    def _lay_out(
+        self,
+        parts: list[OnscreenText],
+        x: float,
+        y: float,
+        left: list[str],
+        right: list[str],
+        rows: int = 0,
+    ) -> None:
+        """Put two columns on a card, both sized from what the font did.
+
+        The font is proportional, so nothing here can be worked out by counting
+        characters: the column starts after the widest label there actually is,
+        and the card is as wide as the widest line there actually is.
+        """
+        card, labels, readings = parts
+        # The column goes after the widest *row* label. Measured on the rows
+        # alone: a title or a footer is a whole line of its own and has no
+        # value beside it, and letting one of those set the column pushes every
+        # value halfway across the card.
+        labels.setText("\n".join(left[2 : 2 + rows] if rows else left))
+        column = labels.textNode.getWidth() + COLUMN_GAP
         labels.setText("\n".join(left))
+        labels.setPos(x, y)
         readings.setText("\n".join(right))
-        # The card is sized from what the font actually did with the text, not
-        # from a count of characters padded with spaces. The font is
-        # proportional: padding lines nothing up and a long line walks straight
-        # off the edge of its own background, which is what happened.
+        readings.setPos(x + column * MENU_SCALE, y)
         card.setText("\n".join(left))
-        across = max(
-            labels.textNode.getWidth(),
-            MENU_COLUMN / MENU_SCALE + readings.textNode.getWidth(),
-        )
+        card.setPos(x, y)
+        across = max(labels.textNode.getWidth(), column + readings.textNode.getWidth())
         # getHeight measures the block from the first line's baseline, so the
         # last line hangs below it by its own descender.
-        down = card.textNode.getHeight()
-        card.textNode.setCardActual(-MENU_PAD, across + MENU_PAD, -down, 1.0)
-        for part in self.menu_text:
+        card.textNode.setCardActual(
+            -MENU_PAD, across + MENU_PAD, -card.textNode.getHeight(), 1.0
+        )
+
+    def _draw_popup(self, panel: StartScreen | SetupMenu) -> None:
+        """The box a field opens in, or nothing when none is open."""
+        if self.popup_text is None:
+            return
+        row = panel.open_row
+        if row is None:
+            for part in self.popup_text:
+                part.hide()
+            return
+        lines = panel.popup()
+        left = [self._label(row.name), ""]
+        # Where in the list the marker is, beside what the list is of: a box
+        # showing twelve of thirty-nine trainers should say so.
+        place = panel.picking.place if panel.picking is not None else ""
+        right = [place, ""]
+        for name, reading in lines:
+            left.append(self._label(name))
+            right.append(self.translate(reading) if reading else reading)
+        left += ["", self._field_footer(panel)]
+        right += ["", ""]
+        self._lay_out(self.popup_text, POPUP_LEFT, POPUP_TOP, left, right, len(lines))
+        for part in self.popup_text:
             part.show()
 
     def _draw_start_screen(self) -> None:
@@ -759,10 +888,11 @@ class RideApp(ShowBase):
             return
         self._draw_panel(
             self.screen.columns(),
-            self.translate(self.screen.title) if self.screen.title else "RideWithUBT",
+            "RideWithUBT",
             "",
             footer=self._panel_footer(self.screen),
         )
+        self._draw_popup(self.screen)
 
     def _hide_panel(self) -> None:
         """Take the panel away - unless there is another one behind it.
