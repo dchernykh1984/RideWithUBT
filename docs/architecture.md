@@ -744,6 +744,32 @@ lines are off the bottom of it is one nobody can finish reading. That also
 means a click on the box is a line of the box and not a place in the list, so
 `Panel.point_at` adds on where the window starts.
 
+## The view, and swinging it round the rider
+
+The chase camera sits behind and above the rider and looks well up the road,
+which is the view somebody rides in. It is not the view somebody wants when
+they want to *look* at something - their own position, a building, the line
+they took through a corner - so holding a mouse button and moving swings the
+whole picture around the rider, the wheel pulls it in and pushes it out, and
+the right button puts it back.
+
+Where the camera goes is a point on a sphere around the rider and where it aims
+is another point, so all of it is in `app/core/camera.py` and none of it is in
+the renderer: the renderer reads the pointer, hands over how far it moved, and
+puts the camera where it is told. `Chase` holds the three numbers a rider can
+change - how far round, how far up, how far off - and clamps each to somewhere
+worth looking from.
+
+What it aims at is the part worth knowing. Aiming at a fixed point up the road
+is right only from behind: swung round or lifted, that point is somewhere else
+entirely and the rider drops off the bottom of the picture, which is what the
+first attempt at this did from above. So the line is taken to the rider and
+then tipped up by the angle the rider sits below the middle of the picture when
+riding - a number worked out from the resting camera rather than chosen, so the
+view nobody has touched is exactly the view that was there before. The tip
+falls away as the camera comes in close, because at three metres the same angle
+puts the wheels off the bottom edge.
+
 ## Localisation
 
 Russian, English and Kazakh, first-class from the start.
@@ -775,7 +801,8 @@ compile step and no `.mo` binaries in the repository.
 
 `scripts/look.py` runs the application, puts it in a named situation and takes
 a picture: the front screen in each language, a list laid out, a number being
-typed into, the rider from beside them, five places round the circuit. It
+typed into, the rider from beside them, the view swung round them, five places
+round the circuit. It
 drives the keyboard through the real key handling rather than around it, so
 what it shows is what a rider gets.
 

@@ -56,6 +56,7 @@ What to look for, by what you touched:
 | Touched | Look at | For |
 | --- | --- | --- |
 | the rider or the bicycle | `rider`, `rider-tt` | limbs joined, wheels round, the position right for the bicycle |
+| the camera or the view | `view-side`, `view-front`, `view-above`, `rider` | the rider in the picture from every angle, and not half off an edge |
 | a panel, a row, a field | `start`, `settings`, `list`, `typing`, `trainers` | columns lined up, the card fitting its text, the box opaque and on top, a long list showing where in itself it is |
 | any user-visible string | `start-ru`, `start-kk`, `settings-ru` | letters that draw, and nothing left in English |
 | anything about the language | `language` | the screen it comes back to speaks what was just chosen |

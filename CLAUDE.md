@@ -98,6 +98,9 @@ Learned the hard way; each cost a release or a wrong answer.
   time. Stepping a weight to 83 kg with an arrow key is eighty-three key
   presses, and a row that cycles through forty trainers is one nobody reaches
   the end of.
+- **A view that can be turned until the rider leaves the picture is not a view
+  of the rider.** The camera aims at them and tips up off them; it does not aim
+  at a point up the road, which is only the same thing from directly behind.
 - **A language chosen is not a language spoken.** Every screen holds a
   translator of its own, so changing the language has to reach all of them and
   redraw. Writing it to the settings file changes nothing anybody can see.
