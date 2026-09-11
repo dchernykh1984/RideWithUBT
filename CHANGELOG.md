@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.12.0...v0.13.0) (2026-09-11)
+
+
+### Features
+
+* **core:** a camera that can be swung round the rider ([a19c09f](https://github.com/dchernykh1984/RideWithUBT/commit/a19c09f9d466a5add6b41fbb0149ca6ad40176e0))
+* **render:** hold a mouse button to swing the view round the rider ([379a67f](https://github.com/dchernykh1984/RideWithUBT/commit/379a67f9b91619a2927e741c49e8639ed13bcd98))
+
+
+### Documentation
+
+* how the view moves round the rider and how to put it back ([202379d](https://github.com/dchernykh1984/RideWithUBT/commit/202379d3691ee0aa25f12c0c536e5e5a9aa6eee3))
+
 ## [0.12.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.11.0...v0.12.0) (2026-09-11)
 
 
