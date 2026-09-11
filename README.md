@@ -176,6 +176,11 @@ they really are: their footprints come from the same survey as the track.
 Left and right arrows choose which way to go at a junction, space ends a workout
 step that runs until you say so, and escape quits.
 
+**Hold a mouse button and move to swing the view round the rider.** The wheel
+pulls the camera in and pushes it out, and the right button puts it back behind
+them looking up the road. Nothing about the ride changes while you look: it is
+the camera that moves, not the bicycle.
+
 Click a line to change it: a number opens for typing, a list opens to pick
 from. Arrows still step a row without opening anything.
 
