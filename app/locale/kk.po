@@ -194,3 +194,27 @@ msgstr "бұрынғысынша қалдыру"
 
 msgid "Click a line to change it, or Save when done"
 msgstr "Жолды басып өзгертіңіз, дайын болғанда Сақтау"
+
+msgid "Sitting up"
+msgstr "Тік отырып"
+
+msgid "Road bicycle, on the hoods"
+msgstr "Шоссе, тежегіш тұтқаларында"
+
+msgid "Road bicycle, in the drops"
+msgstr "Шоссе, төменгі ұстауда"
+
+msgid "Road bicycle with time trial bars"
+msgstr "Жатық тұтқалы шоссе"
+
+msgid "Time trial bicycle"
+msgstr "Жеке жарыс велосипеді"
+
+msgid "not controlled"
+msgstr "басқарылмайды"
+
+msgid "hold a set power"
+msgstr "берілген қуатты ұстау"
+
+msgid "follow the road"
+msgstr "трасса бедері бойынша"

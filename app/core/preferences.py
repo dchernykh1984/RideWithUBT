@@ -52,6 +52,15 @@ SIMULATE = "Stand-in rider"
 LANGUAGE = "Language"
 SCAN = "Scan for sensors"
 
+#: What the trainer is told to do. The value is what is stored and what the
+#: protocol calls it; the label is what a rider reads, and "erg" is not a word
+#: outside a bicycle shop.
+CONTROL_LABELS = {
+    ControlMode.OFF: "not controlled",
+    ControlMode.ERG: "hold a set power",
+    ControlMode.SIMULATION: "follow the road",
+}
+
 #: Leaving the settings, one way or the other. A screen that can only be left
 #: by knowing which key to press is a screen somebody is stuck on.
 KEEP = "Save"
@@ -129,7 +138,8 @@ class SetupMenu(Panel):
         )
         trainers.point_at(self.settings.trainer_id)
         control = ChoiceRow(
-            CONTROL, tuple(Choice(mode.value, mode.value) for mode in ControlMode)
+            CONTROL,
+            tuple(Choice(mode.value, CONTROL_LABELS[mode]) for mode in ControlMode),
         )
         control.point_at(self.settings.trainer_control.value)
         bikes = ChoiceRow(

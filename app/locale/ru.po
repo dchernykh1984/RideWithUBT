@@ -194,3 +194,27 @@ msgstr "вернуть как было"
 
 msgid "Click a line to change it, or Save when done"
 msgstr "Клик по строке - изменить, Сохранить - когда готово"
+
+msgid "Sitting up"
+msgstr "Сидя прямо"
+
+msgid "Road bicycle, on the hoods"
+msgstr "Шоссе, на ручках тормозов"
+
+msgid "Road bicycle, in the drops"
+msgstr "Шоссе, в нижнем хвате"
+
+msgid "Road bicycle with time trial bars"
+msgstr "Шоссе с лежаком"
+
+msgid "Time trial bicycle"
+msgstr "Разделочный велосипед"
+
+msgid "not controlled"
+msgstr "без управления"
+
+msgid "hold a set power"
+msgstr "держать заданную мощность"
+
+msgid "follow the road"
+msgstr "по рельефу трассы"
