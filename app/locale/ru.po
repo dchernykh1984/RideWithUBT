@@ -218,3 +218,6 @@ msgstr "держать заданную мощность"
 
 msgid "follow the road"
 msgstr "по рельефу трассы"
+
+msgid "Right-click to look ahead again"
+msgstr "Правая кнопка - снова смотреть вперёд"

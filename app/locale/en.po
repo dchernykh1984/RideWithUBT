@@ -221,3 +221,6 @@ msgstr "hold a set power"
 
 msgid "follow the road"
 msgstr "follow the road"
+
+msgid "Right-click to look ahead again"
+msgstr "Right-click to look ahead again"
