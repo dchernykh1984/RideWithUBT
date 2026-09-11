@@ -47,14 +47,18 @@ a picture:
 - a whole circuit shimmering into dashes for want of mipmaps
 - Russian and Kazakh drawn as rows of empty boxes, and then - with a font that
   could draw them - every label still in English
+- a language chosen in the settings, written to the file, and every label on
+  the screen still English until the next launch
+- a settings screen with no way off it but a key named in a footer
 
 What to look for, by what you touched:
 
 | Touched | Look at | For |
 | --- | --- | --- |
 | the rider or the bicycle | `rider`, `rider-tt` | limbs joined, wheels round, the position right for the bicycle |
-| a panel, a row, a field | `start`, `settings`, `list`, `typing` | columns lined up, the card fitting its text, the footer saying what the keys do |
-| any user-visible string | `start-ru`, `start-kk` | letters that draw, and nothing left in English |
+| a panel, a row, a field | `start`, `settings`, `list`, `typing`, `trainers` | columns lined up, the card fitting its text, the box opaque and on top, a long list showing where in itself it is |
+| any user-visible string | `start-ru`, `start-kk`, `settings-ru` | letters that draw, and nothing left in English |
+| anything about the language | `language` | the screen it comes back to speaks what was just chosen |
 | the world, the mesh, a texture | `pits`, `pit-exit`, `corner`, `straight`, `junction` | no seams, no markings across the road, nothing shimmering in the distance |
 
 If a change is only arithmetic, say so and skip it. If it is anything a rider

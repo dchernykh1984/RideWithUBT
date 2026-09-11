@@ -94,9 +94,16 @@ Learned the hard way; each cost a release or a wrong answer.
   `--selftest` run offscreen, where `mouseWatcherNode` and `buttonThrowers` are
   empty and a font need not load. Each of those has crashed a build once.
 - **A menu is worked with a mouse.** Clicking a number opens it for typing;
-  clicking a list opens the list. Stepping a weight to 83 kg with an arrow key
-  is eighty-three key presses, and a row that cycles through forty trainers is
-  one nobody reaches the end of.
+  clicking a list opens the list, in a box over the panel and a windowful at a
+  time. Stepping a weight to 83 kg with an arrow key is eighty-three key
+  presses, and a row that cycles through forty trainers is one nobody reaches
+  the end of.
+- **A language chosen is not a language spoken.** Every screen holds a
+  translator of its own, so changing the language has to reach all of them and
+  redraw. Writing it to the settings file changes nothing anybody can see.
+- **A screen needs a way out that is on the screen.** The settings are left by
+  Save or by Discard, both of them rows. "Press tab" in a footer is not a way
+  out for somebody holding a mouse.
 
 ## Look at it
 
