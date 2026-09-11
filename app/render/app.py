@@ -528,20 +528,34 @@ class RideApp(ShowBase):
             self._menu_key(0, 1)
 
     def _toggle_menu(self) -> None:
-        """Open the settings, or close them and keep what was chosen.
+        """Open the settings, or leave them without keeping anything.
 
-        Saving on the way out rather than on every keystroke: a rider stepping
-        through the trainer list is looking, not choosing, and writing the file
-        thirty times would make the last look the decision.
+        Nothing is written while the screen is up: a rider stepping through the
+        trainer list is looking, not choosing, and writing the file thirty
+        times would make the last look the decision. Save keeps it; Discard and
+        tab do not.
         """
         if self.menu is None:
             self.menu = SetupMenu(scanner=self._scan_for_sensors, speaks=self.translate)
         else:
+            self._close_menu(keep=False)
+        self._update_menu()
+
+    def _close_menu(self, *, keep: bool) -> None:
+        """Leave the settings, having kept what was chosen or not."""
+        if self.menu is None:  # pragma: no cover - callers check first
+            return
+        if keep:
             self.menu.save()
             self.ride.reconsider(self.ride.setup.simulated_watts)
             self._refresh_rider()
-            self.menu = None
-        self._update_menu()
+        self.menu = None
+
+    def _finish_with_menu(self) -> None:
+        """Act on Save or Discard, which a row can ask for but not carry out."""
+        if self.menu is None or not self.menu.closing:
+            return
+        self._close_menu(keep=self.menu.closing == "saved")
 
     def _scan_for_sensors(self, seconds: float) -> Sequence[Found]:
         """Ask the radios who is there, from inside the window.
@@ -709,6 +723,7 @@ class RideApp(ShowBase):
         # eighty-three key presses, and a list of forty trainers is a list
         # nobody reaches the end of.
         panel.activate()
+        self._finish_with_menu()
         self._redraw_panel()
 
     def _scroll(self, by: int) -> None:
@@ -732,6 +747,7 @@ class RideApp(ShowBase):
         if panel is None:
             return
         panel.activate()
+        self._finish_with_menu()
         self._redraw_panel()
 
     def _menu_key(self, rows: int, values: int) -> None:
@@ -782,7 +798,7 @@ class RideApp(ShowBase):
         """
         if panel is self.screen:
             return self.translate("Click a line to change it, space to ride")
-        return self.translate("Click a line to change it, tab to close")
+        return self.translate("Click a line to change it, or Save when done")
 
     def _field_footer(self, panel: StartScreen | SetupMenu) -> str:
         """What to do in the open field."""

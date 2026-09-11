@@ -52,6 +52,11 @@ SIMULATE = "Stand-in rider"
 LANGUAGE = "Language"
 SCAN = "Scan for sensors"
 
+#: Leaving the settings, one way or the other. A screen that can only be left
+#: by knowing which key to press is a screen somebody is stuck on.
+KEEP = "Save"
+DISCARD = "Discard"
+
 #: How long a scan listens for. Long enough for a sleepy sensor to wake up and
 #: answer, short enough that a rider does not think it has hung.
 SCAN_SECONDS = 6.0
@@ -80,6 +85,9 @@ class SetupMenu(Panel):
     #: finds nothing surprisingly often, and a screen that says neither is a
     #: screen a rider presses again.
     note: str = ""
+    #: Set when the rider has finished with this screen, and how. Read by
+    #: whoever opened it: a panel does not know how to close itself.
+    closing: str = ""
     #: The width the rider last asked for, which may not be on the current rim.
     #: Scrolling through rims to find one is not a decision about tyres, so a
     #: rim passed over on the way must not quietly throw the tyre choice away.
@@ -150,6 +158,9 @@ class SetupMenu(Panel):
             ActionRow(SCAN, self.scan, lambda: self.note),
             Heading("Application"),
             languages,
+            Heading("Done"),
+            ActionRow(KEEP, self._keep, lambda: "keep these"),
+            ActionRow(DISCARD, self._discard, lambda: "leave them as they were"),
         ]
 
     def _device_rows(self) -> list[Row]:
@@ -190,6 +201,14 @@ class SetupMenu(Panel):
             widths.point_at(self.wanted_width)
 
     # Doing things that reach outside.
+
+    def _keep(self) -> None:
+        """What Save does. The renderer watches `closing` and acts on it."""
+        self.save()
+        self.closing = "saved"
+
+    def _discard(self) -> None:
+        self.closing = "discarded"
 
     def scan(self, seconds: float = SCAN_SECONDS) -> None:
         """Ask the radios who is there, and offer whatever answers."""
