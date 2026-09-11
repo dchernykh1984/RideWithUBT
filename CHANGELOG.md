@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.11.0...v0.12.0) (2026-09-11)
+
+
+### Features
+
+* **render:** open a field in a box over the panel, a windowful at a time ([8e43b71](https://github.com/dchernykh1984/RideWithUBT/commit/8e43b7126e1e8c01ff01255c3ebb4f2929fbc571))
+* **settings:** leave the settings with Save or Discard ([a32dbcb](https://github.com/dchernykh1984/RideWithUBT/commit/a32dbcb0c493bd0f7f10ac714fcee76b24f9bff5))
+
+
+### Bug Fixes
+
+* **i18n:** say the bicycle and the trainer control in the rider's language ([115de0a](https://github.com/dchernykh1984/RideWithUBT/commit/115de0afde105c3eed92fa958e4fd0d671a67c6a))
+* **render:** speak the language the rider just chose ([b14be56](https://github.com/dchernykh1984/RideWithUBT/commit/b14be56329d1e74db28ef5ce0ee79950821e6159))
+
+
+### Documentation
+
+* how a field opens, how the settings are left, where the stand-in rider is ([7450eaf](https://github.com/dchernykh1984/RideWithUBT/commit/7450eaf65cec6fcdbca467d39a4db86231c8b05b))
+
 ## [0.11.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.10.0...v0.11.0) (2026-09-10)
 
 
