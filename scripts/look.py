@@ -42,6 +42,11 @@ class Scene:
     panel: str = ""
     open_row: str = ""
     typing: str = ""
+    #: A value to pick in the open list, and whether to press Save afterwards -
+    #: which is how a language chosen in the settings is looked at on the
+    #: screen it comes back to.
+    choose: str = ""
+    save: bool = False
     #: Where to put the camera: behind the rider as they ride, or beside them.
     beside: bool = False
     crank_deg: float = 90.0
@@ -63,6 +68,12 @@ SCENES: tuple[Scene, ...] = (
     ),
     Scene("settings", "the settings, every row of them", panel="settings"),
     Scene(
+        "settings-ru",
+        "the settings in Russian - the screen a rider spends longest on",
+        panel="settings",
+        language="ru",
+    ),
+    Scene(
         "list",
         "a list laid out to pick from, with the one in use marked",
         panel="start",
@@ -74,6 +85,20 @@ SCENES: tuple[Scene, ...] = (
         panel="start",
         open_row="Ride without sensors",
         typing="24",
+    ),
+    Scene(
+        "trainers",
+        "a list longer than the screen, a windowful at a time",
+        panel="settings",
+        open_row="Trainer",
+    ),
+    Scene(
+        "language",
+        "Russian chosen and saved - the screen it comes back to speaks it",
+        panel="settings",
+        open_row="Language",
+        choose="ru",
+        save=True,
     ),
     Scene("pits", "standing in the pit lane, where a ride begins", seconds=1.0),
     Scene("pit-exit", "rejoining the circuit - the merge, and the markings", 40.0),
@@ -129,6 +154,7 @@ class Look:
         self.app.font = self.app._font()
         self.app.hud = self.app._build_hud(headless=False)
         self.app.menu_text = self.app._build_menu_text(headless=False)
+        self.app.popup_text = self.app._build_popup_text(headless=False)
         self._panel(scene)
         self.app.ride_forward(scene.seconds)
         self.app.run_frames(SELFTEST_FRAMES)
@@ -137,11 +163,13 @@ class Look:
 
     def _panel(self, scene: Scene) -> None:
         """Open a screen and work a row on it, through the real key handling."""
-        from app.core.preferences import SetupMenu
+        from app.core.preferences import KEEP, SetupMenu
         from app.core.startscreen import StartScreen
 
         if scene.panel == "settings":
-            self.app.screen = None
+            # The front screen stays underneath: the settings are reached from
+            # it, and closing them comes back to it.
+            self.app.screen = StartScreen(speaks=self.app.translate)
             self.app.menu = SetupMenu(
                 speaks=self.app.translate,
                 scanner=lambda _s: _pretend_sensors(),
@@ -160,6 +188,17 @@ class Look:
             self.app._menu_enter()
             for character in scene.typing:
                 self.app.messenger.send("keystroke", [character])
+            if scene.choose and panel.picking is not None:
+                panel.picking.row.point_at(scene.choose)
+                panel.picking.index = panel.picking.row.index
+                self.app._menu_enter()
+        if scene.save and self.app.menu is not None:
+            self.app.menu.selected = next(
+                index
+                for index, row in enumerate(self.app.menu.rows)
+                if row.name == KEEP
+            )
+            self.app._menu_enter()
         self.app._redraw_panel()
 
     def _stand_beside(self, scene: Scene) -> None:
