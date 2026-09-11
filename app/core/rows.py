@@ -126,6 +126,11 @@ class NumberRow(Row):
             return self.off_label
         return f"{self.value:.{self.decimals}f}{self.unit}"
 
+    @property
+    def range_says(self) -> str:
+        """What a field will take, for a box that is asking for a number."""
+        return f"{self.low:.{self.decimals}f} - {self.high:.{self.decimals}f}"
+
     def change(self, by: int) -> None:
         stepped = self.value + by * self.step
         self.value = min(max(stepped, self.low), self.high)
@@ -233,6 +238,11 @@ class Typing:
         return True
 
 
+#: How many options a box shows at once. Twelve fits on the shortest window
+#: anybody rides on; the list of trainers is three times that.
+WINDOW = 12
+
+
 @dataclass
 class Picking:
     """A list opened on a row, to choose from rather than to cycle through.
@@ -258,15 +268,39 @@ class Picking:
     def choose(self) -> None:
         self.row.index = self.index
 
+    @property
+    def first(self) -> int:
+        """Which option the box shows at the top.
+
+        The window follows the marker instead of paging, so arrowing down a
+        list of thirty-nine trainers scrolls it rather than jumping it.
+        """
+        count = len(self.row.choices)
+        if count <= WINDOW:
+            return 0
+        return min(max(self.index - WINDOW // 2, 0), count - WINDOW)
+
     def lines(self) -> list[tuple[str, str]]:
-        """The list as a panel draws it, with a marker on where it is now."""
+        """The list as a panel draws it, with a marker on where it is now.
+
+        Only as much of it as fits: thirty-nine trainers are taller than the
+        screen, and a box whose last lines are off the bottom of it is a box
+        a rider cannot finish reading.
+        """
+        first = self.first
+        shown = list(enumerate(self.row.choices))[first : first + WINDOW]
         return [
             (
                 f"{'> ' if index == self.index else '  '}{choice.label}",
                 "in use" if index == self.row.index else "",
             )
-            for index, choice in enumerate(self.row.choices)
+            for index, choice in shown
         ]
+
+    @property
+    def place(self) -> str:
+        """Where in the list the marker is, for a box that shows part of one."""
+        return f"{self.index + 1} / {len(self.row.choices)}"
 
 
 #: Nobody types a weight longer than this, and a field that accepts a hundred
@@ -338,9 +372,14 @@ class Panel:
                 return
 
     def point_at(self, index: int) -> bool:
-        """Put the marker on a row, for a mouse moving over it."""
+        """Put the marker on a row, for a mouse moving over it.
+
+        While a list is open the lines are the list's, and only the ones the
+        box is showing: what comes in is a line of the box rather than a place
+        in a list of thirty-nine trainers.
+        """
         if self.picking is not None:
-            return self.picking.point_at(index)
+            return self.picking.point_at(self.picking.first + index)
         if 0 <= index < len(self.rows) and self.rows[index].selectable:
             self.selected = index
             return True
@@ -407,9 +446,8 @@ class Panel:
     # What it says.
 
     def columns(self) -> list[tuple[str, str]]:
-        """The panel as two columns, or the open list if there is one."""
-        if self.picking is not None:
-            return self.picking.lines()
+        """The panel as two columns. Always the rows: an open field is a box
+        over the top of them, not a screen that replaces them."""
         drawn = []
         for index, row in enumerate(self.rows):
             if isinstance(row, Heading):
@@ -418,18 +456,30 @@ class Panel:
                 drawn.append((row.name, ""))
                 continue
             marker = "> " if index == self.selected else "  "
-            reading = (
-                self.typing.reading
-                if self.typing is not None and self.typing.row is row
-                else row.reading
-            )
-            drawn.append((f"{marker}{row.name}", reading))
+            drawn.append((f"{marker}{row.name}", row.reading))
         return drawn
 
     @property
-    def title(self) -> str | None:
-        """What an open list is a list of."""
-        return self.picking.row.name if self.picking is not None else None
+    def open_row(self) -> Row | None:
+        """The row whose field is open, if one is."""
+        if self.picking is not None:
+            return self.picking.row
+        return self.typing.row if self.typing is not None else None
+
+    def popup(self) -> list[tuple[str, str]]:
+        """What is in the box over the panel: a list, or a number being typed.
+
+        A box rather than a screen of its own, so a rider can still see what
+        they are changing and what the rest of it is set to.
+        """
+        if self.picking is not None:
+            return self.picking.lines()
+        if self.typing is not None:
+            row = self.typing.row
+            # The range beside what is being typed, because a field that
+            # silently pulls 300 back to 200 looks broken from the outside.
+            return [(f"{self.typing.reading}{row.unit}", row.range_says)]
+        return []
 
 
 @dataclass(frozen=True)

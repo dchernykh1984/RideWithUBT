@@ -9,7 +9,7 @@ list.
 from __future__ import annotations
 
 from app.core.preferences import TRAINER, SetupMenu
-from app.core.rows import ChoiceRow, NumberRow, Picking, Typing
+from app.core.rows import WINDOW, ChoiceRow, NumberRow, Picking, Typing
 from app.core.startscreen import SIMULATE, WORLD, StartScreen
 from app.settings import Settings
 
@@ -173,17 +173,93 @@ def test_clicking_a_list_opens_the_list() -> None:
     setup.activate()
 
     assert setup.picking is not None
-    assert setup.title == TRAINER
+    assert setup.open_row is setup.row(TRAINER)
 
 
-def test_the_panel_shows_the_list_while_it_is_open() -> None:
+def test_the_list_opens_in_a_box_of_its_own() -> None:
     setup = SetupMenu()
     setup.selected = _at(setup, TRAINER)
     setup.activate()
 
+    drawn = setup.popup()
+
+    assert drawn[0][0].startswith(">")
+    assert [name.lstrip("> ") for name, _ in drawn] == [
+        choice.label for choice in setup.choice(TRAINER).choices[: len(drawn)]
+    ]
+
+
+def test_a_list_taller_than_the_screen_is_shown_a_windowful_at_a_time() -> None:
+    """Thirty-nine trainers do not fit, and a box whose last lines are off the
+    bottom of the window is a box nobody can finish reading."""
+    setup = SetupMenu()
+    setup.selected = _at(setup, TRAINER)
+    setup.activate()
+    assert len(setup.choice(TRAINER).choices) > WINDOW
+
+    assert len(setup.popup()) == WINDOW
+
+
+def test_the_window_follows_the_marker_down_the_list() -> None:
+    setup = SetupMenu()
+    setup.selected = _at(setup, TRAINER)
+    setup.activate()
+    assert setup.picking is not None
+
+    for _ in range(WINDOW + 3):
+        setup.move(1)
+
+    shown = [name.lstrip("> ") for name, _ in setup.popup()]
+    marked = setup.choice(TRAINER).choices[setup.picking.index].label
+    assert marked in shown, "the marker walked off the end of its own box"
+    assert setup.picking.place == f"{setup.picking.index + 1} / 39"
+
+
+def test_a_click_lands_on_the_line_of_the_box_not_the_list_behind_it() -> None:
+    """The box shows part of the list; its third line is not the third option
+    once the window has moved."""
+    setup = SetupMenu()
+    setup.selected = _at(setup, TRAINER)
+    setup.activate()
+    assert setup.picking is not None
+    for _ in range(WINDOW + 3):
+        setup.move(1)
+    first = setup.picking.first
+
+    setup.point_at(2)
+
+    assert setup.picking.index == first + 2
+
+
+def test_the_panel_stays_behind_the_open_list() -> None:
+    """A box over the panel, not a screen instead of it: a rider picking a
+    trainer can still see what the rest of it is set to."""
+    setup = SetupMenu()
+    setup.selected = _at(setup, TRAINER)
+    plain = setup.columns()
+    setup.activate()
+
     drawn = setup.columns()
 
-    assert len(drawn) == len(setup.choice(TRAINER).choices)
+    assert [name for name, _ in drawn] == [name for name, _ in plain]
+
+
+def test_the_box_shows_what_is_being_typed_and_what_it_will_take() -> None:
+    front = StartScreen()
+    front.selected = _at(front, SIMULATE)
+    front.activate()
+    front.key("2")
+
+    (typed, range_says) = front.popup()[0]
+
+    assert typed.startswith("2")
+    assert "W" in typed, "a number without its unit is a number about nothing"
+    assert range_says == front.number(SIMULATE).range_says
+
+
+def test_a_row_with_nothing_open_has_no_box() -> None:
+    assert SetupMenu().popup() == []
+    assert SetupMenu().open_row is None
 
 
 def test_enter_takes_what_the_list_is_on() -> None:
