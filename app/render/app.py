@@ -37,7 +37,7 @@ from panda3d.core import (
     loadPrcFileData,
 )
 
-from app import paths
+from app import i18n, paths
 from app.core.companions import departed
 from app.core.figure import BOTTOM_BRACKET_M, Cranks, Rider
 from app.core.preferences import Found, SetupMenu
@@ -154,6 +154,11 @@ class RideApp(ShowBase):
             loadPrcFileData("offscreen", "window-type offscreen")
         super().__init__()
         self.translate = translate
+        # Which language is being spoken, taken from the translator that was
+        # handed in rather than from the file. They can disagree - a --language
+        # on the command line, or a file written by another window - and the
+        # one that is actually saying things is the one that counts.
+        self.language = getattr(translate, "locale", i18n.DEFAULT_LOCALE)
         self._clock = ClockObject.getGlobalClock()
         self.ride = ride or Ride(setup or RideSetup())
 
@@ -303,6 +308,12 @@ class RideApp(ShowBase):
         if offscreen:
             # An offscreen buffer is not a window: it has no title bar to name.
             return
+        self._name_window()
+
+    def _name_window(self) -> None:
+        """Put the title on the window, in whatever language it now speaks."""
+        if self.win is None or not hasattr(self.win, "requestProperties"):
+            return  # pragma: no cover - offscreen buffers have no title bar
         properties = WindowProperties()
         properties.setTitle(f"RideWithUBT - {self.translate('Virtual training world')}")
         icon = self._window_icon()
@@ -546,10 +557,26 @@ class RideApp(ShowBase):
         if self.menu is None:  # pragma: no cover - callers check first
             return
         if keep:
-            self.menu.save()
+            self._use_language(self.menu.save().effective_language)
             self.ride.reconsider(self.ride.setup.simulated_watts)
             self._refresh_rider()
         self.menu = None
+
+    def _use_language(self, tag: str) -> None:
+        """Speak the language the rider just chose, now rather than next time.
+
+        Everything that says anything holds a translator of its own, so a new
+        one has to reach all of them - otherwise choosing Russian changes a
+        line in a file and nothing on the screen, which is what it did.
+        """
+        if tag == self.language:
+            return
+        self.language = tag
+        self.translate = i18n.load(tag)
+        for panel in (self.menu, self.screen):
+            if panel is not None:
+                panel.speaks = self.translate
+        self._name_window()
 
     def _finish_with_menu(self) -> None:
         """Act on Save or Discard, which a row can ask for but not carry out."""
