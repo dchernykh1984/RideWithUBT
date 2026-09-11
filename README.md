@@ -185,18 +185,27 @@ What you change every session is there; what you set once - the trainer, the
 sensors, the wheel, your weight - is behind Settings. Escape goes back to it
 from a ride, and closes the application from the front screen.
 
-**Tab opens the settings, without leaving the ride.** Everything is there:
+**Riding without sensors is on that front screen**, on the line *Ride without
+sensors*. Click it, type a power - 200, say - and press Enter; it reads
+"200 W" instead of "off - your own legs", and the rider pedals at that power
+for as long as it is set. Click it again and enter 0 to turn it off. Such a
+ride is never recorded, and `--simulate 200` does the same thing from the
+command line.
+
+**Tab opens the settings, without leaving the ride.** Everything else is there:
 what you weigh, which bicycle you are riding, the wheel and tyre on the
 trainer, the trainer and how it is controlled, the sensors - including scanning
-for them and pairing them - the language, and a stand-in rider you can wind up
-to a power of your choosing when nobody is pedalling. Arrows or the mouse move between rows
-and through each row's options, Enter or a click works a row that does
+for them and pairing them - and the language. Arrows or the mouse move between
+rows and through each row's options, Enter or a click works a row that does
 something, the wheel steps through a list, and the line underneath says what
-the choices are worth: the weight all in, the speed
-250 W buys, the rollout, and the watts a speed will be read as.
+the choices are worth: the weight all in, the speed 250 W buys, the rollout,
+and the watts a speed will be read as.
 
-Tab again closes it and applies everything at once - a new weight, a newly
-paired sensor and a stand-in rider all take effect without restarting.
+**Save and Discard are the last two rows.** Nothing is written while the
+screen is up - stepping through the trainer list is looking, not choosing -
+and Save writes it and applies everything at once: a new weight, a newly
+paired sensor, and the language, which changes on the screen there and then.
+Discard, tab and escape all leave it as it was.
 
 Everything on that screen can also be set from the command line above. It is
 the same catalogue and the same settings file, in the place where a rider is
@@ -208,8 +217,9 @@ every climb and acceleration, and the bicycle decides how much air you are
 pushing, which on a flat circuit is nearly all of it - between sitting up and a
 time trial bicycle lies six kilometres an hour at the same 250 W. With no
 sensors connected the rider does not move, because a ride nobody pedalled is
-not a ride: `--simulate 240` asks for a stand-in rider at a power you choose,
-and such a ride is never recorded - invented watts must not end up in your
+not a ride: *Ride without sensors* on the front screen, or `--simulate 240`,
+asks for a stand-in rider at a power you choose, and such a ride is never
+recorded - invented watts must not end up in your
 activity store, or from there in Garmin or Strava next to the real ones.
 
 ## Development

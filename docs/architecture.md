@@ -130,12 +130,18 @@ Two things about it are worth saying:
   reaches outside the machine, so the menu takes a callable rather than
   importing a radio, and every one of its tests runs on a machine with no
   Bluetooth in the room.
-- **Closing the menu applies everything at once.** `Ride.reconsider` takes up
-  the new weight, the new bicycle, a newly paired sensor and the stand-in
-  rider without restarting: a menu that only takes effect next time is a menu a
-  rider does not trust. Turning the stand-in on mid-ride throws away what was
-  recorded so far, because a file that is part real and part invented is worse
-  than no file.
+- **The screen is left by Save or by Discard.** Both are rows at the bottom of
+  it, because a screen that can only be left by knowing which key to press is a
+  screen somebody is stuck on. Nothing is written while it is open - stepping
+  through the trainer list is looking, not choosing - and Save is the only
+  thing that writes.
+- **Saving applies everything at once.** `Ride.reconsider` takes up the new
+  weight, the new bicycle, a newly paired sensor and the stand-in rider
+  without restarting: a menu that only takes effect next time is a menu a rider
+  does not trust. The language is the same rule: it changes on the screen
+  there and then, not on the next launch. Turning the stand-in on mid-ride
+  throws away what was recorded so far, because a file that is part real and
+  part invented is worse than no file.
 
 ## Sensors
 
@@ -726,8 +732,17 @@ which the front screen and the settings both are, decides which of the two a
 row opens. The arrows still step a row without opening anything, for a rider
 who already knows the list.
 
-The renderer draws the open list *instead of* the rows, which is what makes a
-list of forty trainers readable, and says in its footer what the keys do now.
+The renderer draws the open field in a box *over* the panel rather than instead
+of it: a rider changing their weight can still see what the rest of it is set
+to, and choosing a route does not take the screen it came from away. The box
+carries its own footer, saying what the keys do while it is open.
+
+A list longer than the box is shown a windowful at a time - `WINDOW` lines
+around the marker - with its place in the whole list ("14 / 39") beside the
+title. Thirty-nine trainers are taller than the screen, and a box whose last
+lines are off the bottom of it is one nobody can finish reading. That also
+means a click on the box is a line of the box and not a place in the list, so
+`Panel.point_at` adds on where the window starts.
 
 ## Localisation
 
@@ -738,6 +753,15 @@ Russian and Kazakh came out as rows of empty boxes - two of the three languages
 this application claims. `app/data/fonts/DejaVuSans.ttf` covers both, including
 the letters Kazakh needs that Russian does not, and its licence permits
 shipping it inside an application given away.
+
+**And it changes when a rider changes it.** Everything that says anything holds
+a translator of its own - the window, the front screen, the settings - so
+choosing a language has to reach all of them. Saving the settings loads the new
+catalogue and hands it to each; without that, choosing Russian wrote a line in
+a file and left every label in English, which is what it did. The language the
+application is speaking is taken from the translator it was given rather than
+from the settings file, because a `--language` on the command line makes the
+two disagree.
 
 Every label a rider reads goes through `translate` on its way to the screen.
 The names of real things do not: a circuit is called what it is called, and
