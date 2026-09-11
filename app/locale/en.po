@@ -60,9 +60,6 @@ msgstr "Enter or click to choose, escape to go back"
 msgid "Click a line to change it, space to ride"
 msgstr "Click a line to change it, space to ride"
 
-msgid "Click a line to change it, tab to close"
-msgstr "Click a line to change it, tab to close"
-
 msgid "Application"
 msgstr "Application"
 
@@ -182,3 +179,21 @@ msgstr "measured"
 
 msgid "estimated"
 msgstr "estimated"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Discard"
+msgstr "Discard"
+
+msgid "Done"
+msgstr "Done"
+
+msgid "keep these"
+msgstr "keep these"
+
+msgid "leave them as they were"
+msgstr "leave them as they were"
+
+msgid "Click a line to change it, or Save when done"
+msgstr "Click a line to change it, or Save when done"

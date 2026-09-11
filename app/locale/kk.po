@@ -57,9 +57,6 @@ msgstr "Enter не басу - таңдау, escape - артқа"
 msgid "Click a line to change it, space to ride"
 msgstr "Жолды басып өзгертіңіз, бос орын - жүру"
 
-msgid "Click a line to change it, tab to close"
-msgstr "Жолды басып өзгертіңіз, tab - жабу"
-
 msgid "Application"
 msgstr "Қосымша"
 
@@ -179,3 +176,21 @@ msgstr "өлшенген"
 
 msgid "estimated"
 msgstr "болжам"
+
+msgid "Save"
+msgstr "Сақтау"
+
+msgid "Discard"
+msgstr "Болдырмау"
+
+msgid "Done"
+msgstr "Дайын"
+
+msgid "keep these"
+msgstr "осыларды қалдыру"
+
+msgid "leave them as they were"
+msgstr "бұрынғысынша қалдыру"
+
+msgid "Click a line to change it, or Save when done"
+msgstr "Жолды басып өзгертіңіз, дайын болғанда Сақтау"

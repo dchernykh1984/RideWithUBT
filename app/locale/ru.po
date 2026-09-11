@@ -57,9 +57,6 @@ msgstr "Enter или клик - выбрать, escape - назад"
 msgid "Click a line to change it, space to ride"
 msgstr "Клик по строке - изменить, пробел - поехали"
 
-msgid "Click a line to change it, tab to close"
-msgstr "Клик по строке - изменить, tab - закрыть"
-
 msgid "Application"
 msgstr "Приложение"
 
@@ -179,3 +176,21 @@ msgstr "замерено"
 
 msgid "estimated"
 msgstr "оценка"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Discard"
+msgstr "Отменить"
+
+msgid "Done"
+msgstr "Готово"
+
+msgid "keep these"
+msgstr "оставить эти"
+
+msgid "leave them as they were"
+msgstr "вернуть как было"
+
+msgid "Click a line to change it, or Save when done"
+msgstr "Клик по строке - изменить, Сохранить - когда готово"

@@ -19,6 +19,8 @@ from app.core.preferences import (
     BIKE_KG,
     CAPTURE,
     CONTROL,
+    DISCARD,
+    KEEP,
     LANGUAGE,
     RIDER_KG,
     SCAN,
@@ -375,6 +377,34 @@ def test_saving_writes_every_row() -> None:
     assert saved.language == "ru"
     assert saved.rider_mass_kg == 83.0
     assert Settings.load() == saved
+
+
+def test_save_keeps_what_was_chosen_and_says_the_screen_is_done() -> None:
+    """A screen that can only be left by knowing which key to press is a
+    screen somebody is stuck on."""
+    setup = menu()
+    setup.choice(TRAINER).point_at("saris-h3")
+    point_at(setup, KEEP)
+
+    setup.activate()
+
+    assert setup.closing == "saved"
+    assert Settings.load().trainer_id == "saris-h3"
+
+
+def test_discard_leaves_the_file_as_it_was() -> None:
+    setup = menu()
+    setup.choice(TRAINER).point_at("saris-h3")
+    point_at(setup, DISCARD)
+
+    setup.activate()
+
+    assert setup.closing == "discarded"
+    assert Settings.load().trainer_id == ""
+
+
+def test_a_screen_nobody_has_finished_with_is_not_closing() -> None:
+    assert menu().closing == ""
 
 
 def test_choosing_from_the_menu_drops_a_measured_rollout() -> None:
