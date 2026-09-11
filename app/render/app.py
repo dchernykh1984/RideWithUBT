@@ -25,7 +25,6 @@ from panda3d.core import (
     DirectionalLight,
     Filename,
     GraphicsPipeSelection,
-    LVector3,
     NodePath,
     OrthographicLens,
     SamplerState,
@@ -38,6 +37,7 @@ from panda3d.core import (
 )
 
 from app import i18n, paths
+from app.core.camera import Chase
 from app.core.companions import departed
 from app.core.figure import BOTTOM_BRACKET_M, Cranks, Rider
 from app.core.preferences import Found, SetupMenu
@@ -57,12 +57,8 @@ from app.world.network import TrackNetwork
 # Frames the self-test renders before it is satisfied the engine really runs.
 SELFTEST_FRAMES = 5
 
-# The chase camera sits behind and above the rider, looking well ahead so the
-# track reads as a ribbon running into the distance rather than as a wall.
-CAMERA_BEHIND_M = 16.0
-CAMERA_HEIGHT_M = 5.0
-CAMERA_LOOK_AHEAD_M = 50.0
-CAMERA_LOOK_HEIGHT_M = 1.0
+# Where the camera rests and what a drag does to it is arithmetic about a point
+# on a sphere, so it lives in app/core/camera.py and not here.
 # Panda3D's default far plane is a thousand metres, which is less than the far
 # side of a circuit: without this the track is sliced off at the horizon.
 CAMERA_NEAR_M = 0.5
@@ -172,6 +168,12 @@ class RideApp(ShowBase):
         if not headless:
             self._prepare_window(offscreen=offscreen)
         self.font = None if headless else self._font()
+        #: Where the camera sits around the rider. A ride starts behind them,
+        #: and a rider who drags it somewhere else is left there until they
+        #: put it back.
+        self.chase = Chase()
+        #: Where the pointer was when the button went down, while it is down.
+        self.dragging_from: tuple[float, float] | None = None
         self.hud = self._build_hud(headless=headless or offscreen)
         self.menu: SetupMenu | None = None
         self.menu_text = self._build_menu_text(headless=headless or offscreen)
@@ -460,6 +462,12 @@ class RideApp(ShowBase):
         self.accept("tab", self._toggle_menu)
         self.accept("enter", self._menu_enter)
         self.accept("mouse1", self._click)
+        # Holding a button and moving swings the view round the rider. The
+        # right button puts it back, because a rider who has turned it to look
+        # at something wants to get on with the ride afterwards.
+        self.accept("mouse1-up", self._let_go)
+        self.accept("mouse3", self._look_ahead_again)
+        self.accept("mouse3-up", self._let_go)
         # Text, for fields that are typed into rather than stepped through.
         # There is no keyboard without a window, and a picture of the world is
         # taken without one.
@@ -499,6 +507,7 @@ class RideApp(ShowBase):
     def _tick(self, task: Task) -> int:
         now = self._clock.getFrameTime()
         self._follow_mouse()
+        self._swing_the_view()
         if self.screen is not None:
             # The world stands still behind the front screen. Nobody is riding
             # yet, and a lap ticking past while a rider picks a circuit would
@@ -730,9 +739,50 @@ class RideApp(ShowBase):
         if panel.point_at(index):
             self._redraw_panel()
 
+    # The view, which a rider can take hold of and swing round themselves.
+
+    def _pointer(self) -> tuple[float, float] | None:
+        """Where the pointer is, or nothing when there is no window to have one."""
+        watcher = self.mouseWatcherNode
+        if watcher is None or not watcher.hasMouse():
+            return None
+        return (watcher.getMouseX(), watcher.getMouseY())
+
+    def _take_hold(self) -> None:
+        """A button went down on the world: the view moves with the mouse now."""
+        self.dragging_from = self._pointer()
+
+    def _let_go(self) -> None:
+        self.dragging_from = None
+
+    def _look_ahead_again(self) -> None:
+        """The right button: back to riding, looking up the road."""
+        if self._panel() is not None:
+            return
+        self.chase.reset()
+        self._place_camera()
+
+    def _swing_the_view(self) -> None:
+        """Carry on a drag that is under way, once a frame.
+
+        Measured against where the pointer was last frame rather than where the
+        button went down: a drag that runs off the edge of the window would
+        otherwise keep turning the view against a corner it can no longer move
+        away from.
+        """
+        if self.dragging_from is None or self._panel() is not None:
+            return
+        now = self._pointer()
+        if now is None:
+            return
+        was, self.dragging_from = self.dragging_from, now
+        self.chase.drag(now[0] - was[0], now[1] - was[1])
+
     def _click(self) -> None:
         panel = self._panel()
         if panel is None:
+            # Nothing on the screen to work: the button is the view instead.
+            self._take_hold()
             return
         if panel.typing is not None:
             # Clicking away from a number being typed keeps it, the way Enter
@@ -756,6 +806,9 @@ class RideApp(ShowBase):
     def _scroll(self, by: int) -> None:
         panel = self._panel()
         if panel is None:
+            # The wheel on the world moves the camera in and out instead.
+            self.chase.zoom(by)
+            self._place_camera()
             return
         index = self._row_under_the_mouse()
         if index is not None:
@@ -981,19 +1034,9 @@ class RideApp(ShowBase):
         if self.camera is None:
             return
         point = self.state.point
-        heading = self.state.heading_rad
-        back = LVector3(-math.cos(heading), -math.sin(heading), 0.0) * CAMERA_BEHIND_M
-        self.camera.setPos(
-            point.x + back.x,
-            point.y + back.y,
-            point.z + CAMERA_HEIGHT_M,
-        )
-        ahead = LVector3(math.cos(heading), math.sin(heading), 0.0)
-        self.camera.lookAt(
-            point.x + ahead.x * CAMERA_LOOK_AHEAD_M,
-            point.y + ahead.y * CAMERA_LOOK_AHEAD_M,
-            point.z + CAMERA_LOOK_HEIGHT_M,
-        )
+        where = (point.x, point.y, point.z, self.state.heading_rad)
+        self.camera.setPos(*self.chase.eye(*where))
+        self.camera.lookAt(*self.chase.target(*where))
 
     def _place_arrow(self) -> None:
         """Above the track ahead, pointing the way the rider is currently going."""
@@ -1040,7 +1083,19 @@ class RideApp(ShowBase):
         lines += self._company_lines()
         lines += self._workout_lines()
         lines += self._standing_lines()
+        lines += self._view_lines()
         self.hud.setText("\n".join(lines))
+
+    def _view_lines(self) -> list[str]:
+        """How to get the ride view back, while it is not the ride view.
+
+        Only while it is turned: a rider who has not touched the mouse does not
+        need to be told what the right button does to a view they are happy
+        with.
+        """
+        if not self.chase.turned:
+            return []
+        return ["", self.translate("Right-click to look ahead again")]
 
     def _standing_lines(self) -> list[str]:
         """Say what this ride is, when it is not a rider on a trainer.

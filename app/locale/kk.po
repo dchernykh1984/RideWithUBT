@@ -218,3 +218,6 @@ msgstr "берілген қуатты ұстау"
 
 msgid "follow the road"
 msgstr "трасса бедері бойынша"
+
+msgid "Right-click to look ahead again"
+msgstr "Оң батырма - қайта алға қарау"
