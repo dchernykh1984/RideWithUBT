@@ -197,3 +197,27 @@ msgstr "leave them as they were"
 
 msgid "Click a line to change it, or Save when done"
 msgstr "Click a line to change it, or Save when done"
+
+msgid "Sitting up"
+msgstr "Sitting up"
+
+msgid "Road bicycle, on the hoods"
+msgstr "Road bicycle, on the hoods"
+
+msgid "Road bicycle, in the drops"
+msgstr "Road bicycle, in the drops"
+
+msgid "Road bicycle with time trial bars"
+msgstr "Road bicycle with time trial bars"
+
+msgid "Time trial bicycle"
+msgstr "Time trial bicycle"
+
+msgid "not controlled"
+msgstr "not controlled"
+
+msgid "hold a set power"
+msgstr "hold a set power"
+
+msgid "follow the road"
+msgstr "follow the road"

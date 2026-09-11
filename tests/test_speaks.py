@@ -12,7 +12,8 @@ import polib
 import pytest
 
 from app import i18n, paths
-from app.core.preferences import SCAN, TRAINER, Found, SetupMenu
+from app.core.physics import BIKES
+from app.core.preferences import CONTROL_LABELS, SCAN, TRAINER, Found, SetupMenu
 from app.core.startscreen import StartScreen
 
 
@@ -129,8 +130,14 @@ def fixed_words() -> set[str]:
         "nothing answered - are they awake?",
         "measured",
         "estimated",
+        "keep these",
+        "leave them as they were",
+        *CONTROL_LABELS.values(),
         SCAN,
     }
+    # What a bicycle is is a word, not a name: "Road bicycle, in the drops"
+    # describes a position a rider sits in, and every language has one.
+    words |= {bike.name for bike in BIKES}
     return words
 
 
