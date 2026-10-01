@@ -136,8 +136,12 @@ those things are called, not words to translate.
 
 ## Releases
 
-release-please opens a release pull request as soon as a `feat` or `fix` lands on
-`main`. **Merging your change is not the end of the job**: merge the release PR too,
+Merge or release only when the maintainer's request explicitly authorizes it.
+A request to open a pull request ends with green CI and leaves merging to the
+maintainer.
+
+For a requested release, release-please opens a release pull request as soon as a
+`feat` or `fix` lands on `main`. Merge the release PR within that authorization,
 then watch the release build until all four assets are attached
 (`gh release view v<x.y.z> --json assets`). A release is not out until it has
 linux-x86_64, linux-aarch64, macos-arm64 and windows-x64 on it - a build has broken on
