@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/dchernykh1984/RideWithUBT/compare/v0.13.0...v0.13.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ci:** restore the macos release asset, lost to a retired runner label ([73d81fe](https://github.com/dchernykh1984/RideWithUBT/commit/73d81fe3f0cea02a8348b6d7f9f7214b5f13905c))
+
 ## [0.13.0](https://github.com/dchernykh1984/RideWithUBT/compare/v0.12.0...v0.13.0) (2026-09-11)
 
 
